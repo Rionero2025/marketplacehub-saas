@@ -1269,19 +1269,18 @@ def sellers(active_only=True) -> list[dict]:
 
 
 def accessible_lists(seller_id: int) -> list[dict]:
+    """Tenant-aware catalogue access with a legacy-compatible public signature."""
     seller_id = int(seller_id)
 
     def load() -> list[dict]:
-        return rows("""
-          SELECT DISTINCT pl.*, s.name supplier_name, own.name owner_name
-          FROM price_lists pl
-          JOIN suppliers s ON s.id=pl.supplier_id
-          JOIN sellers own ON own.id=pl.owner_seller_id
-          LEFT JOIN price_list_access a ON a.price_list_id=pl.id AND a.seller_id=?
-          WHERE pl.active=1 AND (
-            pl.owner_seller_id=? OR pl.visibility='global' OR
-            (pl.visibility='shared' AND a.seller_id IS NOT NULL)
-          ) ORDER BY s.name, pl.name
-        """, (seller_id, seller_id))
+        from services.catalog_sharing import accessible_price_lists
+        return accessible_price_lists(seller_id)
 
-    return cache_get_or_set("accessible_lists", seller_id, load, ttl_seconds=30)
+    # Include tenant identity in the cache key because the same seller catalogue
+    # helper can be called by API workers running under different tenant scopes.
+    try:
+        from services.catalog_sharing import tenant_for_seller
+        tenant_id = tenant_for_seller(seller_id)
+    except Exception:
+        tenant_id = 0
+    return cache_get_or_set("accessible_lists", (tenant_id, seller_id), load, ttl_seconds=30)

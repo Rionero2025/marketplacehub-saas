@@ -76,3 +76,6 @@ Marketplace Hub distingue ora il cliente SaaS (`tenant`) dal Seller operativo. S
 
 ## v316 — PostgreSQL tenant isolation
 Aggiunto `tenant_id` alle principali tabelle operative, contesto tenant transazionale e PostgreSQL Row Level Security (RLS) con `FORCE ROW LEVEL SECURITY`. Vedi `STEP16_TENANT_DATABASE_RLS.md`.
+
+## v317 — Catalog Sharing Model
+Fornitori e listini hanno ora proprietà Tenant e tre ambiti SaaS: `tenant`, `agency`, `platform`. Le vecchie condivisioni per Seller vengono mantenute come mirror di compatibilità, mentre FastAPI e PostgreSQL applicano il nuovo modello Tenant/Agency. Vedi `STEP17_CATALOG_SHARING_MODEL.md`.

@@ -90,6 +90,30 @@ class CatalogMaterializeRequest(ApiModel):
     price_list_id: int = Field(gt=0)
 
 
+class CatalogSharingRequest(ApiModel):
+    scope: str = Field(default="tenant", pattern="^(tenant|agency|platform)$")
+    tenant_ids: list[int] = Field(default_factory=list)
+    permission: str = Field(default="use", pattern="^(use|manage)$")
+
+
+class CatalogSharingResponse(ApiModel):
+    id: int
+    owner_tenant_id: int
+    sharing_scope: str
+    visibility: str = "private"
+    tenant_ids: list[int] = Field(default_factory=list)
+
+
+class SupplierSharingRequest(ApiModel):
+    scope: str = Field(default="tenant", pattern="^(tenant|agency|platform)$")
+
+
+class SupplierSharingResponse(ApiModel):
+    id: int
+    owner_tenant_id: int
+    sharing_scope: str
+
+
 class TenantResponse(ApiModel):
     id: int
     name: str

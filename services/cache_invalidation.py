@@ -12,6 +12,9 @@ _TABLE_NAMESPACES: dict[str, tuple[str, ...]] = {
     "suppliers": ("accessible_lists",),
     "price_lists": ("accessible_lists",),
     "price_list_access": ("accessible_lists",),
+    "catalog_tenant_access": ("accessible_lists",),
+    "agency_clients": ("accessible_lists",),
+    "tenant_sellers": ("accessible_lists",),
     "marketplace_accounts": ("marketplace_accounts",),
 }
 

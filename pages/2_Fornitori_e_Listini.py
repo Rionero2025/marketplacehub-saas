@@ -21,11 +21,16 @@ from services.lists import (download_activeshop_combined, download_cecotec_combi
                             download_url, hurtel_feed_urls, materialize_price_list, normalize, read_list,
                             refresh_forcetop_inventory, save_cecotec_monthly, save_uploaded)
 from services.security import decrypt_dict, encrypt_dict
+from services.catalog_sharing import (
+    ensure_catalog_sharing_schema, set_price_list_sharing, tenant_for_seller,
+)
 from services.session import bootstrap, seller_selector
 
 bootstrap(); st.title("Fornitori e Listini")
+ensure_catalog_sharing_schema()
 seller_id=seller_selector()
 if seller_id is None: st.stop()
+active_tenant_id=tenant_for_seller(seller_id)
 
 
 def _ab_credentials_payload(client_code: str,login: str,password: str,gateway_url: str,
@@ -121,8 +126,9 @@ with tab1:
         notes=st.text_area("Note fornitore")
         if st.button("Registra fornitore"):
             if supplier_name.strip():
-                execute("INSERT INTO suppliers(owner_seller_id,name,notes,created_at) VALUES(?,?,?,?)",
-                        (seller_id,supplier_name.strip(),notes.strip(),now_iso()))
+                execute("""INSERT INTO suppliers(owner_seller_id,owner_tenant_id,sharing_scope,name,notes,created_at)
+                           VALUES(?,?,?,?,?,?)""",
+                        (seller_id,active_tenant_id,"tenant",supplier_name.strip(),notes.strip(),now_iso()))
                 st.success("Fornitore registrato.");st.rerun()
     else:
         supplier_map={x["name"]:x["id"] for x in existing}
@@ -261,9 +267,10 @@ with tab1:
                         source_credentials=_ab_credentials_payload(
                             ab_client_code,ab_login,ab_password,ab_gateway,check=ab_check
                         )
+                    sharing_scope="platform" if vis_code=="global" else "tenant"
                     lid=execute("""INSERT INTO price_lists
-                    (supplier_id,owner_seller_id,name,visibility,source_type,source_url,source_credentials_encrypted,created_at)
-                    VALUES(?,?,?,?,?,?,?,?)""",(supplier_map[supplier_choice],seller_id,list_name.strip(),vis_code,
+                    (supplier_id,owner_seller_id,owner_tenant_id,sharing_scope,name,visibility,source_type,source_url,source_credentials_encrypted,created_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?)""",(supplier_map[supplier_choice],seller_id,active_tenant_id,sharing_scope,list_name.strip(),vis_code,
                     "url" if source in ("URL feed","API XML AB Online") else "upload",
                     (ab_gateway.strip() or ABONLINE_GATEWAY) if source=="API XML AB Online" else url.strip(),
                     encrypt_dict(source_credentials) if any(source_credentials.values()) else "",now_iso()))
@@ -297,9 +304,15 @@ with tab1:
                             api_username,api_password,api_host.strip(),api_store_code.strip(),api_progress)
                     elif stock_url.strip():download_cecotec_combined(lid,url.strip(),stock_url.strip(),username,password)
                     else: download_url(lid,url.strip(),username,password)
-                    for x in other:
-                        if x["name"] in shared_names:
-                            execute("INSERT INTO price_list_access(price_list_id,seller_id,permission) VALUES(?,?,'use') ON CONFLICT DO NOTHING",(lid,x["id"]))
+                    target_tenants=sorted({
+                        tenant_for_seller(x["id"]) for x in other if x["name"] in shared_names
+                    }-{0,active_tenant_id})
+                    set_price_list_sharing(
+                        lid,actor_tenant_id=active_tenant_id,
+                        scope="platform" if vis_code=="global" else "tenant",
+                        tenant_ids=target_tenants if vis_code=="shared" else (),
+                        platform_admin=True,
+                    )
                     st.success("Listino registrato e importato.");st.rerun()
                 except Exception as e:
                     if lid is not None:
@@ -694,11 +707,15 @@ with tab3:
         current={x["seller_id"] for x in rows("SELECT seller_id FROM price_list_access WHERE price_list_id=?",(pl["id"],))}
         selected=st.multiselect("Condividi con",[x["name"] for x in all_other],default=[x["name"] for x in all_other if x["id"] in current],disabled=visibility!="shared")
         if st.button("Salva condivisione"):
-            execute("UPDATE price_lists SET visibility=? WHERE id=?",(visibility,pl["id"]))
-            execute("DELETE FROM price_list_access WHERE price_list_id=?",(pl["id"],))
-            if visibility=="shared":
-                for x in all_other:
-                    if x["name"] in selected: execute("INSERT INTO price_list_access(price_list_id,seller_id,permission) VALUES(?,?,'use')",(pl["id"],x["id"]))
+            target_tenants=sorted({
+                tenant_for_seller(x["id"]) for x in all_other if x["name"] in selected
+            }-{0,active_tenant_id})
+            set_price_list_sharing(
+                pl["id"],actor_tenant_id=active_tenant_id,
+                scope="platform" if visibility=="global" else "tenant",
+                tenant_ids=target_tenants if visibility=="shared" else (),
+                platform_admin=True,
+            )
             st.success("Condivisione aggiornata.");st.rerun()
 
 st.divider(); st.subheader("Elimina fornitore")
