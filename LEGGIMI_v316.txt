@@ -1,0 +1,10 @@
+Marketplace Hub v316 — Tenant Database Isolation + PostgreSQL RLS
+
+Caricare il contenuto di questa cartella nella root del repository marketplacehub-saas,
+mantenendo esattamente i percorsi delle cartelle, quindi eseguire il commit:
+
+v316 tenant database rls
+
+La produzione marketplacehub-1 non va modificata.
+
+Nota: SQLite resta compatibile; RLS viene attivato solo sul PostgreSQL del futuro ambiente SaaS.

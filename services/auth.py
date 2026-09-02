@@ -110,6 +110,37 @@ def _refresh_database_session(session: dict, *, force: bool = False) -> dict | N
     return session_user_payload(record, source="database")
 
 
+
+
+def _bind_streamlit_tenant_context(user: dict) -> None:
+    """Bind transitional Streamlit pages to one tenant just like FastAPI."""
+    try:
+        from services.tenant_db import clear_tenant_context, set_tenant_context
+        from services.tenancy import default_tenant_id
+        user_id = int(user.get("id") or 0)
+        global_admin = bool(user.get("is_admin"))
+        tenant_id = int(st.session_state.get("active_tenant_id") or 0)
+        if tenant_id <= 0 and user_id > 0:
+            tenant_id = default_tenant_id(user_id, global_admin=global_admin)
+        if tenant_id <= 0 and global_admin:
+            # Transitional environment-admin login has no app_users id. Bind it
+            # to the legacy Agency tenant rather than leaving PostgreSQL unscoped.
+            from services.tenant_db import platform_database_scope
+            from services.tenancy import list_all_tenants
+            with platform_database_scope():
+                tenants = list_all_tenants()
+            agencies = [item for item in tenants if str(item.get("tenant_type")) == "agency"]
+            chosen = agencies[0] if agencies else (tenants[0] if tenants else None)
+            tenant_id = int(chosen.get("id") or 0) if chosen else 0
+        if tenant_id > 0:
+            st.session_state["active_tenant_id"] = tenant_id
+            set_tenant_context(tenant_id)
+        else:
+            clear_tenant_context()
+    except Exception:
+        pass
+
+
 def _render_sidebar_session(user: dict) -> None:
     label = str(user.get("display_name") or user.get("username") or "Utente")
     with st.sidebar:
@@ -131,6 +162,7 @@ def require_auth() -> dict:
     if not _truthy(os.getenv("MARKETPLACE_HUB_REQUIRE_AUTH"), default=False):
         local = environment_admin_payload("locale")
         st.session_state[_SESSION_KEY] = local
+        _bind_streamlit_tenant_context(local)
         return local
 
     ensure_user_schema()
@@ -156,6 +188,7 @@ def require_auth() -> dict:
                 st.session_state.pop("active_seller_id", None)
                 st.session_state.pop("global_seller_selector", None)
             st.session_state[_SESSION_KEY] = refreshed
+            _bind_streamlit_tenant_context(refreshed)
             _render_sidebar_session(refreshed)
             return refreshed
 

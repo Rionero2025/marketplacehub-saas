@@ -8,9 +8,12 @@ from services.performance_indexes import ensure_performance_indexes
 
 
 def bootstrap():
-    init_db()
+    from services.tenant_db import platform_database_scope
+    with platform_database_scope():
+        init_db()
     try:
-        ensure_performance_indexes()
+        with platform_database_scope():
+            ensure_performance_indexes()
     except Exception:
         # Alcune tabelle Buy Box vengono create lazy dalla relativa pagina.
         # Gli indici saranno riprovati quando il modulo viene inizializzato.

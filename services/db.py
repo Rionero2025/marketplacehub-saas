@@ -183,6 +183,10 @@ def now_iso() -> str:
 def connect():
     if database_engine() == "postgresql":
         with postgresql_backend.connect() as con:
+            # v316: every pooled transaction receives a transaction-local tenant
+            # context before any application query executes.
+            from services.tenant_db import apply_postgresql_connection_context
+            apply_postgresql_connection_context(con)
             yield con
         return
 

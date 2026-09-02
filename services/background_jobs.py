@@ -79,6 +79,14 @@ def ensure_job_schema() -> None:
 
 def enqueue_job(request: JobRequest) -> JobReceipt:
     ensure_job_schema()
+    from services.tenant_db import current_tenant_id, tenant_id_for_seller
+    tenant_id = int(str(request.tenant_id or "0") or 0)
+    if tenant_id <= 0:
+        tenant_id = current_tenant_id()
+    if tenant_id <= 0 and request.seller_id:
+        tenant_id = tenant_id_for_seller(int(request.seller_id))
+    if tenant_id <= 0:
+        raise RuntimeError("Impossibile accodare un job SaaS senza tenant_id.")
     job_id = uuid.uuid4().hex
     payload = _json_safe(request.payload)
     with connect() as con:
@@ -89,7 +97,7 @@ def enqueue_job(request: JobRequest) -> JobReceipt:
             (
                 job_id,
                 str(request.kind or "").strip(),
-                str(request.tenant_id or ""),
+                str(tenant_id),
                 request.seller_id,
                 "queued",
                 json_text(payload),
@@ -534,8 +542,16 @@ def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
     }
     handler = handlers.get(kind)
     if handler is None:
-        raise RuntimeError(f"Job non supportato dal worker v310: {kind}")
-    return handler(job)
+        raise RuntimeError(f"Job non supportato dal worker v316: {kind}")
+    from services.tenant_db import assert_seller_in_tenant, tenant_database_scope
+    tenant_id = int(str(job.get("tenant_id") or "0") or 0)
+    if tenant_id <= 0:
+        raise RuntimeError("Job legacy senza tenant_id: migrazione richiesta.")
+    seller_id = int(job.get("seller_id") or 0)
+    if seller_id > 0:
+        assert_seller_in_tenant(seller_id, tenant_id)
+    with tenant_database_scope(tenant_id):
+        return handler(job)
 
 
 def run_job(job_id: str) -> bool:

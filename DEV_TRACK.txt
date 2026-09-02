@@ -19,3 +19,6 @@ Step 12 - v312 Saved Views + Object Storage Ready: snapshot persistenti via stor
 Step 13 - v313 No Local Disk: listini, tracking source files, documenti fornitore, export contabili e artifact pubblicazione su Object Storage; filesystem locale ridotto a cache ricostruibile.
 
 Step 14 - v314 FastAPI Foundation: HTTP API indipendente da Streamlit, sessioni opache revocabili, permessi area + Seller scope, endpoint Core e job queue.
+
+Step 15 - v315 True Multi-Tenant: Tenant/Azienda, membership, Seller ownership, Agency clients e active tenant session.
+Step 16 - v316 PostgreSQL Tenant Isolation: tenant context transazionale, tenant_id operativo, worker tenant-bound e FORCE RLS.

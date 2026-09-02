@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 from marketplace_core.contracts import JobReceipt, JobRequest
@@ -12,6 +12,7 @@ class JobSnapshot:
     kind: str
     status: str
     seller_id: int | None
+    tenant_id: int | None
     progress_current: int
     progress_total: int
     progress_pct: float
@@ -36,6 +37,13 @@ class JobsCore:
 
     def submit(self, request: JobRequest) -> JobReceipt:
         from services.background_jobs import enqueue_job
+        from services.tenant_db import current_tenant_id, tenant_id_for_seller
+        if not request.tenant_id:
+            tenant_id = current_tenant_id()
+            if tenant_id <= 0 and request.seller_id:
+                tenant_id = tenant_id_for_seller(int(request.seller_id))
+            if tenant_id > 0:
+                request = replace(request, tenant_id=str(tenant_id))
         return enqueue_job(request)
 
     def snapshot(self, job_id: str) -> JobSnapshot | None:
@@ -48,6 +56,7 @@ class JobsCore:
             kind=str(item.get("kind") or ""),
             status=str(item.get("status") or ""),
             seller_id=int(item["seller_id"]) if item.get("seller_id") is not None else None,
+            tenant_id=int(item["tenant_id"]) if str(item.get("tenant_id") or "").isdigit() else None,
             progress_current=int(item.get("progress_current") or 0),
             progress_total=int(item.get("progress_total") or 0),
             progress_pct=float(item.get("progress_pct") or 0.0),

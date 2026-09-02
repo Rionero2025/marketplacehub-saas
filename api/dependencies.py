@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Callable
+from typing import Annotated, Callable, Iterator
 
 from fastapi import Depends, HTTPException, Request, status
 
@@ -67,7 +67,7 @@ def request_token(request: Request) -> str:
     return str(request.cookies.get(COOKIE_NAME) or "").strip()
 
 
-def get_current_user(request: Request) -> ApiUser:
+def get_current_user(request: Request) -> Iterator[ApiUser]:
     token = request_token(request)
     record = session_user(token)
     if not record:
@@ -76,7 +76,12 @@ def get_current_user(request: Request) -> ApiUser:
             detail="Sessione non valida o scaduta.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return ApiUser.from_record(record)
+    user = ApiUser.from_record(record)
+    from services.tenant_db import tenant_database_scope
+    # The DB scope lives for the entire endpoint/dependency execution and is
+    # automatically reset at the end of the request.
+    with tenant_database_scope(user.active_tenant_id):
+        yield user
 
 
 CurrentUser = Annotated[ApiUser, Depends(get_current_user)]

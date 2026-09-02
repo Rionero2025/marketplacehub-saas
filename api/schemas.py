@@ -58,6 +58,7 @@ class JobResponse(ApiModel):
     kind: str = ""
     status: str
     seller_id: int | None = None
+    tenant_id: int | None = None
     progress_current: int = 0
     progress_total: int = 0
     progress_pct: float = 0

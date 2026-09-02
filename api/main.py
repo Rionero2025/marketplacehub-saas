@@ -12,6 +12,7 @@ from api.session_store import ensure_api_session_schema
 from services.db import init_db
 from services.performance_indexes import ensure_performance_indexes
 from services.tenancy import ensure_tenancy_schema
+from services.tenant_db import ensure_tenant_database_isolation, platform_database_scope
 
 
 def _cors_origins() -> list[str]:
@@ -21,13 +22,16 @@ def _cors_origins() -> list[str]:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_db()
-    ensure_tenancy_schema()
-    ensure_api_session_schema()
-    try:
-        ensure_performance_indexes()
-    except Exception:
-        pass
+    # Startup/migrations are platform maintenance and intentionally bypass RLS.
+    with platform_database_scope():
+        init_db()
+        ensure_tenancy_schema()
+        ensure_api_session_schema()
+        try:
+            ensure_performance_indexes()
+        except Exception:
+            pass
+        ensure_tenant_database_isolation()
     yield
 
 

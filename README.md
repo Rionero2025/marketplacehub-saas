@@ -72,3 +72,7 @@ Core. Avvio: `python tools/run_api.py`. Vedi `STEP14_FASTAPI_FOUNDATION.md`.
 
 ## v315 — True Multi-Tenant Foundation
 Marketplace Hub distingue ora il cliente SaaS (`tenant`) dal Seller operativo. Sono supportati tenant Merchant e Agency, membership utenti, ownership Seller per tenant, collegamento Agency → clienti e contesto tenant attivo nelle sessioni FastAPI. L'installazione esistente viene adottata una sola volta come tenant Agency, senza alterare i dati operativi.
+
+
+## v316 — PostgreSQL tenant isolation
+Aggiunto `tenant_id` alle principali tabelle operative, contesto tenant transazionale e PostgreSQL Row Level Security (RLS) con `FORCE ROW LEVEL SECURITY`. Vedi `STEP16_TENANT_DATABASE_RLS.md`.

@@ -219,7 +219,10 @@ def attach_seller(tenant_id: int, seller_id: int, *, transfer: bool = False) -> 
     tenant_id, seller_id = int(tenant_id), int(seller_id)
     if not tenant_record(tenant_id):
         raise ValueError("Tenant non trovato.")
-    if not row("SELECT id FROM sellers WHERE id=?", (seller_id,)):
+    from services.tenant_db import platform_database_scope
+    with platform_database_scope():
+        seller_exists = row("SELECT id FROM sellers WHERE id=?", (seller_id,))
+    if not seller_exists:
         raise ValueError("Seller non trovato.")
     current = row("SELECT tenant_id FROM tenant_sellers WHERE seller_id=?", (seller_id,))
     if current and int(current["tenant_id"]) != tenant_id:
@@ -233,6 +236,14 @@ def attach_seller(tenant_id: int, seller_id: int, *, transfer: bool = False) -> 
         )
     else:
         execute("UPDATE tenant_sellers SET active=1 WHERE seller_id=?", (seller_id,))
+    # v316: if this is an explicit transfer, move the copied tenant_id markers in
+    # all RLS-protected operational rows atomically from the application view.
+    if transfer:
+        try:
+            from services.tenant_db import reassign_seller_tenant_rows
+            reassign_seller_tenant_rows(seller_id, tenant_id)
+        except Exception:
+            raise
 
 
 def link_agency_client(agency_tenant_id: int, client_tenant_id: int, *, active: bool = True) -> None:

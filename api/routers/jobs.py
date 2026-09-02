@@ -16,6 +16,7 @@ def _snapshot_dict(item) -> dict:
         "kind": item.kind,
         "status": item.status,
         "seller_id": item.seller_id,
+        "tenant_id": item.tenant_id,
         "progress_current": item.progress_current,
         "progress_total": item.progress_total,
         "progress_pct": item.progress_pct,
@@ -32,6 +33,8 @@ def _snapshot_dict(item) -> dict:
 def job_status(job_id: str, user: CurrentUser) -> dict:
     item = JobsCore().snapshot(job_id)
     if item is None:
+        raise HTTPException(status_code=404, detail="Job non trovato.")
+    if item.tenant_id is not None and int(item.tenant_id) != int(user.active_tenant_id):
         raise HTTPException(status_code=404, detail="Job non trovato.")
     if item.seller_id is None:
         if not user.is_admin:
@@ -57,6 +60,8 @@ def jobs(
     items = recent_jobs(seller_id=seller_id, kind_prefix=kind_prefix, limit=limit)
     result = []
     for item in items:
+        if str(item.get("tenant_id") or "") and int(item.get("tenant_id") or 0) != int(user.active_tenant_id):
+            continue
         if item.get("seller_id") is not None and not user.can_access_seller(int(item["seller_id"])):
             continue
         result.append({
@@ -64,6 +69,7 @@ def jobs(
             "kind": str(item.get("kind") or ""),
             "status": str(item.get("status") or ""),
             "seller_id": int(item["seller_id"]) if item.get("seller_id") is not None else None,
+            "tenant_id": int(item["tenant_id"]) if str(item.get("tenant_id") or "").isdigit() else None,
             "progress_current": int(item.get("progress_current") or 0),
             "progress_total": int(item.get("progress_total") or 0),
             "progress_pct": float(item.get("progress_pct") or 0),

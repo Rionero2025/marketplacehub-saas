@@ -39,6 +39,7 @@ def submit_job(request) -> dict[str, Any]:
         "kind": snapshot.kind,
         "status": snapshot.status,
         "seller_id": snapshot.seller_id,
+        "tenant_id": snapshot.tenant_id,
         "progress_current": snapshot.progress_current,
         "progress_total": snapshot.progress_total,
         "progress_pct": snapshot.progress_pct,
