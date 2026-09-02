@@ -63,3 +63,9 @@ Le viste salvate non dipendono più esclusivamente dai file `.pkl` locali. Ogni 
 
 ## v313 — No Local Disk
 I principali file binari non dipendono più dal filesystem del container: listini, tracking, documenti fornitore, export contabili e artifact di pubblicazione usano il layer Object Storage. Vedi `STEP13_NO_LOCAL_DISK.md`.
+
+## v314 — FastAPI Foundation
+Marketplace Hub espone ora un backend HTTP indipendente da Streamlit in `api/`.
+Gli endpoint iniziali coprono autenticazione, Seller/account, ordini, Contabilità,
+Buy Box, cataloghi e job background, mantenendo la business logic nel Performance
+Core. Avvio: `python tools/run_api.py`. Vedi `STEP14_FASTAPI_FOUNDATION.md`.

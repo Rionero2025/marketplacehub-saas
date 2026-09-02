@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+import os
+
+from fastapi import APIRouter, HTTPException, Request, Response, status
+
+from api.dependencies import COOKIE_NAME, CurrentUser, request_token
+from api.schemas import LoginRequest, LoginResponse, UserResponse
+from api.session_store import issue_session, revoke_session
+from services.user_access import authenticate_user
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _user_response(user) -> UserResponse:
+    sellers = None if user.seller_ids is None else sorted(user.seller_ids)
+    return UserResponse(
+        id=user.id,
+        username=user.username,
+        display_name=user.display_name,
+        is_admin=user.is_admin,
+        permissions=sorted(user.permissions),
+        seller_ids=sellers,
+        expires_at=user.expires_at,
+    )
+
+
+@router.post("/login", response_model=LoginResponse)
+def login(payload: LoginRequest, response: Response) -> LoginResponse:
+    record = authenticate_user(payload.username, payload.password)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenziali non valide o utente disattivato.",
+        )
+    session = issue_session(int(record["id"]), remember=payload.remember)
+    secure = str(os.getenv("MARKETPLACE_HUB_COOKIE_SECURE", "1")).strip().lower() not in {
+        "0", "false", "no", "off"
+    }
+    max_age = max(1, session.expires_at - __import__("time").time().__int__())
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=session.token,
+        max_age=max_age,
+        httponly=True,
+        secure=secure,
+        samesite="lax",
+        path="/",
+    )
+    from api.dependencies import ApiUser
+    user = ApiUser.from_record({
+        **record,
+        "permissions": record.get("permissions") or [],
+        "seller_ids": record.get("seller_ids"),
+        "expires_at": session.expires_at,
+    })
+    return LoginResponse(
+        token=session.token,
+        expires_at=session.expires_at,
+        user=_user_response(user),
+    )
+
+
+@router.post("/logout", status_code=204)
+def logout(request: Request, response: Response) -> Response:
+    token = request_token(request)
+    if token:
+        revoke_session(token)
+    response.delete_cookie(COOKIE_NAME, path="/")
+    response.status_code = 204
+    return response
+
+
+@router.get("/me", response_model=UserResponse)
+def me(user: CurrentUser) -> UserResponse:
+    return _user_response(user)

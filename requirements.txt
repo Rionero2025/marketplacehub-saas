@@ -21,3 +21,7 @@ reportlab>=4.0
 psycopg[binary,pool]>=3.2,<4
 
 redis>=5.0,<7
+
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+pydantic>=2.8,<3
