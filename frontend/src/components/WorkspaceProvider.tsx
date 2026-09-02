@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import type { Seller, Tenant, User } from "@/lib/types";
@@ -11,7 +11,7 @@ type Workspace = {
 };
 const Ctx = createContext<Workspace | null>(null);
 
-export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
+export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const router = useRouter(); const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null); const [tenants, setTenants] = useState<Tenant[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]); const [sellerId, setSellerIdState] = useState<number>(0);

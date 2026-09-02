@@ -1,11 +1,19 @@
-# Marketplace Hub Frontend
+# Marketplace Hub Frontend — v322
 
-Frontend SaaS Next.js/React introdotto in v321.
+Frontend SaaS Next.js/React/TypeScript sopra FastAPI.
 
-## Sviluppo locale
-1. Avviare FastAPI dalla root: `python tools/run_api.py`.
-2. Per HTTP locale impostare nel backend `MARKETPLACE_HUB_COOKIE_SECURE=0`.
-3. In questa cartella: `npm install` e `npm run dev`.
-4. Aprire `http://localhost:3000`.
+## Sviluppo
+```bash
+npm install
+npm run dev
+```
 
-Il browser chiama solo `/api/*`; Next.js inoltra le richieste a FastAPI usando `MARKETPLACE_HUB_API_INTERNAL_URL`. In produzione questo permette cookie HttpOnly same-origin e evita di esporre al browser l'URL interno del backend.
+## Verifica
+```bash
+npm run typecheck
+npm run build
+```
+
+Il frontend usa `/api/v1/...` sullo stesso origin; `next.config.ts` inoltra le API al backend configurato con `MARKETPLACE_HUB_API_ORIGIN`.
+
+v322 aggiunge Dashboard Pro, sidebar organizzata, workspace switcher, monitor job in topbar, onboarding visuale e layout responsive.
