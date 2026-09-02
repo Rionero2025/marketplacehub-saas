@@ -54,3 +54,6 @@ Le tariffe Packlink massive e la creazione massiva delle spedizioni sono ora job
 
 ## v310 — Catalog Engine Speed
 I listini possono essere normalizzati una volta in background e materializzati nel database. Le anteprime leggono solo le righe necessarie e `Lavora sui listini` evita di riparsare XML/Excel/CSV ad ogni rerun. Vedi `STEP10_CATALOG_ENGINE_SPEED.md`.
+
+## Performance Core v311
+`Lavora sui listini` usa ora una tabella prodotti server-side: filtri e paginazione vengono eseguiti su database e la pagina legge solo 100/250/500 righe alla volta. Il catalogo completo viene materializzato soltanto quando si salva esplicitamente una vista.

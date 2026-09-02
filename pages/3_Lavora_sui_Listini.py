@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import hashlib
 import json
-import re
+import math
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
 from marketplace_core.catalogs import CatalogCore
+from marketplace_core.jobs import JobsCore
 
 from services.db import (DATA_DIR, accessible_lists, delete_saved_view, execute,
-                         json_text, now_iso, row, rows)
-from services.lists import (apply_weight_exclusion,country_cost,
-                            destination_country_codes,normalize,read_list,
-                            safe_name)
+                         json_text, now_iso, rows)
+from services.lists import destination_country_codes, normalize, safe_name
 from services.session import bootstrap, seller_selector
 
 bootstrap();st.title("Lavora sui listini")
@@ -30,86 +30,69 @@ lmap={f"{x['supplier_name']} · {x['name']} · ID {x['id']}":x for x in lists}
 pl=lmap[st.selectbox("Listino da lavorare",list(lmap))]
 if not pl["local_path"] or not Path(pl["local_path"]).exists():st.error("Il listino non è stato ancora scaricato.");st.stop()
 
-try:
-    catalog_core=CatalogCore()
-    catalog_status=catalog_core.status(pl["id"],pl["local_path"])
-    if catalog_status.ready:
-        base=catalog_core.load_working_frame(pl["id"],catalog_status.source_fingerprint)
-        st.caption(
-            f"Catalogo indicizzato v310: {catalog_status.row_count:,} prodotti. "
-            "La normalizzazione non viene ripetuta a ogni filtro/rerun della pagina."
-        )
-    else:
-        base=normalize(read_list(pl["local_path"]))
-        st.info(
-            "Questo listino non è ancora indicizzato. In Fornitori e Listini usa "
-            "«Prepara catalogo veloce in background» per eliminare i parsing ripetuti."
-        )
-except Exception as e:st.error(f"Impossibile leggere il listino: {e}");st.stop()
+catalog_core=CatalogCore();jobs_core=JobsCore()
+try:catalog_status=catalog_core.status(pl["id"],pl["local_path"])
+except Exception as e:st.error(f"Impossibile verificare il catalogo: {e}");st.stop()
 
-destination_country=""
-destination_countries=[]
+if not catalog_status.ready:
+    st.info(
+        "Per usare la tabella server-side v311 questo listino deve essere indicizzato con "
+        "il nuovo schema. L'operazione avviene in background e viene eseguita solo quando "
+        "il file sorgente cambia."
+    )
+    job_key=f"catalog_materialize_v311_{pl['id']}"
+    if st.button("Prepara / aggiorna catalogo veloce",type="primary",key=f"materialize_v311_{pl['id']}"):
+        receipt=jobs_core.submit(catalog_core.build_materialize_job(seller_id,pl["id"]))
+        jobs_core.start_local(receipt.job_id)
+        st.session_state[job_key]=receipt.job_id
+        st.rerun()
+    job_id=st.session_state.get(job_key)
+    if job_id:
+        snap=jobs_core.snapshot(job_id)
+        if snap:
+            st.progress(min(1.0,max(0.0,snap.progress_pct/100.0)),text=snap.message or snap.status)
+            if snap.status=="done":
+                st.success("Catalogo pronto. Premi Aggiorna pagina.")
+            elif snap.status=="error":st.error(snap.error or "Errore indicizzazione catalogo")
+            elif st.button("Aggiorna stato",key=f"refresh_v311_{pl['id']}"):st.rerun()
+    st.stop()
+
+st.caption(
+    f"Catalogo server-side v311: {catalog_status.row_count:,} prodotti indicizzati. "
+    "Filtri e paginazione vengono eseguiti direttamente sul database: la pagina non carica più "
+    "l'intero listino in memoria."
+)
+
 supplier_token=str(pl.get("supplier_name","")).strip().lower().replace(" ","")
-if "activeshop" in supplier_token:
-    diamond_valid=pd.to_numeric(base["cost"],errors="coerce").fillna(0).gt(0)
-    missing_diamond=int((~diamond_valid).sum())
-    if missing_diamond:
-        st.warning(f"{missing_diamond} prodotti senza prezzo Diamond valido sono esclusi dalla lavorazione.")
-    base=base[diamond_valid].copy()
-    st.info("ActiveShop: costo prodotto = prezzo Diamond API; spedizione = regola pack_type; costo totale = somma dei due valori.")
-if "cecotec" in supplier_token or "ecotech" in supplier_token:
+is_activeshop="activeshop" in supplier_token
+is_cecotec="cecotec" in supplier_token or "ecotech" in supplier_token
+
+destination_country="";destination_countries=[]
+if is_cecotec:
     country_options=[
         ("🇵🇹 Portogallo","pt"),("🇮🇹 Italia","it"),("🇩🇪 Germania","de"),
         ("🇫🇷 Francia","fr"),("🇦🇹 Austria","at"),("🇵🇱 Polonia","pl"),
-        ("🇨🇿 Repubblica Ceca","cz"),("🇸🇰 Slovacchia","sk"),
-        ("🇳🇱 Paesi Bassi","nl"),
+        ("🇨🇿 Repubblica Ceca","cz"),("🇸🇰 Slovacchia","sk"),("🇳🇱 Paesi Bassi","nl"),
     ]
     country_key_prefix=f"cecotec_destination_{pl['id']}"
     country_keys={code:f"{country_key_prefix}_{code}" for _,code in country_options}
     if not any(key in st.session_state for key in country_keys.values()):
         st.session_state[country_keys["pt"]]=True
-
     st.markdown("**Paesi di destinazione Cecotec**")
-    st.caption(
-        "Seleziona uno o più Paesi. La scelta viene salvata nella vista e sarà riconosciuta "
-        "automaticamente durante la pubblicazione sui marketplace."
-    )
-    select_countries_col,deselect_countries_col=st.columns(2)
-    if select_countries_col.button(
-        "☑ Seleziona tutti i Paesi",key=f"{country_key_prefix}_select_all",
-        use_container_width=True,
-    ):
+    st.caption("Il costo della tabella viene risolto lato server per il primo Paese selezionato; la vista conserva tutti i Paesi scelti.")
+    a,b=st.columns(2)
+    if a.button("☑ Seleziona tutti i Paesi",key=f"{country_key_prefix}_all",use_container_width=True):
         for key in country_keys.values():st.session_state[key]=True
         st.rerun()
-    if deselect_countries_col.button(
-        "☐ Deseleziona tutti i Paesi",key=f"{country_key_prefix}_deselect_all",
-        use_container_width=True,
-    ):
+    if b.button("☐ Deseleziona tutti i Paesi",key=f"{country_key_prefix}_none",use_container_width=True):
         for key in country_keys.values():st.session_state[key]=False
         st.rerun()
-    country_columns=st.columns(5)
-    for position,(label,code) in enumerate(country_options):
-        country_columns[position%5].checkbox(
-            f"{label} ({code.upper()})",key=country_keys[code],
-        )
-    destination_countries=[
-        code for _,code in country_options if st.session_state.get(country_keys[code],False)
-    ]
-    if not destination_countries:
-        st.warning("Seleziona almeno un Paese di destinazione Cecotec.");st.stop()
+    cols=st.columns(5)
+    for pos,(label,code) in enumerate(country_options):
+        cols[pos%5].checkbox(f"{label} ({code.upper()})",key=country_keys[code])
+    destination_countries=[code for _,code in country_options if st.session_state.get(country_keys[code],False)]
+    if not destination_countries:st.warning("Seleziona almeno un Paese di destinazione Cecotec.");st.stop()
     destination_country=destination_countries[0]
-    selected_country_label=next(label for label,code in country_options if code==destination_country)
-    base["cost"]=country_cost(base,destination_country).round(2)
-    base["destination_countries"]=",".join(destination_countries)
-    base["destination_country"]=destination_country if len(destination_countries)==1 else ""
-    selected_labels=[
-        label for label,code in country_options if code in destination_countries
-    ]
-    st.info(
-        f"Paesi Cecotec abilitati: {', '.join(selected_labels)}. "
-        f"La tabella usa {selected_country_label} come riferimento; in pubblicazione "
-        "i costi saranno ricalcolati automaticamente per ogni Paese."
-    )
 
 st.subheader("1. Filtra e prepara la vista")
 f1,f2,f3,f4=st.columns(4)
@@ -118,21 +101,15 @@ min_qty=f2.number_input("Quantità minima",0,999999,0)
 min_cost=f3.number_input("Costo minimo",0.0,999999.0,0.0,1.0)
 max_cost=f4.number_input("Costo massimo (0 = nessun limite)",0.0,999999.0,0.0,1.0)
 
+known_weight,unknown_weight=catalog_core.weight_stats(pl["id"])
+weight_available=known_weight>0
 weight_modes={
-    "Nessuna esclusione":"none",
-    "Escludi peso superiore a":"above",
-    "Escludi peso inferiore a":"below",
-    "Escludi peso compreso tra Da e A":"between",
+    "Nessuna esclusione":"none","Escludi peso superiore a":"above",
+    "Escludi peso inferiore a":"below","Escludi peso compreso tra Da e A":"between",
 }
-weight_values=pd.to_numeric(base.get("weight_kg",pd.Series(0.0,index=base.index)),errors="coerce").fillna(0)
-weight_available=weight_values.gt(0).any()
 st.markdown("**Esclusione per peso**")
 w1,w2,w3=st.columns([2,1,1])
-weight_label=w1.selectbox(
-    "Modalità filtro peso (kg)",list(weight_modes),
-    disabled=not weight_available,
-    help="Il peso è sempre espresso in chilogrammi. I prodotti senza peso restano inclusi.",
-)
+weight_label=w1.selectbox("Modalità filtro peso (kg)",list(weight_modes),disabled=not weight_available)
 weight_mode=weight_modes[weight_label] if weight_available else "none"
 weight_from=0.0;weight_to=0.0
 if weight_mode in ("above","below"):
@@ -141,74 +118,100 @@ elif weight_mode=="between":
     weight_from=w2.number_input("Da kg",0.0,999999.0,0.0,0.1,format="%.3f")
     weight_to=w3.number_input("A kg",0.0,999999.0,0.0,0.1,format="%.3f")
 if weight_available:
-    st.caption(
-        f"Peso disponibile per {int(weight_values.gt(0).sum()):,} prodotti; "
-        f"{int(weight_values.le(0).sum()):,} prodotti senza peso resteranno inclusi."
-    )
+    st.caption(f"Peso disponibile per {known_weight:,} prodotti; {unknown_weight:,} senza peso restano inclusi.")
 else:
-    if "abonline" in supplier_token or supplier_token in {"ab.pl","abpl","ab"}:
-        weight_hint=(
-            "Per AB Online apri Fornitori e Listini e usa "
-            "«Aggiorna catalogo completo (include peso)»."
-        )
-    elif "hurtel" in supplier_token:
-        weight_hint="Per Hurtel aggiorna nuovamente il feed con la versione corrente."
-    else:
-        weight_hint="Aggiorna il listino verificando che il feed sorgente contenga il peso."
-    st.warning(
-        "Questo listino non contiene ancora pesi utilizzabili. La colonna Peso (kg) "
-        f"sarà comunque mostrata. {weight_hint}"
-    )
-
-df=base.copy()
-if search:
-    patt=re.escape(search)
-    mask=df["ean"].str.contains(patt,case=False,na=False)|df["sku"].str.contains(patt,case=False,na=False)|df["name"].str.contains(patt,case=False,na=False)
-    df=df[mask]
-df=df[(df["quantity"]>=min_qty)&(df["cost"]>=min_cost)]
-if max_cost>0:df=df[df["cost"]<=max_cost]
-before_weight_filter=len(df)
-try:
-    df=apply_weight_exclusion(df,weight_mode,weight_from,weight_to)
-except ValueError as error:
-    st.error(str(error));st.stop()
-if weight_mode!="none":
-    st.info(f"Prodotti esclusi dal filtro peso: {before_weight_filter-len(df):,}.")
+    st.caption("Nessun peso utilizzabile nel catalogo indicizzato.")
 
 c1,c2,c3=st.columns(3)
-shipping=c1.number_input("Spedizione aggiuntiva",0.0,9999.0,0.0,0.10,
-                         help="Si aggiunge all'eventuale spedizione già presente nel feed. ActiveShop applica automaticamente 10/100/200 € secondo pack_type.")
+shipping=c1.number_input("Spedizione aggiuntiva",0.0,9999.0,0.0,0.10)
 margin=c2.number_input("Ricarico iniziale %",0.0,500.0,35.0,1.0)
 minimum_margin=c3.number_input("Ricarico prezzo minimo %",0.0,500.0,10.0,1.0)
-df=df.copy()
-feed_shipping=(pd.to_numeric(df["shipping_cost"],errors="coerce").fillna(0)
-               if "shipping_cost" in df else pd.Series(0.0,index=df.index))
-df["shipping_cost"]=(feed_shipping+float(shipping)).round(2)
-df["total_cost"]=(df["cost"]+df["shipping_cost"]).round(2)
-df["price"]=(df["total_cost"]*(1+margin/100)).round(2);df["minimum_price"]=(df["total_cost"]*(1+minimum_margin/100)).round(2)
 
-select_all=st.checkbox("Seleziona tutti i prodotti filtrati",value=True)
-df.insert(0,"Seleziona",select_all)
-visible=["Seleziona","ean","sku","name","weight_kg","cost","shipping_cost","total_cost","quantity","price","minimum_price"]
-st.caption(f"Prodotti nella vista: {len(df):,}")
-edited=st.data_editor(df[visible],use_container_width=True,height=520,hide_index=True,
-    column_config={"Seleziona":st.column_config.CheckboxColumn(),
-                   "weight_kg":st.column_config.NumberColumn("Peso (kg)",format="%.3f"),
-                   "cost":st.column_config.NumberColumn("Costo",format="%.2f"),
-                   "shipping_cost":st.column_config.NumberColumn("Spedizione",format="%.2f"),
-                   "total_cost":st.column_config.NumberColumn("Costo totale",format="%.2f"),
-                   "price":st.column_config.NumberColumn("Prezzo",format="%.2f"),
-                   "minimum_price":st.column_config.NumberColumn("Prezzo minimo",format="%.2f")},
-    disabled=["ean","sku","name","weight_kg"])
-selected_indexes=edited.index[edited["Seleziona"]==True]
-# Keep the hidden national Cecotec price columns in the saved snapshot.
-selected=df.loc[selected_indexes].drop(columns=["Seleziona","Mantieni"],errors="ignore").copy()
-for column in visible:
-    if column!="Seleziona":selected[column]=edited.loc[selected_indexes,column]
-if destination_countries:
-    selected["destination_countries"]=",".join(destination_countries)
-    selected["destination_country"]=destination_country if len(destination_countries)==1 else ""
-st.metric("Prodotti che saranno salvati",len(selected))
+query_filters={
+    "search":search,"min_qty":float(min_qty),"min_cost":float(min_cost),"max_cost":float(max_cost),
+    "weight_mode":weight_mode,"weight_from":float(weight_from),"weight_to":float(weight_to),
+    "destination_country":destination_country,"positive_cost_only":is_activeshop,
+}
+filter_signature=hashlib.sha1(json.dumps(query_filters,sort_keys=True).encode()).hexdigest()[:12]
+state_prefix=f"catalog_select_v311_{pl['id']}"
+if st.session_state.get(f"{state_prefix}_sig")!=filter_signature:
+    st.session_state[f"{state_prefix}_sig"]=filter_signature
+    st.session_state[f"{state_prefix}_included"]=[]
+    st.session_state[f"{state_prefix}_excluded"]=[]
+    st.session_state[f"{state_prefix}_overrides"]={}
+
+page_size=int(st.selectbox("Prodotti per pagina",[100,250,500],index=1,key=f"catalog_page_size_{pl['id']}"))
+try:
+    first_page=catalog_core.query(pl["id"],offset=0,limit=page_size,**query_filters)
+except ValueError as e:st.error(str(e));st.stop()
+total=first_page.total
+page_count=max(1,math.ceil(total/page_size))
+page_number=int(st.number_input("Pagina",min_value=1,max_value=page_count,value=1,step=1,key=f"catalog_page_{pl['id']}_{filter_signature}"))
+page=first_page if page_number==1 else catalog_core.query(pl["id"],offset=(page_number-1)*page_size,limit=page_size,**query_filters)
+
+select_key=f"{state_prefix}_all"
+if select_key not in st.session_state:st.session_state[select_key]=True
+select_all=st.checkbox("Seleziona tutti i prodotti filtrati",key=select_key)
+mode_key=f"{state_prefix}_mode"
+if st.session_state.get(mode_key) is None:st.session_state[mode_key]=select_all
+if bool(st.session_state.get(mode_key))!=bool(select_all):
+    st.session_state[mode_key]=select_all
+    st.session_state[f"{state_prefix}_included"]=[]
+    st.session_state[f"{state_prefix}_excluded"]=[]
+    st.session_state[f"{state_prefix}_overrides"]={}
+
+included={int(x) for x in st.session_state.get(f"{state_prefix}_included",[])}
+excluded={int(x) for x in st.session_state.get(f"{state_prefix}_excluded",[])}
+overrides=dict(st.session_state.get(f"{state_prefix}_overrides",{}))
+
+frame=pd.DataFrame.from_records(page.rows)
+if frame.empty:
+    st.info("Nessun prodotto corrisponde ai filtri.")
+    selected_count=0
+else:
+    for col,default in (("ean",""),("sku",""),("name",""),("weight_kg",0.0),("cost",0.0),("shipping_cost",0.0),("quantity",0.0)):
+        if col not in frame:frame[col]=default
+    frame["_feed_shipping"]=pd.to_numeric(frame["shipping_cost"],errors="coerce").fillna(0)
+    frame["shipping_cost"]=(frame["_feed_shipping"]+float(shipping)).round(2)
+    frame["cost"]=pd.to_numeric(frame["cost"],errors="coerce").fillna(0).round(2)
+    frame["total_cost"]=(frame["cost"]+frame["shipping_cost"]).round(2)
+    frame["price"]=(frame["total_cost"]*(1+float(margin)/100)).round(2)
+    frame["minimum_price"]=(frame["total_cost"]*(1+float(minimum_margin)/100)).round(2)
+    for idx,record in frame.iterrows():
+        row_no=int(record.get("_row_no") or 0); saved=overrides.get(str(row_no)) or {}
+        for col in ("cost","shipping_cost","total_cost","quantity","price","minimum_price"):
+            if col in saved:frame.at[idx,col]=saved[col]
+    row_nos=[int(v) for v in frame["_row_no"].tolist()]
+    frame.insert(0,"Seleziona",[(rn not in excluded) if select_all else (rn in included) for rn in row_nos])
+    visible=["Seleziona","ean","sku","name","weight_kg","cost","shipping_cost","total_cost","quantity","price","minimum_price"]
+    edited=st.data_editor(
+        frame[visible],use_container_width=True,height=520,hide_index=True,key=f"catalog_editor_{pl['id']}_{filter_signature}_{page_number}",
+        column_config={"Seleziona":st.column_config.CheckboxColumn(),"weight_kg":st.column_config.NumberColumn("Peso (kg)",format="%.3f"),
+                       "cost":st.column_config.NumberColumn("Costo",format="%.2f"),"shipping_cost":st.column_config.NumberColumn("Spedizione",format="%.2f"),
+                       "total_cost":st.column_config.NumberColumn("Costo totale",format="%.2f"),"price":st.column_config.NumberColumn("Prezzo",format="%.2f"),
+                       "minimum_price":st.column_config.NumberColumn("Prezzo minimo",format="%.2f")},
+        disabled=["ean","sku","name","weight_kg"],
+    )
+    for pos,row_no in enumerate(row_nos):
+        checked=bool(edited.iloc[pos]["Seleziona"])
+        if select_all:
+            if checked:excluded.discard(row_no)
+            else:excluded.add(row_no)
+        else:
+            if checked:included.add(row_no)
+            else:included.discard(row_no)
+        overrides[str(row_no)]={
+            col:float(edited.iloc[pos][col] or 0) for col in ("cost","shipping_cost","total_cost","quantity","price","minimum_price")
+        }
+    st.session_state[f"{state_prefix}_included"]=sorted(included)
+    st.session_state[f"{state_prefix}_excluded"]=sorted(excluded)
+    st.session_state[f"{state_prefix}_overrides"]=overrides
+    selected_count=max(0,total-len(excluded)) if select_all else len(included)
+    st.caption(f"Prodotti filtrati: {total:,} · pagina {page_number}/{page_count} · letti ora: {len(frame):,}")
+
+st.metric("Prodotti che saranno salvati",selected_count)
+if selected_count>50_000:
+    st.info("La tabella resta leggera; soltanto quando premi Salva verranno materializzati i prodotti selezionati per creare lo snapshot della vista.")
 
 st.subheader("2. Scegli i marketplace di destinazione")
 st.caption("Sono mostrati soltanto gli account abilitati per il Seller selezionato.")
@@ -228,28 +231,48 @@ if existing:
     existing_choice=st.selectbox("Vista da sovrascrivere",list(existing_map),disabled=not overwrite)
 
 if st.button("Salva vista e destinazioni",type="primary"):
-    if selected.empty:st.error("La vista non contiene prodotti selezionati.")
+    if selected_count<=0:st.error("La vista non contiene prodotti selezionati.")
     elif not chosen_accounts:st.error("Seleziona almeno un marketplace di destinazione.")
     elif not overwrite and not view_name.strip():st.error("Inserisci il nome della vista.")
     else:
         try:
-            folder=DATA_DIR/"saved_views"/str(seller_id);folder.mkdir(parents=True,exist_ok=True)
-            if overwrite:
-                target=existing_map[existing_choice];vid=target["id"];name=target["name"]
-            else:
-                name=view_name.strip();vid=execute("""INSERT INTO saved_views
-                (seller_id,price_list_id,name,snapshot_path,filters_json,row_count,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?)""",(seller_id,pl["id"],name,"pending",json_text({}),len(selected),now_iso(),now_iso()))
-            path=folder/f"{vid}_{safe_name(name)}.pkl";selected.to_pickle(path)
-            filters={"search":search,"min_qty":min_qty,"min_cost":min_cost,"max_cost":max_cost,
-                     "shipping":shipping,"margin":margin,"minimum_margin":minimum_margin,
-                     "weight_exclusion_mode":weight_mode,"weight_from":weight_from,
-                     "weight_to":weight_to,
-                     "destination_countries":destination_countries}
-            execute("UPDATE saved_views SET price_list_id=?,snapshot_path=?,filters_json=?,row_count=?,updated_at=? WHERE id=?",
-                    (pl["id"],str(path),json_text(filters),len(selected),now_iso(),vid))
-            execute("DELETE FROM saved_view_marketplaces WHERE saved_view_id=?",(vid,))
-            for aid in chosen_accounts:execute("INSERT INTO saved_view_marketplaces(saved_view_id,marketplace_account_id) VALUES(?,?)",(vid,aid))
+            with st.spinner(f"Preparazione snapshot di {selected_count:,} prodotti…"):
+                selected=catalog_core.export_filtered_frame(
+                    pl["id"],excluded_row_nos=excluded if select_all else (),
+                    selected_row_nos=None if select_all else included,**query_filters,
+                )
+                if selected.empty:raise ValueError("La selezione non contiene prodotti.")
+                selected["_feed_shipping"]=pd.to_numeric(selected.get("shipping_cost",0),errors="coerce").fillna(0)
+                selected["shipping_cost"]=(selected["_feed_shipping"]+float(shipping)).round(2)
+                selected["cost"]=pd.to_numeric(selected.get("cost",0),errors="coerce").fillna(0).round(2)
+                selected["quantity"]=pd.to_numeric(selected.get("quantity",0),errors="coerce").fillna(0)
+                selected["total_cost"]=(selected["cost"]+selected["shipping_cost"]).round(2)
+                selected["price"]=(selected["total_cost"]*(1+float(margin)/100)).round(2)
+                selected["minimum_price"]=(selected["total_cost"]*(1+float(minimum_margin)/100)).round(2)
+                for idx,record in selected.iterrows():
+                    rn=int(record.get("_row_no") or 0); saved=overrides.get(str(rn)) or {}
+                    for col,value in saved.items():
+                        if col in selected.columns:selected.at[idx,col]=value
+                if destination_countries:
+                    selected["destination_countries"]=",".join(destination_countries)
+                    selected["destination_country"]=destination_country if len(destination_countries)==1 else ""
+                selected=selected.drop(columns=["_row_no","_feed_shipping"],errors="ignore")
+                folder=DATA_DIR/"saved_views"/str(seller_id);folder.mkdir(parents=True,exist_ok=True)
+                if overwrite:
+                    target=existing_map[existing_choice];vid=target["id"];name=target["name"]
+                else:
+                    name=view_name.strip();vid=execute("""INSERT INTO saved_views
+                    (seller_id,price_list_id,name,snapshot_path,filters_json,row_count,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?)""",(seller_id,pl["id"],name,"pending",json_text({}),len(selected),now_iso(),now_iso()))
+                path=folder/f"{vid}_{safe_name(name)}.pkl";selected.to_pickle(path)
+                filters={"search":search,"min_qty":min_qty,"min_cost":min_cost,"max_cost":max_cost,
+                         "shipping":shipping,"margin":margin,"minimum_margin":minimum_margin,
+                         "weight_exclusion_mode":weight_mode,"weight_from":weight_from,"weight_to":weight_to,
+                         "destination_countries":destination_countries}
+                execute("UPDATE saved_views SET price_list_id=?,snapshot_path=?,filters_json=?,row_count=?,updated_at=? WHERE id=?",
+                        (pl["id"],str(path),json_text(filters),len(selected),now_iso(),vid))
+                execute("DELETE FROM saved_view_marketplaces WHERE saved_view_id=?",(vid,))
+                for aid in chosen_accounts:execute("INSERT INTO saved_view_marketplaces(saved_view_id,marketplace_account_id) VALUES(?,?)",(vid,aid))
             st.success(f"Vista '{name}' salvata con {len(selected)} prodotti e {len(chosen_accounts)} destinazioni.");st.rerun()
         except Exception as e:st.error(f"Errore salvataggio: {e}")
 
