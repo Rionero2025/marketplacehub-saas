@@ -14,6 +14,8 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import streamlit as st
 
+from marketplace_core.buybox import BuyBoxCore
+
 try:
     from st_aggrid import (
         AgGrid, DataReturnMode, GridOptionsBuilder, GridUpdateMode, JsCode,
@@ -89,6 +91,7 @@ def display_rome_time(value: str) -> str:
 
 
 bootstrap()
+buybox_core=BuyBoxCore()
 st.title("Controllo Buy Box")
 seller_id=seller_selector()
 if seller_id is None:st.stop()
@@ -814,64 +817,53 @@ if quick_cols[0].button(
     pending_quick=[]
     saved_quick=0
 
-    def quick_one(item: dict) -> dict:
-        key=(str(item.get("paese") or "").strip().lower(),str(item.get("SKU inviato") or "").strip())
-        previous=dict(saved_checks_by_offer.get(key) or {})
-        try:
-            result=quick_buybox_check(
-                client,item,cached=previous,
-                own_seller_pseudonyms=configured_pseudonyms,
-                checked_at=quick_checked_at,
-            )
-            return {
-                "kind":"ok","result":result,
-                "previous_status":str(previous.get("status") or ""),
-            }
-        except QuickBuyboxNeedsFullCheck as error:
-            return {"kind":"needs_full","item":item,"error":str(error)}
-        except Exception as error:
-            return {"kind":"error","item":item,"error":str(error)}
+    def quick_progress_callback(completed: int,total: int,outcome: dict) -> None:
+        nonlocal_saved = False
+        if outcome["kind"]=="ok":
+            result=outcome["result"]
+            quick_results.append(result)
+            pending_quick.append(result)
+            old=outcome.get("previous_status") or ""
+            if old and old!=str(result.get("status") or ""):
+                quick_changed.append({
+                    "Paese":country_label(result.get("paese","")),
+                    "SKU":result.get("sku",""),
+                    "Prima":old,
+                    "Ora":result.get("status",""),
+                })
+            if len(pending_quick)>=100:
+                save_checks(pending_quick)
+                pending_quick.clear()
+        elif outcome["kind"]=="needs_full":
+            quick_needs_full.append(outcome)
+        else:
+            quick_errors.append(outcome)
+        quick_progress.progress(completed/max(1,total))
+        quick_label.caption(
+            f"Controllate {completed:,} di {total:,} · "
+            f"aggiornate {len(quick_results):,} · "
+            f"da inizializzare {len(quick_needs_full):,} · errori {len(quick_errors):,}."
+        )
+        if quick_results and (completed==1 or completed%25==0 or completed==total):
+            quick_preview.dataframe(pd.DataFrame([{
+                "Paese":country_label(item.get("paese","")),
+                "SKU":item.get("sku",""),
+                "Stato":item.get("status",""),
+                "Posizione":item.get("our_rank"),
+                "Vincitore":item.get("winner_seller",""),
+                "Nostro totale":item.get("our_total"),
+                "Totale vincente":item.get("winner_total"),
+            } for item in quick_results[-20:]]),use_container_width=True,hide_index=True)
 
-    with ThreadPoolExecutor(max_workers=min(20,len(quick_tasks))) as executor:
-        futures=[executor.submit(quick_one,item) for item in quick_tasks]
-        for completed,future in enumerate(as_completed(futures),1):
-            outcome=future.result()
-            if outcome["kind"]=="ok":
-                result=outcome["result"]
-                quick_results.append(result)
-                pending_quick.append(result)
-                old=outcome.get("previous_status") or ""
-                if old and old!=str(result.get("status") or ""):
-                    quick_changed.append({
-                        "Paese":country_label(result.get("paese","")),
-                        "SKU":result.get("sku",""),
-                        "Prima":old,
-                        "Ora":result.get("status",""),
-                    })
-                if len(pending_quick)>=100:
-                    save_checks(pending_quick)
-                    saved_quick+=len(pending_quick)
-                    pending_quick.clear()
-            elif outcome["kind"]=="needs_full":
-                quick_needs_full.append(outcome)
-            else:
-                quick_errors.append(outcome)
-            quick_progress.progress(completed/max(1,len(quick_tasks)))
-            quick_label.caption(
-                f"Controllate {completed:,} di {len(quick_tasks):,} · "
-                f"aggiornate {len(quick_results):,} · "
-                f"da inizializzare {len(quick_needs_full):,} · errori {len(quick_errors):,}."
-            )
-            if quick_results and (completed==1 or completed%25==0 or completed==len(quick_tasks)):
-                quick_preview.dataframe(pd.DataFrame([{
-                    "Paese":country_label(item.get("paese","")),
-                    "SKU":item.get("sku",""),
-                    "Stato":item.get("status",""),
-                    "Posizione":item.get("our_rank"),
-                    "Vincitore":item.get("winner_seller",""),
-                    "Nostro totale":item.get("our_total"),
-                    "Totale vincente":item.get("winner_total"),
-                } for item in quick_results[-20:]]),use_container_width=True,hide_index=True)
+    quick_outcomes=buybox_core.run_kaufland_quick_batch(
+        client,quick_tasks,
+        previous_by_offer=saved_checks_by_offer,
+        own_seller_pseudonyms=configured_pseudonyms,
+        checked_at=quick_checked_at,
+        max_workers=20,
+        on_progress=quick_progress_callback,
+    )
+    saved_quick=len(quick_results)-len(pending_quick)
     if pending_quick:
         save_checks(pending_quick)
         saved_quick+=len(pending_quick)

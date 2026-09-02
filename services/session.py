@@ -4,10 +4,17 @@ import os
 import streamlit as st
 
 from services.db import init_db, sellers
+from services.performance_indexes import ensure_performance_indexes
 
 
 def bootstrap():
     init_db()
+    try:
+        ensure_performance_indexes()
+    except Exception:
+        # Alcune tabelle Buy Box vengono create lazy dalla relativa pagina.
+        # Gli indici saranno riprovati quando il modulo viene inizializzato.
+        pass
     try:
         master = str(st.secrets.get("MARKETPLACE_HUB_MASTER_KEY", ""))
         if master:
