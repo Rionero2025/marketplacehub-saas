@@ -1851,10 +1851,11 @@ def _override_rows_for_scope(
 def apply_accounting_manual_overrides(
     records: Iterable[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Overlay persistent cell edits on API/listino data.
+    """Overlay persistent cell edits on API/listino data with one DB round-trip.
 
-    Overrides live in a separate table, so a later API synchronization or cost
-    recalculation cannot silently erase a value entered by the user.
+    v302 replaces the previous N+1 lookup (one SELECT for every marketplace
+    account) with a single batched SELECT. This matters on the Dashboard and
+    agency views where many Seller/account scopes can be present at once.
     """
     values = [dict(item) for item in records]
     scopes: dict[tuple[int, str], list[int]] = {}
@@ -1865,15 +1866,44 @@ def apply_accounting_manual_overrides(
             scopes.setdefault((account_id, marketplace), []).append(index)
     if not scopes:
         return values
+
+    predicates: list[str] = []
+    params: list[Any] = []
+    for account_id, marketplace in scopes:
+        predicates.append("(marketplace_account_id=? AND marketplace=?)")
+        params.extend((int(account_id), marketplace))
+
+    override_index: dict[tuple[int, str, str], dict[str, Any]] = {}
     with connect() as con:
-        for (account_id, marketplace), indexes in scopes.items():
-            overrides = _override_rows_for_scope(con, account_id, marketplace)
-            for index in indexes:
-                item = values[index]
-                row_key = clean_text(item.get("row_key"))
-                for field_name, value in overrides.get(row_key, {}).items():
-                    if field_name in ACCOUNTING_INLINE_EDIT_FIELDS or field_name in ACCOUNTING_OVERRIDE_INTERNAL_FIELDS:
-                        item[field_name] = value
+        found = con.execute(
+            "SELECT marketplace_account_id,marketplace,row_key,field_name,value_json "
+            "FROM accounting_manual_overrides WHERE " + " OR ".join(predicates),
+            tuple(params),
+        ).fetchall()
+    for item in found:
+        key = (
+            int(item.get("marketplace_account_id") or 0),
+            clean_text(item.get("marketplace")).lower(),
+            clean_text(item.get("row_key")),
+        )
+        field_name = clean_text(item.get("field_name"))
+        if not key[0] or not key[1] or not key[2] or not field_name:
+            continue
+        override_index.setdefault(key, {})[field_name] = _decode_override_value(
+            item.get("value_json")
+        )
+
+    for (account_id, marketplace), indexes in scopes.items():
+        for index in indexes:
+            item = values[index]
+            row_key = clean_text(item.get("row_key"))
+            overrides = override_index.get((account_id, marketplace, row_key), {})
+            for field_name, value in overrides.items():
+                if (
+                    field_name in ACCOUNTING_INLINE_EDIT_FIELDS
+                    or field_name in ACCOUNTING_OVERRIDE_INTERNAL_FIELDS
+                ):
+                    item[field_name] = value
     return values
 
 

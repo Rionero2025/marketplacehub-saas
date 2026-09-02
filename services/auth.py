@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hmac
 import os
+import time
 
 import streamlit as st
 
@@ -15,6 +16,7 @@ from services.user_access import (
 )
 
 _SESSION_KEY = "_marketplace_hub_user_session"
+_SESSION_REFRESH_KEY = "_marketplace_hub_user_session_checked_at"
 
 
 def _truthy(value: str | None, default: bool = False) -> bool:
@@ -28,6 +30,7 @@ def _clear_auth_session() -> None:
     st.session_state.pop("_marketplace_hub_authenticated", None)
     st.session_state.pop("active_seller_id", None)
     st.session_state.pop("global_seller_selector", None)
+    st.session_state.pop(_SESSION_REFRESH_KEY, None)
 
 
 def current_user() -> dict | None:
@@ -84,13 +87,24 @@ def has_seller_access(seller_id: int) -> bool:
     return scope is None or int(seller_id) in scope
 
 
-def _refresh_database_session(session: dict) -> dict | None:
+def _refresh_database_session(session: dict, *, force: bool = False) -> dict | None:
     if session.get("source") != "database":
         return session
+
+    # Streamlit reruns the script on every widget interaction. Querying app_users
+    # on every rerun adds latency to every page. v302 keeps authorization fresh
+    # with a short configurable interval while preserving immediate checks at login.
+    refresh_seconds = max(1.0, float(os.getenv("MARKETPLACE_HUB_SESSION_REFRESH_SECONDS", "10")))
+    now = time.monotonic()
+    last_checked = float(st.session_state.get(_SESSION_REFRESH_KEY) or 0.0)
+    if not force and last_checked and now - last_checked < refresh_seconds:
+        return session
+
     user_id = int(session.get("id") or 0)
     if user_id <= 0:
         return None
     record = get_user(user_id)
+    st.session_state[_SESSION_REFRESH_KEY] = now
     if not record or int(record.get("active") or 0) != 1:
         return None
     return session_user_payload(record, source="database")

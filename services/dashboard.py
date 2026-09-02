@@ -241,20 +241,37 @@ def seller_dashboard_detail_rows(
     return output
 
 
-def dashboard_detail_rows(
+DASHBOARD_ACCOUNTING_COLUMNS = (
+    "seller_id,marketplace_account_id,marketplace,row_key,order_id,order_created,"
+    "country_code,market_label,raw_status,status_label,supplier,composite_sku,"
+    "product_title,ean,quantity,sale_eur,purchase_cost_eur,commission_eur,"
+    "refund_eur,payout_eur,extra_cost_eur,note,supplier_order_number,synced_at"
+)
+
+
+def _dashboard_source_data(
     *,
-    selected_from: date,
-    selected_to: date,
+    today: date | None = None,
+    selected_from: date | None = None,
+    selected_to: date | None = None,
     timezone_name: str = DEFAULT_DASHBOARD_TIMEZONE,
-) -> list[dict[str, Any]]:
-    """Load the exact accounting rows represented by the selected Dashboard period."""
+) -> dict[str, Any]:
+    """Load Dashboard data once and build both summaries and detail rows.
+
+    Before v302 the page executed two full accounting reads on every refresh:
+    one for the KPI summaries and another for Top Products/detail cards.  The
+    shared snapshot halves the heavy DB transfer and deliberately excludes
+    ``raw_json`` and other large columns unused by the Dashboard.
+    """
     seller_rows = sellers()
     if not seller_rows:
-        return []
+        return {"summaries": [], "detail_rows": [], "rows_loaded": 0}
+
     seller_ids = [int(item["id"]) for item in seller_rows]
     placeholders = ",".join("?" for _ in seller_ids)
     accounting_records = apply_accounting_manual_overrides(rows(
-        f"""SELECT * FROM accounting_order_lines
+        f"""SELECT {DASHBOARD_ACCOUNTING_COLUMNS}
+        FROM accounting_order_lines
         WHERE seller_id IN ({placeholders})
         ORDER BY seller_id,order_created,id""",
         tuple(seller_ids),
@@ -263,19 +280,66 @@ def dashboard_detail_rows(
     for item in accounting_records:
         grouped.setdefault(int(item.get("seller_id") or 0), []).append(item)
 
-    output: list[dict[str, Any]] = []
-    for seller in seller_rows:
-        output.extend(
-            seller_dashboard_detail_rows(
-                seller,
-                grouped.get(int(seller["id"]), []),
-                date_from=selected_from,
-                date_to=selected_to,
-                timezone_name=timezone_name,
-            )
+    summaries = [
+        seller_dashboard_summary(
+            seller,
+            grouped.get(int(seller["id"]), []),
+            today=today,
+            selected_from=selected_from,
+            selected_to=selected_to,
+            timezone_name=timezone_name,
         )
-    return output
+        for seller in seller_rows
+    ]
+    detail_rows: list[dict[str, Any]] = []
+    if selected_from is not None and selected_to is not None:
+        for seller in seller_rows:
+            detail_rows.extend(
+                seller_dashboard_detail_rows(
+                    seller,
+                    grouped.get(int(seller["id"]), []),
+                    date_from=selected_from,
+                    date_to=selected_to,
+                    timezone_name=timezone_name,
+                )
+            )
+    return {
+        "summaries": summaries,
+        "detail_rows": detail_rows,
+        "rows_loaded": len(accounting_records),
+    }
 
+
+def dashboard_snapshot(
+    *,
+    today: date | None = None,
+    selected_from: date | None = None,
+    selected_to: date | None = None,
+    timezone_name: str = DEFAULT_DASHBOARD_TIMEZONE,
+) -> dict[str, Any]:
+    """Public v302 snapshot used by Streamlit now and FastAPI later."""
+    return _dashboard_source_data(
+        today=today,
+        selected_from=selected_from,
+        selected_to=selected_to,
+        timezone_name=timezone_name,
+    )
+
+
+def dashboard_detail_rows(
+    *,
+    selected_from: date,
+    selected_to: date,
+    timezone_name: str = DEFAULT_DASHBOARD_TIMEZONE,
+) -> list[dict[str, Any]]:
+    """Compatibility wrapper. Prefer ``dashboard_snapshot`` for new callers."""
+    return list(
+        dashboard_snapshot(
+            selected_from=selected_from,
+            selected_to=selected_to,
+            timezone_name=timezone_name,
+        )["detail_rows"]
+    )
 
 def dashboard_order_detail_rows(
     detail_rows: Iterable[Mapping[str, Any]],
@@ -423,33 +487,15 @@ def dashboard_summaries(
     selected_to: date | None = None,
     timezone_name: str = DEFAULT_DASHBOARD_TIMEZONE,
 ) -> list[dict[str, Any]]:
-    """Load every active seller and its accounting rows in two database reads."""
-    seller_rows = sellers()
-    if not seller_rows:
-        return []
-    seller_ids = [int(item["id"]) for item in seller_rows]
-    placeholders = ",".join("?" for _ in seller_ids)
-    accounting_records = apply_accounting_manual_overrides(rows(
-        f"""SELECT * FROM accounting_order_lines
-        WHERE seller_id IN ({placeholders})
-        ORDER BY seller_id,order_created,id""",
-        tuple(seller_ids),
-    ))
-    grouped: dict[int, list[dict[str, Any]]] = {seller_id: [] for seller_id in seller_ids}
-    for item in accounting_records:
-        grouped.setdefault(int(item.get("seller_id") or 0), []).append(item)
-    return [
-        seller_dashboard_summary(
-            seller,
-            grouped.get(int(seller["id"]), []),
+    """Compatibility wrapper. Prefer ``dashboard_snapshot`` for new callers."""
+    return list(
+        dashboard_snapshot(
             today=today,
             selected_from=selected_from,
             selected_to=selected_to,
             timezone_name=timezone_name,
-        )
-        for seller in seller_rows
-    ]
-
+        )["summaries"]
+    )
 
 def combined_dashboard_period(summaries: Iterable[Mapping[str, Any]], period_key: str) -> dict[str, float | int]:
     """Combine one period across sellers for the headline metrics."""

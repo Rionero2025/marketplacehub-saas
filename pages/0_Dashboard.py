@@ -11,10 +11,9 @@ from services.db import rows
 from services.dashboard import (
     DEFAULT_DASHBOARD_TIMEZONE,
     combined_dashboard_period,
-    dashboard_detail_rows,
     dashboard_missing_detail_rows,
     dashboard_order_detail_rows,
-    dashboard_summaries,
+    dashboard_snapshot,
     dashboard_sync_in_progress,
     dashboard_sync_state,
     ensure_dashboard_sync_schema,
@@ -942,11 +941,13 @@ def render_dashboard() -> None:
     if auto_api_sync:
         start_dashboard_sync_background(force=False)
 
-    summaries = dashboard_summaries(
+    dashboard_data = dashboard_snapshot(
         selected_from=selected_date_from,
         selected_to=selected_date_to,
         timezone_name=DEFAULT_DASHBOARD_TIMEZONE,
     )
+    summaries = dashboard_data["summaries"]
+    selected_detail_rows = dashboard_data["detail_rows"]
     state = dashboard_sync_state()
     sync_running = dashboard_sync_in_progress(state)
     completed = str(state.get("last_completed_at") or "")
@@ -1144,11 +1145,6 @@ def render_dashboard() -> None:
 
     # v265: il Top 10 legge esclusivamente la cache contabile locale già usata
     # dalla Dashboard. Nessuna API viene chiamata per costruire la classifica.
-    selected_detail_rows = dashboard_detail_rows(
-        selected_from=selected_date_from,
-        selected_to=selected_date_to,
-        timezone_name=DEFAULT_DASHBOARD_TIMEZONE,
-    )
     top_products = sort_product_stats(
         aggregate_product_stats(filter_product_rows(selected_detail_rows)),
         "Più venduti (quantità)",
