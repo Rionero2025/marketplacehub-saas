@@ -18,6 +18,7 @@ from services.accounting import (
     default_file_name,
     download_accounting_comparison_url,
     ensure_schema,
+    accounting_export_bytes,
     export_history,
     export_xlsx_bytes,
     fetch_kaufland_accounting_orders,
@@ -46,6 +47,7 @@ from services.db import rows
 from services.profit_sharing import seller_profit_settings, split_profit
 from services.security import decrypt_dict
 from services.session import bootstrap, seller_selector
+from services.supplier_document_storage import archive_supplier_documents
 from services.supplier_documents import (
     analyze_supplier_documents,
     apply_supplier_document_updates,
@@ -1037,13 +1039,17 @@ if st.button(
     key=f"accounting_supplier_documents_analyze_{scope}",
 ):
     try:
-        with st.spinner("Lettura documenti, OCR quando necessario e abbinamento ordini…"):
+        with st.spinner("Archiviazione sicura, lettura documenti, OCR e abbinamento ordini…"):
+            archived_supplier_documents=archive_supplier_documents(
+                seller_id=seller_id,account_id=account_id,marketplace=marketplace,documents=supplier_documents,
+            )
             supplier_analysis = analyze_supplier_documents(
                 records,
                 supplier_documents,
                 marketplace=marketplace,
                 supplier_hint=supplier_hint,
             )
+            supplier_analysis["archived_document_ids"]=[int(item.get("id") or 0) for item in archived_supplier_documents]
         st.session_state[supplier_analysis_key] = {
             "token": analysis_token,
             "analysis": supplier_analysis,
@@ -1978,7 +1984,7 @@ else:
     )
     history_map = {
         f"{item['created_at']} · {item['file_name']} · {item['row_count']} righe": item
-        for item in history if Path(item["file_path"]).exists()
+        for item in history if Path(str(item.get("file_path") or "")).exists() or clean_text(item.get("storage_key"))
     }
     if history_map:
         selected_history_label = st.selectbox(
@@ -1989,7 +1995,7 @@ else:
         selected_history = history_map[selected_history_label]
         st.download_button(
             "Scarica file archiviato",
-            data=Path(selected_history["file_path"]).read_bytes(),
+            data=accounting_export_bytes(selected_history),
             file_name=selected_history["file_name"],
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             key=f"accounting_history_download_{selected_history['id']}",

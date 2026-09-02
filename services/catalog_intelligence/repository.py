@@ -2413,22 +2413,30 @@ def save_publication_artifact(
     row_count: int,
     metadata: Mapping[str, Any] | None = None,
     marketplace_import_id: int | None = None,
+    storage_key: str = "",
+    storage_backend: str = "",
+    storage_sha256: str = "",
+    storage_size_bytes: int = 0,
 ) -> int:
     ensure_schema()
     execute(
         """
         INSERT INTO publication_artifacts(
             publication_job_id,marketplace_import_id,artifact_type,filename,local_path,
+            storage_key,storage_backend,storage_sha256,storage_size_bytes,
             content_hash,row_count,metadata_json,created_at
-        ) VALUES(?,?,?,?,?,?,?,?,?)
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(publication_job_id,artifact_type,content_hash) DO UPDATE SET
             marketplace_import_id=excluded.marketplace_import_id,filename=excluded.filename,
-            local_path=excluded.local_path,row_count=excluded.row_count,
+            local_path=excluded.local_path,storage_key=excluded.storage_key,
+            storage_backend=excluded.storage_backend,storage_sha256=excluded.storage_sha256,
+            storage_size_bytes=excluded.storage_size_bytes,row_count=excluded.row_count,
             metadata_json=excluded.metadata_json
         """,
         (
             int(job_id), marketplace_import_id, clean_text(artifact_type).upper(),
-            clean_text(filename), clean_text(local_path), clean_text(content_hash),
+            clean_text(filename), clean_text(local_path),clean_text(storage_key),clean_text(storage_backend),
+            clean_text(storage_sha256),max(0,int(storage_size_bytes)),clean_text(content_hash),
             max(0, int(row_count)), json_text(dict(metadata or {})), now_iso(),
         ),
     )
@@ -2453,6 +2461,32 @@ def publication_artifacts(job_id: int, *, limit: int = 1000) -> list[dict]:
     )
 
 
+def publication_artifact_bytes(artifact: int | Mapping[str, Any]) -> bytes:
+    ensure_schema()
+    item=dict(artifact) if isinstance(artifact,Mapping) else (row("SELECT * FROM publication_artifacts WHERE id=?",(int(artifact),)) or {})
+    if not item:
+        raise KeyError(f"Artifact non trovato: {artifact}")
+    from pathlib import Path
+    from services.durable_files import put_bytes as put_durable_bytes, read_bytes as read_durable_bytes
+    key=clean_text(item.get("storage_key")); local=Path(clean_text(item.get("local_path")))
+    if not key and local.is_file():
+        payload=local.read_bytes()
+        stored=put_durable_bytes(
+            namespace="publication_artifacts",identity=f"job_{int(item.get('publication_job_id') or 0)}",
+            filename=clean_text(item.get("filename")) or local.name,content=payload,
+            content_type="text/csv" if local.suffix.lower()==".csv" else "application/octet-stream",
+        )
+        execute(
+            "UPDATE publication_artifacts SET storage_key=?,storage_backend=?,storage_sha256=?,storage_size_bytes=? WHERE id=?",
+            (stored["storage_key"],stored["storage_backend"],stored["sha256"],stored["size_bytes"],int(item["id"])),
+        )
+        return payload
+    return read_durable_bytes(
+        local_path=item.get("local_path"),storage_key=key,
+        expected_sha256=clean_text(item.get("storage_sha256")),
+    )
+
+
 __all__ = [
     "upsert_product_channel_state",
     "update_publication_item",
@@ -2466,6 +2500,7 @@ __all__ = [
     "publication_item",
     "publication_events",
     "publication_artifacts",
+    "publication_artifact_bytes",
     "product_channel_state",
     "marketplace_imports_for_job",
     "marketplace_import",

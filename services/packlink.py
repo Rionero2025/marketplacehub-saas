@@ -21,7 +21,7 @@ from services.cecotec_orders import (
     parse_composite_sku,
 )
 from services.db import DATA_DIR, accessible_lists, connect, execute, execute_many, now_iso, rows
-from services.lists import normalize, read_list
+from services.lists import materialize_price_list, normalize, read_list
 from services.order_tracking import match_tracking_rows, normalized_customer_name
 from services.security import decrypt_dict, encrypt_dict
 
@@ -2043,6 +2043,12 @@ def _packlink_catalog_path(
         seen.add(key)
         if candidate.exists() and candidate.is_file():
             return candidate
+    if price_list_id and "vista" not in clean_text(source_kind).lower():
+        try:
+            recovered=materialize_price_list(int(price_list_id),original if text else None)
+            if recovered and recovered.is_file():return recovered
+        except Exception:
+            pass
     return None
 
 

@@ -18,7 +18,7 @@ from services.db import (accessible_lists, delete_price_list, delete_supplier,
                          execute, now_iso, pending_deletion_paths, rows, sellers)
 from services.lists import (download_activeshop_combined, download_cecotec_combined,
                             download_forcetop_combined, download_hurtel_combined,
-                            download_url, hurtel_feed_urls, normalize, read_list,
+                            download_url, hurtel_feed_urls, materialize_price_list, normalize, read_list,
                             refresh_forcetop_inventory, save_cecotec_monthly, save_uploaded)
 from services.security import decrypt_dict, encrypt_dict
 from services.session import bootstrap, seller_selector
@@ -315,7 +315,13 @@ with tab2:
     else:
         st.dataframe([{"ID":x["id"],"Fornitore":x["supplier_name"],"Listino":x["name"],"Proprietario":x["owner_name"],"Visibilità":x["visibility"],"Aggiornato":x["last_download_at"] or "—"} for x in data],use_container_width=True,hide_index=True)
         lmap={f"{x['supplier_name']} · {x['name']} (ID {x['id']})":x for x in data}
-        choice=st.selectbox("Apri listino",list(lmap));item=lmap[choice]
+        choice=st.selectbox("Apri listino",list(lmap));item=dict(lmap[choice])
+        if (not item.get("local_path") or not Path(str(item.get("local_path") or "")).exists()) and item.get("storage_key"):
+            try:
+                recovered=materialize_price_list(int(item["id"]),item.get("local_path"))
+                if recovered:item["local_path"]=str(recovered)
+            except Exception as storage_error:
+                st.caption(f"Storage listino non materializzato: {storage_error}")
         item_supplier_token=str(item.get("supplier_name","")).strip().lower().replace(" ","")
         is_activeshop_item=("activeshop" in item_supplier_token or "activeshop.com.pl" in str(item.get("source_url","")).lower())
         is_hurtel_item=("hurtel" in item_supplier_token or "hurtel.com" in str(item.get("source_url","")).lower())

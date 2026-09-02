@@ -25,7 +25,8 @@ from services.cecotec_orders import (
     normalize_supplier,
     parse_composite_sku,
 )
-from services.db import DATA_DIR, connect, execute, json_text, now_iso, rows
+from services.db import DATA_DIR, connect, execute, json_text, now_iso, row, rows
+from services.durable_files import put_bytes as put_durable_bytes, read_bytes as read_durable_bytes
 from services.fx import get_ecb_rates
 from services.kaufland import KauflandClient
 from services.kaufland_orders import (
@@ -40,7 +41,7 @@ from services.kaufland_orders import (
     response_item,
 )
 from services.saved_view_storage import resolve_saved_view_path
-from services.lists import country_cost, download_url, normalize, read_list
+from services.lists import country_cost, download_url, materialize_price_list, normalize, read_list
 from services.profit_sharing import normalized_percentages, split_profit
 from services.worten import commission_rate_from_order_line
 
@@ -245,6 +246,10 @@ def ensure_schema() -> None:
                 marketplace TEXT NOT NULL,
                 file_name TEXT NOT NULL,
                 file_path TEXT NOT NULL,
+                storage_key TEXT NOT NULL DEFAULT '',
+                storage_backend TEXT NOT NULL DEFAULT '',
+                storage_sha256 TEXT NOT NULL DEFAULT '',
+                storage_size_bytes INTEGER NOT NULL DEFAULT 0,
                 date_from TEXT NOT NULL DEFAULT '',
                 date_to TEXT NOT NULL DEFAULT '',
                 row_count INTEGER NOT NULL DEFAULT 0,
@@ -358,6 +363,10 @@ def ensure_schema() -> None:
             "total_partner_profit_eur": "REAL NOT NULL DEFAULT 0",
             "our_profit_pct": "REAL NOT NULL DEFAULT 0",
             "partner_profit_pct": "REAL NOT NULL DEFAULT 100",
+            "storage_key": "TEXT NOT NULL DEFAULT ''",
+            "storage_backend": "TEXT NOT NULL DEFAULT ''",
+            "storage_sha256": "TEXT NOT NULL DEFAULT ''",
+            "storage_size_bytes": "INTEGER NOT NULL DEFAULT 0",
         }
         for column, declaration in export_migrations.items():
             if column not in existing_export_columns:
@@ -872,6 +881,13 @@ def _resolve_catalog_path(item: Mapping[str, Any]) -> Path | None:
         seen.add(key)
         if candidate.exists() and candidate.is_file():
             return candidate
+    if price_list_id and "vista" not in source_kind:
+        try:
+            recovered=materialize_price_list(price_list_id, original if raw else None)
+            if recovered and recovered.is_file():
+                return recovered
+        except Exception:
+            pass
     return None
 
 
@@ -4250,6 +4266,11 @@ def save_export(
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", file_name).strip("_") or "contabilita.xlsx"
     path = folder / f"{timestamp}_{safe}"
     path.write_bytes(content)
+    stored=put_durable_bytes(
+        namespace="accounting_exports",identity=f"seller_{int(seller_id)}_account_{int(account_id)}",
+        filename=path.name,content=content,
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
     summary = totals(records)
     profit_split = split_profit(
         summary["net_revenue"], our_profit_pct, partner_profit_pct
@@ -4258,14 +4279,16 @@ def save_export(
         """
         INSERT INTO accounting_exports(
             seller_id,marketplace_account_id,marketplace,file_name,file_path,
+            storage_key,storage_backend,storage_sha256,storage_size_bytes,
             date_from,date_to,row_count,total_sale_eur,total_purchase_eur,
             total_commission_eur,total_payout_eur,total_net_revenue_eur,
             total_our_profit_eur,total_partner_profit_eur,our_profit_pct,
             partner_profit_pct,created_at
-        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
             seller_id, account_id, marketplace, file_name, str(path),
+            stored["storage_key"],stored["storage_backend"],stored["sha256"],stored["size_bytes"],
             date_from.isoformat(), date_to.isoformat(), len(records),
             summary["sale"], summary["purchase"], summary["commission"],
             summary["payout"], summary["net_revenue"],
@@ -4282,9 +4305,35 @@ def save_export(
         "id": export_id,
         "file_path": str(path),
         "file_name": file_name,
+        "storage_key": stored["storage_key"],
         **summary,
         **profit_split,
     }
+
+
+def accounting_export_bytes(export: int | Mapping[str, Any]) -> bytes:
+    ensure_schema()
+    item=dict(export) if isinstance(export,Mapping) else (row("SELECT * FROM accounting_exports WHERE id=?",(int(export),)) or {})
+    if not item:
+        raise KeyError(f"Export contabile non trovato: {export}")
+    key=str(item.get("storage_key") or "").strip()
+    local=Path(str(item.get("file_path") or ""))
+    if not key and local.is_file():
+        payload=local.read_bytes()
+        stored=put_durable_bytes(
+            namespace="accounting_exports",identity=f"seller_{int(item.get('seller_id') or 0)}_account_{int(item.get('marketplace_account_id') or 0)}",
+            filename=local.name,content=payload,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        execute(
+            "UPDATE accounting_exports SET storage_key=?,storage_backend=?,storage_sha256=?,storage_size_bytes=? WHERE id=?",
+            (stored["storage_key"],stored["storage_backend"],stored["sha256"],stored["size_bytes"],int(item["id"])),
+        )
+        return payload
+    return read_durable_bytes(
+        local_path=item.get("file_path"),storage_key=key,
+        expected_sha256=str(item.get("storage_sha256") or ""),
+    )
 
 
 def export_history(seller_id: int, account_id: int, marketplace: str) -> list[dict[str, Any]]:

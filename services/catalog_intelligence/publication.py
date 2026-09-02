@@ -15,6 +15,7 @@ from services.catalog_intelligence.marketplaces.mirakl import (
     MiraklCatalogClient,
     MiraklCatalogError,
 )
+from services.durable_files import put_bytes as put_durable_bytes
 from services.catalog_intelligence.repository import (
     create_marketplace_import,
     ensure_publication_runtime,
@@ -224,6 +225,11 @@ def _save_artifact(
 ) -> dict[str, Any]:
     path = _artifact_dir(job_id) / filename
     path.write_bytes(bytes(content))
+    stored=put_durable_bytes(
+        namespace="publication_artifacts",identity=f"job_{int(job_id)}",
+        filename=filename,content=bytes(content),
+        content_type="text/csv" if str(filename).lower().endswith(".csv") else "application/octet-stream",
+    )
     content_hash = json_hash({"sha256": __import__("hashlib").sha256(content).hexdigest(), "size": len(content)})
     artifact_id = save_publication_artifact(
         job_id=job_id,
@@ -234,6 +240,8 @@ def _save_artifact(
         row_count=row_count,
         metadata=metadata,
         marketplace_import_id=marketplace_import_id,
+        storage_key=stored["storage_key"],storage_backend=stored["storage_backend"],
+        storage_sha256=stored["sha256"],storage_size_bytes=stored["size_bytes"],
     )
     return {
         "id": artifact_id,
@@ -241,6 +249,7 @@ def _save_artifact(
         "filename": filename,
         "content_hash": content_hash,
         "row_count": row_count,
+        "storage_key": stored["storage_key"],
     }
 
 
@@ -959,9 +968,15 @@ def _refresh_kaufland_products(
 
 def _report_path(job_id: int, import_id: str, kind: str, content: bytes) -> str:
     suffix = ".csv" if b";" in content[:4096] or b"," in content[:4096] else ".bin"
-    path = _artifact_dir(job_id) / f"mirakl_{clean_text(kind)}_{clean_text(import_id)}{suffix}"
+    filename=f"mirakl_{clean_text(kind)}_{clean_text(import_id)}{suffix}"
+    path = _artifact_dir(job_id) / filename
     path.write_bytes(content)
-    return str(path)
+    stored=put_durable_bytes(
+        namespace="publication_reports",identity=f"job_{int(job_id)}",
+        filename=filename,content=content,
+        content_type="text/csv" if suffix==".csv" else "application/octet-stream",
+    )
+    return f"storage://{stored['storage_key']}"
 
 
 def _refresh_mirakl_imports(

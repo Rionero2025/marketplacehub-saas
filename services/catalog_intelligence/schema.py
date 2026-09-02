@@ -5,7 +5,7 @@ import threading
 from services import db as db_service
 
 
-CATALOG_SCHEMA_REVISION = 258
+CATALOG_SCHEMA_REVISION = 313
 _SCHEMA_LOCK = threading.RLock()
 _SCHEMA_READY: set[tuple] = set()
 
@@ -659,6 +659,10 @@ CREATE TABLE IF NOT EXISTS publication_artifacts (
     artifact_type TEXT NOT NULL,
     filename TEXT NOT NULL,
     local_path TEXT NOT NULL DEFAULT '',
+    storage_key TEXT NOT NULL DEFAULT '',
+    storage_backend TEXT NOT NULL DEFAULT '',
+    storage_sha256 TEXT NOT NULL DEFAULT '',
+    storage_size_bytes INTEGER NOT NULL DEFAULT 0,
     content_hash TEXT NOT NULL DEFAULT '',
     row_count INTEGER NOT NULL DEFAULT 0,
     metadata_json TEXT NOT NULL DEFAULT '{}',
@@ -719,6 +723,16 @@ def ensure_schema(*, force: bool = False) -> None:
                     WHERE status='BLOCKED'
                     """
                 )
+                artifact_columns={str(item["name"]) for item in con.execute("PRAGMA table_info(publication_artifacts)").fetchall()}
+                artifact_migrations={
+                    "storage_key":"TEXT NOT NULL DEFAULT ''",
+                    "storage_backend":"TEXT NOT NULL DEFAULT ''",
+                    "storage_sha256":"TEXT NOT NULL DEFAULT ''",
+                    "storage_size_bytes":"INTEGER NOT NULL DEFAULT 0",
+                }
+                for column,declaration in artifact_migrations.items():
+                    if column not in artifact_columns:
+                        con.execute(f"ALTER TABLE publication_artifacts ADD COLUMN {column} {declaration}")
 
         db_service._retry_locked(migrate, attempts=10, base_delay=0.15)
         _SCHEMA_READY.add(key)

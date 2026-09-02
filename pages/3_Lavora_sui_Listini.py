@@ -13,7 +13,7 @@ from marketplace_core.jobs import JobsCore
 
 from services.db import (DATA_DIR, accessible_lists, delete_saved_view, execute,
                          json_text, now_iso, rows)
-from services.lists import destination_country_codes, normalize
+from services.lists import destination_country_codes, materialize_price_list, normalize
 from services.object_storage import storage_status
 from services.saved_view_storage import (load_saved_view_frame, migrate_saved_views_to_storage,
                                          save_saved_view_frame)
@@ -30,8 +30,14 @@ if not lists:st.error("Nessun listino disponibile per questo Seller.");st.stop()
 if not accounts:st.error("Abilita prima almeno un account marketplace in Gestione Seller.");st.stop()
 
 lmap={f"{x['supplier_name']} · {x['name']} · ID {x['id']}":x for x in lists}
-pl=lmap[st.selectbox("Listino da lavorare",list(lmap))]
-if not pl["local_path"] or not Path(pl["local_path"]).exists():st.error("Il listino non è stato ancora scaricato.");st.stop()
+pl=dict(lmap[st.selectbox("Listino da lavorare",list(lmap))])
+if not pl.get("local_path") or not Path(str(pl.get("local_path") or "")).exists():
+    try:
+        recovered=materialize_price_list(int(pl["id"]),pl.get("local_path"))
+        if recovered:pl["local_path"]=str(recovered)
+    except Exception as storage_error:
+        st.error(f"Il listino non è disponibile nello storage: {storage_error}");st.stop()
+if not pl.get("local_path") or not Path(str(pl.get("local_path") or "")).exists():st.error("Il listino non è stato ancora scaricato o archiviato.");st.stop()
 
 catalog_core=CatalogCore();jobs_core=JobsCore()
 try:catalog_status=catalog_core.status(pl["id"],pl["local_path"])

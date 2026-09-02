@@ -23,6 +23,7 @@ import pandas as pd
 
 from services.cecotec_orders import clean_identifier, clean_text, parse_composite_sku
 from services.db import connect, execute, now_iso, rows
+from services.durable_files import delete as delete_durable_file, put_bytes as put_durable_bytes, read_bytes as read_durable_bytes
 from services.tracking_shipping_rules import (
     CANCELLED_FILE_STATUSES,
     SHIPPED_FILE_STATUSES,
@@ -133,6 +134,9 @@ def ensure_schema() -> None:
                 source_url TEXT NOT NULL DEFAULT '',
                 mime_type TEXT NOT NULL DEFAULT '',
                 size_bytes INTEGER NOT NULL DEFAULT 0,
+                storage_key TEXT NOT NULL DEFAULT '',
+                storage_backend TEXT NOT NULL DEFAULT '',
+                storage_sha256 TEXT NOT NULL DEFAULT '',
                 content BLOB NOT NULL,
                 created_at TEXT NOT NULL,
                 last_used_at TEXT NOT NULL DEFAULT '',
@@ -158,7 +162,15 @@ def ensure_schema() -> None:
             ON tracking_import_files(tracking_file_id,import_id);
             """
         )
-
+        existing={str(item["name"]) for item in con.execute("PRAGMA table_info(tracking_source_files)").fetchall()}
+        migrations={
+            "storage_key":"TEXT NOT NULL DEFAULT ''",
+            "storage_backend":"TEXT NOT NULL DEFAULT ''",
+            "storage_sha256":"TEXT NOT NULL DEFAULT ''",
+        }
+        for column,declaration in migrations.items():
+            if column not in existing:
+                con.execute(f"ALTER TABLE tracking_source_files ADD COLUMN {column} {declaration}")
 
 
 def _safe_tracking_file_name(value: object, default: str = "spedizioni") -> str:
@@ -367,17 +379,25 @@ def archive_tracking_file(
         return archived_tracking_file(
             int(item["id"]), seller_id=seller_id, account_id=account_id
         ) or item
+    stored=put_durable_bytes(
+        namespace="tracking_source_files",
+        identity=f"seller_{int(seller_id)}_account_{int(account_id)}",
+        filename=safe_name,content=payload,
+        content_type=clean_text(mime_type) or mimetypes.guess_type(safe_name)[0] or "application/octet-stream",
+    )
     file_id = execute(
         """INSERT INTO tracking_source_files(
             seller_id,marketplace_account_id,marketplace,supplier,file_name,
-            file_sha256,source_type,source_url,mime_type,size_bytes,content,
+            file_sha256,source_type,source_url,mime_type,size_bytes,
+            storage_key,storage_backend,storage_sha256,content,
             created_at,last_used_at,use_count
-        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (
             int(seller_id), int(account_id), clean_text(marketplace).lower(),
             clean_text(supplier), safe_name, digest, normalized_source,
             clean_text(source_url), clean_text(mime_type), len(payload),
-            payload, now_iso(), "", 0,
+            stored["storage_key"],stored["storage_backend"],stored["sha256"],b"",
+            now_iso(), "", 0,
         ),
     )
     return archived_tracking_file(
@@ -419,7 +439,32 @@ def archived_tracking_file(
         WHERE id=? AND seller_id=? AND marketplace_account_id=? LIMIT 1""",
         (int(file_id), int(seller_id), int(account_id)),
     )
-    return found[0] if found else None
+    if not found:
+        return None
+    item=dict(found[0])
+    payload=bytes(item.get("content") or b"")
+    if payload and not clean_text(item.get("storage_key")):
+        try:
+            stored=put_durable_bytes(
+                namespace="tracking_source_files",
+                identity=f"seller_{int(item['seller_id'])}_account_{int(item['marketplace_account_id'])}",
+                filename=clean_text(item.get("file_name")) or f"tracking_{item['id']}.bin",
+                content=payload,content_type=clean_text(item.get("mime_type")) or None,
+            )
+            execute(
+                "UPDATE tracking_source_files SET storage_key=?,storage_backend=?,storage_sha256=?,content=? WHERE id=?",
+                (stored["storage_key"],stored["storage_backend"],stored["sha256"],b"",int(item["id"])),
+            )
+            item.update(stored)
+        except Exception:
+            pass
+    if not payload and clean_text(item.get("storage_key")):
+        payload=read_durable_bytes(
+            storage_key=clean_text(item.get("storage_key")),
+            expected_sha256=clean_text(item.get("storage_sha256")) or clean_text(item.get("file_sha256")),
+        )
+    item["content"]=payload
+    return item
 
 
 def update_archived_tracking_file_supplier(
@@ -446,6 +491,10 @@ def delete_archived_tracking_files(
     if not normalized_ids:
         return 0
     placeholders = ",".join("?" for _ in normalized_ids)
+    storage_rows=rows(
+        f"SELECT storage_key FROM tracking_source_files WHERE seller_id=? AND marketplace_account_id=? AND id IN ({placeholders})",
+        (int(seller_id),int(account_id),*normalized_ids),
+    )
     with connect() as con:
         cursor = con.execute(
             f"""DELETE FROM tracking_source_files
@@ -453,8 +502,37 @@ def delete_archived_tracking_files(
               AND id IN ({placeholders})""",
             (int(seller_id), int(account_id), *normalized_ids),
         )
-        return max(0, int(cursor.rowcount or 0))
+        deleted=max(0, int(cursor.rowcount or 0))
+    for item in storage_rows:
+        delete_durable_file(clean_text(item.get("storage_key")))
+    return deleted
 
+
+def migrate_tracking_files_to_storage(*, limit: int = 500) -> dict[str, Any]:
+    ensure_schema()
+    candidates=rows(
+        """SELECT id,seller_id,marketplace_account_id,file_name,mime_type,file_sha256,content
+           FROM tracking_source_files WHERE COALESCE(storage_key,'')='' AND LENGTH(content)>0
+           ORDER BY id LIMIT ?""",(max(1,int(limit)),),
+    )
+    migrated=0; failed=[]
+    for item in candidates:
+        try:
+            payload=bytes(item.get("content") or b"")
+            stored=put_durable_bytes(
+                namespace="tracking_source_files",
+                identity=f"seller_{int(item['seller_id'])}_account_{int(item['marketplace_account_id'])}",
+                filename=clean_text(item.get("file_name")) or f"tracking_{item['id']}.bin",
+                content=payload,content_type=clean_text(item.get("mime_type")) or None,
+            )
+            execute(
+                """UPDATE tracking_source_files SET storage_key=?,storage_backend=?,storage_sha256=?,content=? WHERE id=?""",
+                (stored["storage_key"],stored["storage_backend"],stored["sha256"],b"",int(item["id"])),
+            )
+            migrated+=1
+        except Exception as error:
+            failed.append({"id":int(item.get("id") or 0),"error":str(error)})
+    return {"migrated":migrated,"failed":failed}
 
 
 def _norm(value: object) -> str:

@@ -244,6 +244,10 @@ def _init_db_once() -> None:
             source_credentials_encrypted TEXT DEFAULT '',
             local_path TEXT DEFAULT '',
             file_format TEXT DEFAULT '',
+            storage_key TEXT NOT NULL DEFAULT '',
+            storage_backend TEXT NOT NULL DEFAULT '',
+            storage_sha256 TEXT NOT NULL DEFAULT '',
+            storage_size_bytes INTEGER NOT NULL DEFAULT 0,
             last_download_at TEXT,
             active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
@@ -758,6 +762,19 @@ def _init_db_once() -> None:
                     f"ALTER TABLE kaufland_order_units "
                     f"ADD COLUMN {column} {declaration}"
                 )
+        existing_price_list_columns={
+            str(item["name"]) for item in con.execute("PRAGMA table_info(price_lists)").fetchall()
+        }
+        price_list_storage_migrations={
+            "storage_key":"TEXT NOT NULL DEFAULT ''",
+            "storage_backend":"TEXT NOT NULL DEFAULT ''",
+            "storage_sha256":"TEXT NOT NULL DEFAULT ''",
+            "storage_size_bytes":"INTEGER NOT NULL DEFAULT 0",
+        }
+        for column,declaration in price_list_storage_migrations.items():
+            if column not in existing_price_list_columns:
+                con.execute(f"ALTER TABLE price_lists ADD COLUMN {column} {declaration}")
+
         existing_buybox_columns={
             str(item["name"]) for item in con.execute("PRAGMA table_info(buybox_checks)").fetchall()
         }
@@ -1114,13 +1131,14 @@ def delete_price_list(price_list_id: int, owner_seller_id: int) -> bool:
     paths: list[str] = []
     with connect() as con:
         found = con.execute(
-            "SELECT local_path FROM price_lists WHERE id=? AND owner_seller_id=?",
+            "SELECT local_path,storage_key FROM price_lists WHERE id=? AND owner_seller_id=?",
             (price_list_id, owner_seller_id),
         ).fetchone()
         if not found:
             return False
         if found["local_path"]:
             paths.append(found["local_path"])
+        list_storage_key=found["storage_key"] or ""
         saved_view_rows = con.execute(
             "SELECT snapshot_path,snapshot_storage_key FROM saved_views WHERE price_list_id=?",
             (price_list_id,),
@@ -1137,6 +1155,12 @@ def delete_price_list(price_list_id: int, owner_seller_id: int) -> bool:
             from services.saved_view_storage import delete_saved_view_object
             for storage_key in storage_keys:
                 delete_saved_view_object(storage_key)
+        except Exception:
+            pass
+    if list_storage_key:
+        try:
+            from services.durable_files import delete as delete_durable_file
+            delete_durable_file(list_storage_key)
         except Exception:
             pass
     return True

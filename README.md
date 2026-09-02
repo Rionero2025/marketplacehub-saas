@@ -60,3 +60,6 @@ I listini possono essere normalizzati una volta in background e materializzati n
 
 ## Performance Core v312 — Object Storage Ready
 Le viste salvate non dipendono più esclusivamente dai file `.pkl` locali. Ogni nuova vista passa dal layer object storage e conserva un hash di integrità; se la cache locale scompare, il file viene ricostruito dallo storage. Il backend predefinito è locale per sviluppo, mentre il SaaS può usare S3/Cloudflare R2/MinIO/GCS compatibile S3 senza cambiare la business logic. Vedi `STEP12_OBJECT_STORAGE_READY.md`.
+
+## v313 — No Local Disk
+I principali file binari non dipendono più dal filesystem del container: listini, tracking, documenti fornitore, export contabili e artifact di pubblicazione usano il layer Object Storage. Vedi `STEP13_NO_LOCAL_DISK.md`.

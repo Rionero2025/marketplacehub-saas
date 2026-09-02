@@ -15,3 +15,5 @@ Step 10 - v310 Catalog Engine Speed: materializzazione normalizzata, preview ser
 Step 11 - v311 Server-side Product Table: filtri/paginazione DB, selezione per row_no, materializzazione solo al salvataggio.
 
 Step 12 - v312 Saved Views + Object Storage Ready: snapshot persistenti via storage abstraction, cache locale ricostruibile, supporto S3/R2/GCS e migrazione viste legacy.
+
+Step 13 - v313 No Local Disk: listini, tracking source files, documenti fornitore, export contabili e artifact pubblicazione su Object Storage; filesystem locale ridotto a cache ricostruibile.

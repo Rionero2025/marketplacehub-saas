@@ -216,6 +216,10 @@ class CatalogCore:
         self.ensure_schema()
         source = Path(source_path)
         if not source.exists():
+            from services.lists import materialize_price_list
+            recovered=materialize_price_list(int(price_list_id),source)
+            if recovered is not None:source=Path(recovered)
+        if not source.exists():
             raise FileNotFoundError(f'Listino non disponibile: {source}')
         fingerprint = self.source_fingerprint(source)
 

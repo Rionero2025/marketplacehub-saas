@@ -34,6 +34,7 @@ from services.catalog_intelligence.repository import (
     feed_preparations_for_source,
     latest_taxonomy_snapshot,
     marketplace_imports_for_job,
+    publication_artifact_bytes,
     publication_artifacts,
     publication_events,
     publication_items,
@@ -1445,14 +1446,19 @@ with publication_tab:
                 columns[0].write(
                     f"{artifact['artifact_type']} · {artifact['filename']} · {artifact['row_count']} righe"
                 )
-                if path.is_file():
-                    columns[1].download_button(
-                        "Scarica",
-                        data=path.read_bytes(),
-                        file_name=artifact["filename"],
-                        mime="text/csv" if path.suffix.lower() == ".csv" else "application/octet-stream",
-                        key=f"catalog_download_artifact_{artifact['id']}",
-                    )
+                if path.is_file() or clean_text(artifact.get("storage_key")):
+                    try:
+                        artifact_payload=publication_artifact_bytes(artifact)
+                    except Exception as exc:
+                        columns[1].caption(f"Storage: {exc}")
+                    else:
+                        columns[1].download_button(
+                            "Scarica",
+                            data=artifact_payload,
+                            file_name=artifact["filename"],
+                            mime="text/csv" if str(artifact.get("filename") or "").lower().endswith(".csv") else "application/octet-stream",
+                            key=f"catalog_download_artifact_{artifact['id']}",
+                        )
 
         imports = marketplace_imports_for_job(selected_job_id, limit=100)
         if imports:

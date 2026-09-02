@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import mimetypes
 import re
 import ssl
 import subprocess
@@ -17,7 +18,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from services.db import DATA_DIR, execute, now_iso
+from services.db import DATA_DIR, connect, execute, now_iso, row, rows
+from services.durable_files import materialize as materialize_durable_file, put_bytes as put_durable_bytes
 
 LIST_DIR = DATA_DIR / "price_lists"
 
@@ -27,14 +29,103 @@ def safe_name(value: str) -> str:
     return value.strip("._") or "listino"
 
 
+def ensure_price_list_storage_schema() -> None:
+    with connect() as con:
+        columns={str(item["name"]) for item in con.execute("PRAGMA table_info(price_lists)").fetchall()}
+        migrations={
+            "storage_key":"TEXT NOT NULL DEFAULT ''",
+            "storage_backend":"TEXT NOT NULL DEFAULT ''",
+            "storage_sha256":"TEXT NOT NULL DEFAULT ''",
+            "storage_size_bytes":"INTEGER NOT NULL DEFAULT 0",
+        }
+        for column,declaration in migrations.items():
+            if column not in columns:
+                con.execute(f"ALTER TABLE price_lists ADD COLUMN {column} {declaration}")
+
+
+def persist_price_list_path(price_list_id: int, path: str | Path) -> Path:
+    ensure_price_list_storage_schema()
+    source=Path(path)
+    payload=source.read_bytes()
+    previous=row("SELECT storage_key FROM price_lists WHERE id=?",(int(price_list_id),)) or {}
+    previous_key=str(previous.get("storage_key") or "").strip()
+    stored=put_durable_bytes(
+        namespace="price_lists", identity=f"list_{int(price_list_id)}",
+        filename=source.name, content=payload,
+        content_type=mimetypes.guess_type(source.name)[0] or "application/octet-stream",
+    )
+    execute(
+        """UPDATE price_lists SET local_path=?,file_format=?,last_download_at=?,
+           storage_key=?,storage_backend=?,storage_sha256=?,storage_size_bytes=? WHERE id=?""",
+        (str(source),source.suffix.lower().lstrip("."),now_iso(),stored["storage_key"],
+         stored["storage_backend"],stored["sha256"],stored["size_bytes"],int(price_list_id)),
+    )
+    if previous_key and previous_key != stored["storage_key"]:
+        try:
+            from services.durable_files import delete as delete_durable_file
+            delete_durable_file(previous_key)
+        except Exception:
+            pass
+    return source
+
+
+def materialize_price_list(price_list_id: int, preferred_path: str | Path | None = None) -> Path | None:
+    ensure_price_list_storage_schema()
+    item=row(
+        "SELECT local_path,file_format,storage_key,storage_sha256 FROM price_lists WHERE id=?",
+        (int(price_list_id),),
+    ) or {}
+    candidates=[preferred_path,item.get("local_path")]
+    for candidate in candidates:
+        text=str(candidate or "").strip()
+        if text and Path(text).is_file():
+            local=Path(text)
+            if not str(item.get("storage_key") or "").strip():
+                try:persist_price_list_path(int(price_list_id),local)
+                except Exception:pass
+            return local
+    key=str(item.get("storage_key") or "").strip()
+    if not key:
+        return None
+    filename=Path(str(item.get("local_path") or "")).name
+    if not filename:
+        suffix=str(item.get("file_format") or "").strip().lstrip(".") or "bin"
+        filename=f"listino_{int(price_list_id)}.{suffix}"
+    path=materialize_durable_file(
+        namespace="price_lists",identity=f"list_{int(price_list_id)}",filename=filename,
+        storage_key=key,expected_sha256=str(item.get("storage_sha256") or ""),
+        preferred_path=preferred_path,
+    )
+    execute("UPDATE price_lists SET local_path=? WHERE id=?",(str(path),int(price_list_id)))
+    return path
+
+
+def migrate_price_lists_to_storage(owner_seller_id: int | None = None) -> dict[str, object]:
+    ensure_price_list_storage_schema()
+    sql="SELECT id,local_path,storage_key FROM price_lists WHERE active=1"
+    params=()
+    if owner_seller_id is not None:
+        sql+=" AND owner_seller_id=?"; params=(int(owner_seller_id),)
+    migrated=0; skipped=0; failed=[]
+    for item in rows(sql+" ORDER BY id",params):
+        if str(item.get("storage_key") or "").strip():
+            skipped+=1; continue
+        path=Path(str(item.get("local_path") or ""))
+        if not path.is_file():
+            failed.append({"id":int(item["id"]),"error":"file locale non disponibile"}); continue
+        try:
+            persist_price_list_path(int(item["id"]),path); migrated+=1
+        except Exception as error:
+            failed.append({"id":int(item["id"]),"error":str(error)})
+    return {"migrated":migrated,"skipped":skipped,"failed":failed}
+
+
 def save_uploaded(price_list_id: int, name: str, content: bytes) -> Path:
     folder = LIST_DIR / str(price_list_id)
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / safe_name(name)
     path.write_bytes(content)
-    execute("UPDATE price_lists SET local_path=?,file_format=?,last_download_at=? WHERE id=?",
-            (str(path), path.suffix.lower().lstrip("."), now_iso(), price_list_id))
-    return path
+    return persist_price_list_path(price_list_id,path)
 
 
 def _safe_error_text(error: BaseException) -> str:
@@ -280,9 +371,7 @@ def combine_hurtel_feeds(price_list_id: int, full_path: str | Path,
     full["price_source"]="hurtel_light"
     folder=LIST_DIR/str(price_list_id);folder.mkdir(parents=True,exist_ok=True)
     path=folder/"hurtel_catalogo_full_prezzi_light.pkl";full.to_pickle(path)
-    execute("UPDATE price_lists SET local_path=?,file_format=?,last_download_at=? WHERE id=?",
-            (str(path),"pkl",now_iso(),price_list_id))
-    return path
+    return persist_price_list_path(price_list_id,path)
 
 
 def download_hurtel_combined(price_list_id: int, primary_url: str,
@@ -325,9 +414,7 @@ def combine_cecotec_stock(price_list_id: int, catalog_path: str | Path, stock_ur
     if manual_map is not None:catalog["manual_url"]=catalog["ean"].map(manual_map).fillna("")
     folder=LIST_DIR/str(price_list_id);folder.mkdir(parents=True,exist_ok=True)
     path=folder/"cecotec_catalogo_stock.pkl";catalog.to_pickle(path)
-    execute("UPDATE price_lists SET local_path=?,file_format=?,last_download_at=? WHERE id=?",
-            (str(path),"pkl",now_iso(),price_list_id))
-    return path
+    return persist_price_list_path(price_list_id,path)
 
 
 def download_cecotec_combined(price_list_id: int, catalog_url: str, stock_url: str,
@@ -417,9 +504,7 @@ def combine_activeshop_stock(price_list_id: int, catalog_path: str | Path, stock
     catalog["active_price_updated"]=catalog["cost"]
     folder=LIST_DIR/str(price_list_id);folder.mkdir(parents=True,exist_ok=True)
     path=folder/"activeshop_catalogo_stock.pkl";catalog.to_pickle(path)
-    execute("UPDATE price_lists SET local_path=?,file_format=?,last_download_at=? WHERE id=?",
-            (str(path),"pkl",now_iso(),price_list_id))
-    return path
+    return persist_price_list_path(price_list_id,path)
 
 
 def download_activeshop_combined(price_list_id: int, catalog_url: str, stock_url: str,
@@ -584,9 +669,7 @@ def combine_forcetop_feeds(price_list_id: int, catalog_path: str | Path,
     folder=LIST_DIR/str(price_list_id);folder.mkdir(parents=True,exist_ok=True)
     path=folder/"forcetop_catalogo_prezzi_stock.pkl"
     catalog.to_pickle(path)
-    execute("UPDATE price_lists SET local_path=?,file_format=?,last_download_at=? WHERE id=?",
-            (str(path),"pkl",now_iso(),price_list_id))
-    return path
+    return persist_price_list_path(price_list_id,path)
 
 
 def download_forcetop_combined(price_list_id: int, catalog_url: str,
