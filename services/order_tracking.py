@@ -1247,6 +1247,43 @@ def persist_import(
     return import_id
 
 
+
+def tracking_matches_for_import(import_id: int) -> list[dict[str, Any]]:
+    """Reload persisted matching results without reparsing the original files."""
+    ensure_schema()
+    records = rows(
+        """SELECT * FROM tracking_matches WHERE import_id=? ORDER BY source_row,id""",
+        (int(import_id),),
+    )
+    output: list[dict[str, Any]] = []
+    for source in records:
+        item = dict(source)
+        try:
+            line_ids = json.loads(item.get("order_line_ids_json") or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            line_ids = []
+        output.append({
+            "source_row": int(item.get("source_row") or 0),
+            "source_reference": clean_text(item.get("source_reference")),
+            "order_id": clean_text(item.get("order_id")),
+            "order_line_ids": [clean_text(value) for value in line_ids if clean_text(value)],
+            "row_keys": [],
+            "customer_name": clean_text(item.get("customer_name_file")),
+            "customer_name_order": clean_text(item.get("customer_name_order")),
+            "product": clean_text(item.get("product_file")),
+            "file_status": clean_text(item.get("file_status")),
+            "operational_status": clean_text(item.get("operational_status")),
+            "tracking": clean_text(item.get("tracking")),
+            "carrier": clean_text(item.get("carrier")),
+            "match_status": clean_text(item.get("match_status")),
+            "match_score": float(item.get("match_score") or 0),
+            "match_reason": clean_text(item.get("match_reason")),
+            "supplier": clean_text(item.get("supplier")),
+            "marketplace_status": "",
+            "market_label": clean_text(item.get("marketplace")).title(),
+        })
+    return output
+
 def recent_imports(seller_id: int, account_id: int, marketplace: str, limit: int = 20) -> list[dict[str, Any]]:
     ensure_schema()
     return rows(

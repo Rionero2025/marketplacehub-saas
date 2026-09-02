@@ -7,6 +7,8 @@ from .accounting import AccountingCore, AccountingPeriod, AccountingScope
 from .orders import OrderPage, OrderQuery, OrderScope, OrdersCore
 from .buybox import BuyBoxCore, BuyBoxPage, BuyBoxQuery, BuyBoxScope
 from .jobs import JobSnapshot, JobsCore
+from .packlink import PacklinkCore, PacklinkScope
+from .tracking import TrackingCore, TrackingScope
 
 __all__ = [
     "AccountingCore",
@@ -22,4 +24,8 @@ __all__ = [
     "BuyBoxScope",
     "JobSnapshot",
     "JobsCore",
+    "PacklinkCore",
+    "PacklinkScope",
+    "TrackingCore",
+    "TrackingScope",
 ]

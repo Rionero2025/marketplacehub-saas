@@ -8,6 +8,10 @@ from typing import Any, Mapping
 import pandas as pd
 import streamlit as st
 
+from marketplace_core.accounting import AccountingPeriod
+from marketplace_core.jobs import JobsCore
+from marketplace_core.tracking import TrackingCore, TrackingScope
+
 from services.accounting import (
     accounting_cache_summary,
     accounting_rows,
@@ -271,6 +275,9 @@ account_label = st.selectbox("Account marketplace", list(account_map))
 account = account_map[account_label]
 account_id = int(account["id"])
 marketplace = clean_text(account["marketplace"]).lower()
+tracking_core = TrackingCore()
+tracking_scope = TrackingScope(int(seller_id), int(account_id), marketplace)
+jobs_core = JobsCore()
 try:
     credentials = decrypt_dict(account["credentials_encrypted"])
 except Exception as exc:
@@ -337,42 +344,60 @@ if st.session_state.get(full_request_key):
     ):
         st.session_state[full_request_key] = False
         st.rerun()
+tracking_sync_job_key = f"tracking_orders_job_{seller_id}_{account_id}_{marketplace}_{environment}"
 if incremental_clicked or full_confirmed:
-    try:
-        with st.spinner(f"Aggiornamento ordini {marketplace.title()}…"):
-            sync_result = synchronize_accounting_orders(
-                credentials,
-                seller_id=seller_id,
-                account_id=account_id,
-                marketplace=marketplace,
-                date_from=date_from,
-                date_to=date_to,
-                full=bool(full_confirmed),
-            )
+    existing = jobs_core.snapshot(st.session_state.get(tracking_sync_job_key, "")) if st.session_state.get(tracking_sync_job_key) else None
+    if existing and not existing.terminal:
+        st.warning("È già in corso un aggiornamento ordini per Tracciabilità.")
+    else:
+        request = tracking_core.build_orders_sync_job(
+            tracking_scope, AccountingPeriod(date_from, date_to), full=bool(full_confirmed)
+        )
+        receipt = jobs_core.submit(request)
+        jobs_core.start_local(receipt.job_id)
+        st.session_state[tracking_sync_job_key] = receipt.job_id
         st.success(
-            f"Aggiornamento completato: {sync_result['new_orders']:,} nuovi ordini, "
-            f"{sync_result['updated_orders']:,} ordini modificati e "
-            f"{sync_result['unchanged_orders']:,} ricontrollati senza variazioni. "
-            f"Ordini già presenti prima dell'aggiornamento: {sync_result['existing_orders']:,}. "
-            f"Totale conservato: {sync_result['total_orders']:,}."
+            f"Aggiornamento ordini {marketplace.title()} avviato in background. "
+            "Puoi continuare a usare il programma."
         )
-        st.rerun()
-    except Exception as exc:
-        st.error(
-            "Sincronizzazione non riuscita. Gli ordini già presenti sono rimasti "
-            f"memorizzati: {exc}"
+
+tracking_sync_job_id = st.session_state.get(tracking_sync_job_key)
+if tracking_sync_job_id:
+    tracking_sync_job = jobs_core.snapshot(tracking_sync_job_id)
+    if tracking_sync_job:
+        st.progress(
+            min(1.0, max(0.0, tracking_sync_job.progress_pct / 100.0)),
+            text=tracking_sync_job.message or tracking_sync_job.status,
         )
+        tj1, tj2 = st.columns([1, 4])
+        if tj1.button("Aggiorna stato", key=f"tracking_orders_refresh_{tracking_sync_job_id}"):
+            st.rerun()
+        if tracking_sync_job.status == "done":
+            result = dict(tracking_sync_job.result)
+            st.success(
+                f"Aggiornamento completato · nuovi {int(result.get('new_orders') or 0):,} · "
+                f"modificati {int(result.get('updated_orders') or 0):,} · "
+                f"invariati {int(result.get('unchanged_orders') or 0):,}."
+            )
+        elif tracking_sync_job.status == "error":
+            st.error(
+                "Sincronizzazione non riuscita. Gli ordini già presenti sono rimasti "
+                f"memorizzati: {tracking_sync_job.error}"
+            )
+        else:
+            tj2.caption(
+                f"Job {tracking_sync_job.job_id[:8]} · {tracking_sync_job.status} · "
+                "continua in background."
+            )
 
 info_col.info(
     "Il Customer Name è il riferimento principale. EAN, SKU, prodotto, email, "
     "telefono, indirizzo e data vengono usati per confermare o distinguere gli abbinamenti."
 )
 
-orders = accounting_rows(seller_id, account_id, marketplace)
-orders = [
-    item for item in orders
-    if (not item.get("order_created") or date_from.isoformat() <= str(item.get("order_created"))[:10] <= date_to.isoformat())
-]
+orders = tracking_core.orders(
+    tracking_scope, AccountingPeriod(date_from, date_to)
+)
 if not orders:
     st.warning("Non risultano ordini nel periodo. Aggiorna prima gli ordini mancanti via API.")
 
@@ -547,139 +572,93 @@ if packlink_integration:
             st.rerun()
 
 has_tracking_sources = bool(uploaded_files or shipment_urls or selected_archive_ids)
+tracking_analysis_job_key = f"tracking_analysis_job_{seller_id}_{account_id}_{marketplace}"
 if st.button(
     "Salva, analizza e abbina agli ordini",
     type="primary",
     use_container_width=True,
     disabled=not has_tracking_sources or not orders,
 ):
-    all_file_rows: list[dict[str, Any]] = []
-    source_formats: list[str] = []
-    parsed_supplier = ""
-    supplier_confidence = 0.0
-    file_payloads: list[dict[str, Any]] = []
-    try:
-        for file_id in selected_archive_ids:
-            archived = archived_tracking_file(
-                file_id, seller_id=seller_id, account_id=account_id
+    existing = jobs_core.snapshot(st.session_state.get(tracking_analysis_job_key, "")) if st.session_state.get(tracking_analysis_job_key) else None
+    if existing and not existing.terminal:
+        st.warning("È già in corso un'analisi dei documenti spedizioni.")
+    else:
+        try:
+            job_file_ids = list(selected_archive_ids)
+            # Gli upload vengono archiviati subito; nel job passiamo soltanto gli ID,
+            # mai megabyte di file dentro la coda PostgreSQL.
+            for upload in uploaded_files or []:
+                content = upload.getvalue()
+                archived = archive_tracking_file(
+                    seller_id=seller_id,
+                    account_id=account_id,
+                    marketplace=marketplace,
+                    file_name=upload.name,
+                    content=content,
+                    source_type="upload",
+                    mime_type=clean_text(getattr(upload, "type", "")),
+                )
+                file_id = int(archived["id"])
+                if file_id not in job_file_ids:
+                    job_file_ids.append(file_id)
+            request = tracking_core.build_analysis_job(
+                tracking_scope,
+                AccountingPeriod(date_from, date_to),
+                file_ids=job_file_ids,
+                urls=shipment_urls,
+                supplier_choice=supplier_choice,
             )
-            if not archived:
-                continue
-            file_payloads.append({
-                "id": int(archived["id"]),
-                "name": clean_text(archived.get("file_name")),
-                "content": bytes(archived.get("content") or b""),
-                "sha256": clean_text(archived.get("file_sha256")),
-            })
-
-        for upload in uploaded_files or []:
-            content = upload.getvalue()
-            archived = archive_tracking_file(
-                seller_id=seller_id,
-                account_id=account_id,
-                marketplace=marketplace,
-                file_name=upload.name,
-                content=content,
-                source_type="upload",
-                mime_type=clean_text(getattr(upload, "type", "")),
+            receipt = jobs_core.submit(request)
+            jobs_core.start_local(receipt.job_id)
+            st.session_state[tracking_analysis_job_key] = receipt.job_id
+            st.success(
+                "Documenti salvati. Analisi e matching avviati in background: "
+                "puoi cambiare pagina senza interrompere il lavoro."
             )
-            file_payloads.append({
-                "id": int(archived["id"]),
-                "name": clean_text(archived.get("file_name")),
-                "content": bytes(archived.get("content") or content),
-                "sha256": clean_text(archived.get("file_sha256")) or hashlib.sha256(content).hexdigest(),
-            })
+        except Exception as exc:
+            st.error(f"Avvio analisi documenti non riuscito: {exc}")
 
-        for shipment_url in shipment_urls:
-            downloaded = download_tracking_file_from_url(shipment_url)
-            archived = archive_tracking_file(
-                seller_id=seller_id,
-                account_id=account_id,
-                marketplace=marketplace,
-                file_name=downloaded.file_name,
-                content=downloaded.content,
-                source_type="url",
-                source_url=downloaded.source_url,
-                mime_type=downloaded.mime_type,
+tracking_analysis_job_id = st.session_state.get(tracking_analysis_job_key)
+if tracking_analysis_job_id:
+    tracking_analysis_job = jobs_core.snapshot(tracking_analysis_job_id)
+    if tracking_analysis_job:
+        st.progress(
+            min(1.0, max(0.0, tracking_analysis_job.progress_pct / 100.0)),
+            text=tracking_analysis_job.message or tracking_analysis_job.status,
+        )
+        aj1, aj2 = st.columns([1, 4])
+        if aj1.button("Aggiorna stato analisi", key=f"tracking_analysis_refresh_{tracking_analysis_job_id}"):
+            st.rerun()
+        if tracking_analysis_job.status == "done":
+            result = dict(tracking_analysis_job.result)
+            import_id = int(result.get("import_id") or 0)
+            current_analysis = st.session_state.get(analysis_key) or {}
+            if import_id and int(current_analysis.get("import_id") or 0) != import_id:
+                matches = tracking_core.import_matches(import_id)
+                st.session_state[analysis_key] = {
+                    "matches": matches,
+                    "supplier": clean_text(result.get("supplier")),
+                    "confidence": float(result.get("confidence") or 0.0),
+                    "ranking": list(result.get("ranking") or []),
+                    "import_id": import_id,
+                    "file_ids": list(result.get("file_ids") or []),
+                    "file_names": list(result.get("file_names") or []),
+                    "token": clean_text(result.get("token")),
+                    "source": "worker",
+                }
+            st.success(
+                f"Analisi completata · {int(result.get('total') or 0):,} righe · "
+                f"abbinate {int(result.get('matched') or 0):,} · "
+                f"ambigue {int(result.get('ambiguous') or 0):,} · "
+                f"non abbinate {int(result.get('unmatched') or 0):,}."
             )
-            file_payloads.append({
-                "id": int(archived["id"]),
-                "name": clean_text(archived.get("file_name")),
-                "content": bytes(archived.get("content") or downloaded.content),
-                "sha256": clean_text(archived.get("file_sha256")) or hashlib.sha256(downloaded.content).hexdigest(),
-            })
-
-        unique_payloads: list[dict[str, Any]] = []
-        seen_hashes: set[str] = set()
-        for payload in file_payloads:
-            digest = clean_text(payload.get("sha256")) or hashlib.sha256(payload["content"]).hexdigest()
-            if digest in seen_hashes:
-                continue
-            seen_hashes.add(digest)
-            unique_payloads.append(payload)
-        file_payloads = unique_payloads
-        if not file_payloads:
-            raise ValueError("Non è stato trovato alcun file spedizioni utilizzabile.")
-
-        for payload in file_payloads:
-            parsed = parse_tracking_document(payload["content"], payload["name"])
-            source_formats.append(parsed.source_format)
-            all_file_rows.extend(parsed.rows)
-            if parsed.supplier and parsed.confidence >= supplier_confidence:
-                parsed_supplier = parsed.supplier
-                supplier_confidence = parsed.confidence
-
-        if supplier_choice == "Riconoscimento automatico dal file":
-            selected_supplier, confidence, ranking = detect_supplier_from_orders(
-                all_file_rows, orders, parsed_supplier
-            )
+        elif tracking_analysis_job.status == "error":
+            st.error(f"Analisi dei documenti non riuscita: {tracking_analysis_job.error}")
         else:
-            selected_supplier = supplier_choice
-            confidence = 1.0
-            ranking = [{"supplier": selected_supplier, "score": 100.0, "reason": "Scelta manuale"}]
-
-        if not selected_supplier:
-            st.error(
-                "Il fornitore non è stato riconosciuto con sufficiente sicurezza. "
-                "Selezionalo manualmente e ripeti l'analisi."
+            aj2.caption(
+                f"Job {tracking_analysis_job.job_id[:8]} · {tracking_analysis_job.status} · "
+                "parsing e matching continuano in background."
             )
-            if ranking:
-                st.dataframe(ranking, use_container_width=True, hide_index=True)
-            st.stop()
-
-        file_ids = [int(payload["id"]) for payload in file_payloads]
-        update_archived_tracking_file_supplier(file_ids, selected_supplier)
-        matches = match_tracking_rows(all_file_rows, orders, supplier=selected_supplier)
-        combined_content = b"".join(payload["content"] for payload in file_payloads)
-        import_id = persist_import(
-            seller_id=seller_id,
-            account_id=account_id,
-            marketplace=marketplace,
-            supplier=selected_supplier,
-            file_name="; ".join(payload["name"] for payload in file_payloads),
-            content=combined_content,
-            source_format="; ".join(sorted(set(source_formats))),
-            matches=matches,
-            file_ids=file_ids,
-        )
-        st.session_state[analysis_key] = {
-            "matches": matches,
-            "supplier": selected_supplier,
-            "confidence": confidence,
-            "ranking": ranking,
-            "import_id": import_id,
-            "file_ids": file_ids,
-            "file_names": [payload["name"] for payload in file_payloads],
-            "token": hashlib.sha256(combined_content).hexdigest(),
-        }
-        st.success(
-            f"Analisi completata: {len(matches)} righe da {len(file_payloads)} file. "
-            f"Fornitore: {selected_supplier} ({confidence:.0%} di confidenza). "
-            "I documenti sono stati salvati nell'archivio permanente."
-        )
-        st.rerun()
-    except Exception as exc:
-        st.error(f"Analisi dei documenti non riuscita: {exc}")
 
 analysis = st.session_state.get(analysis_key)
 if analysis:

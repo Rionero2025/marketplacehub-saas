@@ -402,6 +402,45 @@ def _run_accounting_costs(job: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+
+def _run_packlink_shipments_sync(job: dict[str, Any]) -> dict[str, Any]:
+    from marketplace_core.packlink import PacklinkCore, PacklinkScope
+
+    seller_id = int(job.get("seller_id") or 0)
+    core = PacklinkCore()
+
+    def progress(done: int, total: int, label: str) -> None:
+        update_job_progress(str(job["id"]), done, total, label)
+
+    return core.synchronize_shipments(PacklinkScope(seller_id), progress=progress)
+
+
+def _run_tracking_documents_analyze(job: dict[str, Any]) -> dict[str, Any]:
+    from marketplace_core.accounting import AccountingPeriod
+    from marketplace_core.tracking import TrackingCore, TrackingScope
+
+    payload = job.get("payload") or {}
+    seller_id = int(job.get("seller_id") or 0)
+    account_id = int(payload.get("account_id") or 0)
+    marketplace = str(payload.get("marketplace") or "").strip().lower()
+    period = AccountingPeriod(
+        _payload_date(payload, "date_from"),
+        _payload_date(payload, "date_to"),
+    )
+    core = TrackingCore()
+
+    def progress(done: int, total: int, label: str) -> None:
+        update_job_progress(str(job["id"]), done, total, label)
+
+    return core.analyze_archived_documents(
+        TrackingScope(seller_id, account_id, marketplace),
+        period,
+        file_ids=payload.get("file_ids") or [],
+        urls=payload.get("urls") or [],
+        supplier_choice=str(payload.get("supplier_choice") or ""),
+        progress=progress,
+    )
+
 def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
     kind = str(job.get("kind") or "")
     handlers: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -410,10 +449,12 @@ def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
         "buybox.kaufland.quick": _run_buybox_kaufland_quick,
         "accounting.orders.sync": _run_accounting_sync,
         "accounting.costs.refresh": _run_accounting_costs,
+        "packlink.shipments.sync": _run_packlink_shipments_sync,
+        "tracking.documents.analyze": _run_tracking_documents_analyze,
     }
     handler = handlers.get(kind)
     if handler is None:
-        raise RuntimeError(f"Job non supportato dal worker v306: {kind}")
+        raise RuntimeError(f"Job non supportato dal worker v308: {kind}")
     return handler(job)
 
 

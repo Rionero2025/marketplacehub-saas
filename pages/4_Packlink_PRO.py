@@ -15,6 +15,8 @@ import streamlit as st
 
 from services.accounting import accounting_rows, ensure_schema as ensure_accounting_schema
 from services.db import rows
+from marketplace_core.jobs import JobsCore
+from marketplace_core.packlink import PacklinkCore, PacklinkScope
 
 # v217: quando un hotfix sostituisce un file di servizio mentre Streamlit è
 # ancora aperto, Python può avere in sys.modules la vecchia versione del modulo.
@@ -357,6 +359,10 @@ seller_id = seller_selector()
 if seller_id is None:
     st.stop()
 
+packlink_core = PacklinkCore()
+packlink_scope = PacklinkScope(int(seller_id))
+jobs_core = JobsCore()
+
 integration = integration_for_seller(seller_id, include_inactive=True)
 if not integration:
     st.warning(
@@ -402,19 +408,7 @@ if conn_col.button("Verifica connessione", use_container_width=True, key=f"packl
         st.rerun()
     st.error(f"Connessione Packlink non valida: {check.get('message')}")
 
-profile_cache_key = f"packlink_profile_v209_{seller_id}"
-if profile_cache_key not in st.session_state:
-    try:
-        with st.spinner("Lettura magazzini e pacchi configurati in Packlink PRO…"):
-            st.session_state[profile_cache_key] = {
-                "warehouses": client.warehouses(),
-                "parcels": client.parcels(),
-                "error": "",
-            }
-    except Exception as exc:
-        st.session_state[profile_cache_key] = {"warehouses": [], "parcels": [], "error": str(exc)}
-
-profile = st.session_state.get(profile_cache_key, {})
+profile = packlink_core.profile(packlink_scope)
 warehouses = list(profile.get("warehouses") or [])
 parcels = list(profile.get("parcels") or [])
 if profile.get("error"):
@@ -423,8 +417,13 @@ if profile.get("error"):
         f"Puoi usare i dati manuali qui sotto. Dettaglio: {profile['error']}"
     )
 if profile_col.button("Ricarica magazzini e pacchi Packlink", use_container_width=True):
-    st.session_state.pop(profile_cache_key, None)
-    st.rerun()
+    with st.spinner("Aggiornamento configurazione Packlink…"):
+        refreshed_profile = packlink_core.profile(packlink_scope, force=True)
+    if refreshed_profile.get("error"):
+        st.error(f"Aggiornamento configurazione Packlink non riuscito: {refreshed_profile['error']}")
+    else:
+        st.success("Magazzini e pacchi Packlink aggiornati nella cache condivisa.")
+        st.rerun()
 
 saved_defaults = settings.get("shipping_defaults") if isinstance(settings.get("shipping_defaults"), Mapping) else {}
 
@@ -3337,21 +3336,46 @@ else:
 
 with st.expander("Sincronizza spedizioni Packlink già presenti / pagate", expanded=False):
     st.write(
-        "Questa funzione mantiene l'archivio delle spedizioni Packlink già create, utile per "
-        "tracking e corriere nella sezione Tracciabilità ordini."
+        "La sincronizzazione viene eseguita come job persistente: puoi cambiare pagina mentre "
+        "Packlink viene letto e aggiornato nel database."
     )
+    packlink_job_key = f"packlink_shipments_job_{seller_id}"
     if st.button("Scarica / aggiorna spedizioni Packlink", use_container_width=True):
-        try:
-            with st.spinner("Sincronizzazione spedizioni Packlink…"):
-                result = sync_shipments(seller_id, client)
-            update_connection_status(seller_id, ok=True)
-            st.success(
-                f"{result['fetched']:,} spedizioni lette · {result['inserted']:,} nuove · "
-                f"{result['updated']:,} aggiornate."
+        existing = jobs_core.snapshot(st.session_state.get(packlink_job_key, "")) if st.session_state.get(packlink_job_key) else None
+        if existing and not existing.terminal:
+            st.warning("È già in corso una sincronizzazione spedizioni Packlink.")
+        else:
+            receipt = jobs_core.submit(packlink_core.build_sync_shipments_job(packlink_scope))
+            jobs_core.start_local(receipt.job_id)
+            st.session_state[packlink_job_key] = receipt.job_id
+            st.success("Sincronizzazione Packlink avviata in background.")
+
+    packlink_job_id = st.session_state.get(packlink_job_key)
+    if packlink_job_id:
+        packlink_job = jobs_core.snapshot(packlink_job_id)
+        if packlink_job:
+            st.progress(
+                min(1.0, max(0.0, packlink_job.progress_pct / 100.0)),
+                text=packlink_job.message or packlink_job.status,
             )
-            st.rerun()
-        except Exception as exc:
-            update_connection_status(seller_id, ok=False, error=str(exc))
-            st.error(f"Sincronizzazione spedizioni Packlink non riuscita: {exc}")
+            pj1, pj2 = st.columns([1, 4])
+            if pj1.button("Aggiorna stato", key=f"packlink_job_refresh_{packlink_job_id}"):
+                st.rerun()
+            if packlink_job.status == "done":
+                result = dict(packlink_job.result)
+                update_connection_status(seller_id, ok=True)
+                st.success(
+                    f"{int(result.get('fetched') or 0):,} spedizioni lette · "
+                    f"{int(result.get('inserted') or 0):,} nuove · "
+                    f"{int(result.get('updated') or 0):,} aggiornate."
+                )
+            elif packlink_job.status == "error":
+                update_connection_status(seller_id, ok=False, error=packlink_job.error)
+                st.error(f"Sincronizzazione spedizioni Packlink non riuscita: {packlink_job.error}")
+            else:
+                pj2.caption(
+                    f"Job {packlink_job.job_id[:8]} · {packlink_job.status} · "
+                    "continua anche se navighi in un'altra sezione."
+                )
     shipments = cached_shipments(seller_id)
     st.metric("Spedizioni Packlink memorizzate", len(shipments))
