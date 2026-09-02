@@ -293,6 +293,10 @@ def _init_db_once() -> None:
             price_list_id INTEGER NOT NULL REFERENCES price_lists(id) ON DELETE CASCADE,
             name TEXT NOT NULL,
             snapshot_path TEXT NOT NULL,
+            snapshot_storage_key TEXT NOT NULL DEFAULT '',
+            snapshot_storage_backend TEXT NOT NULL DEFAULT '',
+            snapshot_sha256 TEXT NOT NULL DEFAULT '',
+            snapshot_size_bytes INTEGER NOT NULL DEFAULT 0,
             filters_json TEXT NOT NULL DEFAULT '{}',
             row_count INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
@@ -710,6 +714,19 @@ def _init_db_once() -> None:
             marketplace_account_id,environment,storefront,started_at
         );
         """)
+        existing_saved_view_columns={
+            str(item["name"]) for item in con.execute("PRAGMA table_info(saved_views)").fetchall()
+        }
+        saved_view_migrations={
+            "snapshot_storage_key":"TEXT NOT NULL DEFAULT ''",
+            "snapshot_storage_backend":"TEXT NOT NULL DEFAULT ''",
+            "snapshot_sha256":"TEXT NOT NULL DEFAULT ''",
+            "snapshot_size_bytes":"INTEGER NOT NULL DEFAULT 0",
+        }
+        for column,declaration in saved_view_migrations.items():
+            if column not in existing_saved_view_columns:
+                con.execute(f"ALTER TABLE saved_views ADD COLUMN {column} {declaration}")
+
         existing_seller_columns={
             str(item["name"]) for item in con.execute("PRAGMA table_info(sellers)").fetchall()
         }
@@ -1072,16 +1089,24 @@ def delete_marketplace_account(account_id: int, seller_id: int) -> bool:
 
 def delete_saved_view(view_id: int, seller_id: int) -> bool:
     snapshot = ""
+    storage_key = ""
     with connect() as con:
         found = con.execute(
-            "SELECT snapshot_path FROM saved_views WHERE id=? AND seller_id=?",
+            "SELECT snapshot_path,snapshot_storage_key FROM saved_views WHERE id=? AND seller_id=?",
             (view_id, seller_id),
         ).fetchone()
         if not found:
             return False
         snapshot = found["snapshot_path"] or ""
+        storage_key = found["snapshot_storage_key"] or ""
         con.execute("DELETE FROM saved_views WHERE id=?", (view_id,))
     _remove_paths([snapshot])
+    if storage_key:
+        try:
+            from services.saved_view_storage import delete_saved_view_object
+            delete_saved_view_object(storage_key)
+        except Exception:
+            pass
     return True
 
 
@@ -1096,14 +1121,24 @@ def delete_price_list(price_list_id: int, owner_seller_id: int) -> bool:
             return False
         if found["local_path"]:
             paths.append(found["local_path"])
-        paths.extend(r[0] for r in con.execute(
-            "SELECT snapshot_path FROM saved_views WHERE price_list_id=?", (price_list_id,)
-        ).fetchall() if r[0])
+        saved_view_rows = con.execute(
+            "SELECT snapshot_path,snapshot_storage_key FROM saved_views WHERE price_list_id=?",
+            (price_list_id,),
+        ).fetchall()
+        paths.extend(r["snapshot_path"] for r in saved_view_rows if r["snapshot_path"])
+        storage_keys=[r["snapshot_storage_key"] for r in saved_view_rows if r["snapshot_storage_key"]]
         con.execute("DELETE FROM operations WHERE price_list_id=?", (price_list_id,))
         con.execute("DELETE FROM price_lists WHERE id=?", (price_list_id,))
     # The importer stores every feed under a directory named with the list ID.
     paths.append(str(DATA_DIR / "price_lists" / str(price_list_id)))
     _remove_paths(paths)
+    if storage_keys:
+        try:
+            from services.saved_view_storage import delete_saved_view_object
+            for storage_key in storage_keys:
+                delete_saved_view_object(storage_key)
+        except Exception:
+            pass
     return True
 
 

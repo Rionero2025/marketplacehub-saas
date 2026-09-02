@@ -13,6 +13,7 @@ from services.db import execute, execute_many, json_text, now_iso, rows
 from services.kaufland_profit import product_costs
 from services.lists import normalize
 from services.security import decrypt_dict
+from services.saved_view_storage import load_saved_view_frame
 from services.session import bootstrap, seller_selector
 from services.worten import (
     DEFAULT_API_URL,
@@ -516,11 +517,8 @@ def load_product_lookup() -> tuple[dict, dict]:
         (seller_id, selected_list["id"], *view_ids),
     )
     for saved_view in saved_views:
-        path = Path(str(saved_view.get("snapshot_path") or ""))
-        if not path.exists():
-            continue
         try:
-            frame = normalize(pd.read_pickle(path))
+            frame = normalize(load_saved_view_frame(saved_view))
         except Exception:
             continue
         for product in frame.to_dict("records"):

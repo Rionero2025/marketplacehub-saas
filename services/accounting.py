@@ -39,6 +39,7 @@ from services.kaufland_orders import (
     order_amounts_to_eur,
     response_item,
 )
+from services.saved_view_storage import resolve_saved_view_path
 from services.lists import country_cost, download_url, normalize, read_list
 from services.profit_sharing import normalized_percentages, split_profit
 from services.worten import commission_rate_from_order_line
@@ -682,7 +683,7 @@ def _catalog_paths(seller_id: int) -> list[dict[str, Any]]:
             (pl.visibility='shared' AND a.seller_id IS NOT NULL)
         )
         UNION ALL
-        SELECT pl.id AS price_list_id,sv.seller_id AS source_seller_id,
+        SELECT pl.id AS price_list_id,sv.seller_id AS source_seller_id,sv.id AS saved_view_id,
                sv.snapshot_path AS path,pl.source_url AS source_url,sv.updated_at AS updated_at,
                sv.name AS list_name,s.name AS supplier_name,
                1 AS priority,'vista salvata' AS source_kind
@@ -691,7 +692,7 @@ def _catalog_paths(seller_id: int) -> list[dict[str, Any]]:
         JOIN suppliers s ON s.id=pl.supplier_id
         LEFT JOIN price_list_access a
                ON a.price_list_id=pl.id AND a.seller_id=?
-        WHERE sv.seller_id=? AND pl.active=1 AND sv.snapshot_path<>'' AND (
+        WHERE sv.seller_id=? AND pl.active=1 AND (sv.snapshot_path<>'' OR COALESCE(sv.snapshot_storage_key,'')<>'') AND (
             pl.owner_seller_id=? OR pl.visibility='global' OR
             (pl.visibility='shared' AND a.seller_id IS NOT NULL)
         )
@@ -820,6 +821,14 @@ def _resolve_catalog_path(item: Mapping[str, Any]) -> Path | None:
     data folder is normally copied to the new version, therefore the suffix that
     follows ``data`` is reconstructed under the current DATA_DIR.
     """
+    source_kind = clean_text(item.get("source_kind")).lower()
+    saved_view_id = int(item.get("saved_view_id") or 0)
+    if "vista" in source_kind and saved_view_id:
+        try:
+            return resolve_saved_view_path(saved_view_id)
+        except Exception:
+            pass
+
     raw = clean_text(item.get("path"))
     if not raw:
         return None
@@ -839,7 +848,6 @@ def _resolve_catalog_path(item: Mapping[str, Any]) -> Path | None:
     price_list_id = int(item.get("price_list_id") or 0)
     source_seller_id = int(item.get("source_seller_id") or 0)
     basename = original.name
-    source_kind = clean_text(item.get("source_kind")).lower()
     fallback_folders: list[Path] = []
     if price_list_id:
         fallback_folders.append(DATA_DIR / "price_lists" / str(price_list_id))

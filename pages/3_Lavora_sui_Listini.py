@@ -13,7 +13,10 @@ from marketplace_core.jobs import JobsCore
 
 from services.db import (DATA_DIR, accessible_lists, delete_saved_view, execute,
                          json_text, now_iso, rows)
-from services.lists import destination_country_codes, normalize, safe_name
+from services.lists import destination_country_codes, normalize
+from services.object_storage import storage_status
+from services.saved_view_storage import (load_saved_view_frame, migrate_saved_views_to_storage,
+                                         save_saved_view_frame)
 from services.session import bootstrap, seller_selector
 
 bootstrap();st.title("Lavora sui listini")
@@ -257,20 +260,21 @@ if st.button("Salva vista e destinazioni",type="primary"):
                     selected["destination_countries"]=",".join(destination_countries)
                     selected["destination_country"]=destination_country if len(destination_countries)==1 else ""
                 selected=selected.drop(columns=["_row_no","_feed_shipping"],errors="ignore")
-                folder=DATA_DIR/"saved_views"/str(seller_id);folder.mkdir(parents=True,exist_ok=True)
                 if overwrite:
                     target=existing_map[existing_choice];vid=target["id"];name=target["name"]
                 else:
                     name=view_name.strip();vid=execute("""INSERT INTO saved_views
                     (seller_id,price_list_id,name,snapshot_path,filters_json,row_count,created_at,updated_at)
                     VALUES(?,?,?,?,?,?,?,?)""",(seller_id,pl["id"],name,"pending",json_text({}),len(selected),now_iso(),now_iso()))
-                path=folder/f"{vid}_{safe_name(name)}.pkl";selected.to_pickle(path)
                 filters={"search":search,"min_qty":min_qty,"min_cost":min_cost,"max_cost":max_cost,
                          "shipping":shipping,"margin":margin,"minimum_margin":minimum_margin,
                          "weight_exclusion_mode":weight_mode,"weight_from":weight_from,"weight_to":weight_to,
                          "destination_countries":destination_countries}
-                execute("UPDATE saved_views SET price_list_id=?,snapshot_path=?,filters_json=?,row_count=?,updated_at=? WHERE id=?",
-                        (pl["id"],str(path),json_text(filters),len(selected),now_iso(),vid))
+                execute("UPDATE saved_views SET price_list_id=?,filters_json=?,row_count=?,updated_at=? WHERE id=?",
+                        (pl["id"],json_text(filters),len(selected),now_iso(),vid))
+                saved_artifact=save_saved_view_frame(
+                    view_id=vid,seller_id=seller_id,name=name,frame=selected,
+                )
                 execute("DELETE FROM saved_view_marketplaces WHERE saved_view_id=?",(vid,))
                 for aid in chosen_accounts:execute("INSERT INTO saved_view_marketplaces(saved_view_id,marketplace_account_id) VALUES(?,?)",(vid,aid))
             st.success(f"Vista '{name}' salvata con {len(selected)} prodotti e {len(chosen_accounts)} destinazioni.");st.rerun()
@@ -283,101 +287,119 @@ LEFT JOIN saved_view_marketplaces svm ON svm.saved_view_id=sv.id
 LEFT JOIN marketplace_accounts ma ON ma.id=svm.marketplace_account_id
 WHERE sv.seller_id=? GROUP BY sv.id ORDER BY sv.updated_at DESC""",(seller_id,))
 if saved:
+    storage=storage_status()
+    backend_label=str(storage.get("backend") or "local").upper()
+    st.caption(
+        f"Storage snapshot v312: {backend_label}. Le viste nuove vengono salvate tramite il layer object storage; "
+        "la copia locale resta solo come cache/compatibilità durante la migrazione."
+    )
+    missing_remote=sum(1 for item in saved if not str(item.get("snapshot_storage_key") or "").strip())
+    if missing_remote:
+        m1,m2=st.columns([2,1])
+        m1.info(f"{missing_remote} viste legacy non hanno ancora una copia object storage.")
+        if m2.button("Migra viste legacy",key=f"migrate_saved_views_storage_{seller_id}",use_container_width=True):
+            try:
+                result=migrate_saved_views_to_storage(seller_id)
+                if result["failed"]:
+                    st.warning(f"Migrate {result['migrated']} viste; {len(result['failed'])} non disponibili localmente.")
+                else:
+                    st.success(f"Migrazione completata: {result['migrated']} viste copiate nello storage.")
+                st.rerun()
+            except Exception as e:st.error(f"Migrazione storage non riuscita: {e}")
     st.dataframe([{"ID":x["id"],"Vista":x["name"],"Listino":x["price_list_name"],"Prodotti":x["row_count"],"Marketplace":x["destinations"] or "—","Aggiornata":x["updated_at"]} for x in saved],use_container_width=True,hide_index=True)
 
     st.subheader("Apri e modifica una vista salvata")
     saved_map={f"{x['name']} · {x['row_count']} prodotti · ID {x['id']}":x for x in saved}
     saved_label=st.selectbox("Vista da lavorare",list(saved_map),key="saved_view_to_edit")
     saved_view=saved_map[saved_label]
-    snapshot=Path(saved_view["snapshot_path"])
-    if not snapshot.exists():
-        st.error("Il file della vista non è disponibile. Puoi eliminare la registrazione e ricrearla.")
-    else:
-        try:
-            view_df=normalize(pd.read_pickle(snapshot))
-            saved_destinations=destination_country_codes(view_df)
-            if saved_destinations:
-                destination_names={"pt":"Portogallo","it":"Italia","de":"Germania","fr":"Francia","at":"Austria",
-                                   "pl":"Polonia","cz":"Repubblica Ceca","sk":"Slovacchia","nl":"Paesi Bassi"}
-                saved_labels=[
-                    destination_names.get(code,code.upper()) for code in saved_destinations
-                ]
-                st.info(f"Paesi di destinazione salvati: {', '.join(saved_labels)}")
-            view_df.insert(0,"Mantieni",True)
-            edit_columns=["Mantieni","ean","sku","name","weight_kg","cost","shipping_cost","total_cost","quantity","price","minimum_price"]
-            for column in edit_columns:
-                if column not in view_df.columns:
-                    view_df[column]=True if column=="Mantieni" else ("" if column in ("ean","sku","name") else 0.0)
-            st.caption("Modifica i valori, aggiungi nuove righe oppure togli la spunta Mantieni per rimuovere un prodotto dalla vista.")
-            managed=st.data_editor(
-                view_df[edit_columns],use_container_width=True,height=520,hide_index=True,
-                num_rows="dynamic",key=f"saved_editor_{saved_view['id']}",
-                column_config={
-                    "Mantieni":st.column_config.CheckboxColumn(default=True),
-                    "weight_kg":st.column_config.NumberColumn("Peso (kg)",format="%.3f",min_value=0.0),
-                    "cost":st.column_config.NumberColumn("Costo",format="%.2f"),
-                    "shipping_cost":st.column_config.NumberColumn("Spedizione",format="%.2f"),
-                    "total_cost":st.column_config.NumberColumn("Costo totale",format="%.2f"),
-                    "quantity":st.column_config.NumberColumn("Quantità",min_value=0,step=1),
-                    "price":st.column_config.NumberColumn("Prezzo",format="%.2f"),
-                    "minimum_price":st.column_config.NumberColumn("Prezzo minimo",format="%.2f"),
-                },
+    try:
+        view_df=normalize(load_saved_view_frame(saved_view))
+        saved_destinations=destination_country_codes(view_df)
+        if saved_destinations:
+            destination_names={"pt":"Portogallo","it":"Italia","de":"Germania","fr":"Francia","at":"Austria",
+                               "pl":"Polonia","cz":"Repubblica Ceca","sk":"Slovacchia","nl":"Paesi Bassi"}
+            saved_labels=[
+                destination_names.get(code,code.upper()) for code in saved_destinations
+            ]
+            st.info(f"Paesi di destinazione salvati: {', '.join(saved_labels)}")
+        view_df.insert(0,"Mantieni",True)
+        edit_columns=["Mantieni","ean","sku","name","weight_kg","cost","shipping_cost","total_cost","quantity","price","minimum_price"]
+        for column in edit_columns:
+            if column not in view_df.columns:
+                view_df[column]=True if column=="Mantieni" else ("" if column in ("ean","sku","name") else 0.0)
+        st.caption("Modifica i valori, aggiungi nuove righe oppure togli la spunta Mantieni per rimuovere un prodotto dalla vista.")
+        managed=st.data_editor(
+            view_df[edit_columns],use_container_width=True,height=520,hide_index=True,
+            num_rows="dynamic",key=f"saved_editor_{saved_view['id']}",
+            column_config={
+                "Mantieni":st.column_config.CheckboxColumn(default=True),
+                "weight_kg":st.column_config.NumberColumn("Peso (kg)",format="%.3f",min_value=0.0),
+                "cost":st.column_config.NumberColumn("Costo",format="%.2f"),
+                "shipping_cost":st.column_config.NumberColumn("Spedizione",format="%.2f"),
+                "total_cost":st.column_config.NumberColumn("Costo totale",format="%.2f"),
+                "quantity":st.column_config.NumberColumn("Quantità",min_value=0,step=1),
+                "price":st.column_config.NumberColumn("Prezzo",format="%.2f"),
+                "minimum_price":st.column_config.NumberColumn("Prezzo minimo",format="%.2f"),
+            },
+        )
+        managed=managed[managed["Mantieni"].fillna(True)].drop(columns=["Mantieni"])
+        managed=managed[
+            managed["ean"].fillna("").astype(str).str.strip().ne("") |
+            managed["sku"].fillna("").astype(str).str.strip().ne("")
+        ].copy()
+
+        new_name=st.text_input("Nome vista",value=saved_view["name"],key=f"saved_name_{saved_view['id']}")
+        current_accounts={x["marketplace_account_id"] for x in rows(
+            "SELECT marketplace_account_id FROM saved_view_marketplaces WHERE saved_view_id=?",
+            (saved_view["id"],),
+        )}
+        st.caption("Destinazioni marketplace della vista")
+        managed_accounts=[]
+        account_cols=st.columns(min(4,len(accounts)))
+        for i,account in enumerate(accounts):
+            checked=account_cols[i%len(account_cols)].checkbox(
+                f"{account['marketplace'].title()} — {account['account_name']}",
+                value=account["id"] in current_accounts,
+                key=f"saved_target_{saved_view['id']}_{account['id']}",
             )
-            managed=managed[managed["Mantieni"].fillna(True)].drop(columns=["Mantieni"])
-            managed=managed[
-                managed["ean"].fillna("").astype(str).str.strip().ne("") |
-                managed["sku"].fillna("").astype(str).str.strip().ne("")
-            ].copy()
+            if checked: managed_accounts.append(account["id"])
 
-            new_name=st.text_input("Nome vista",value=saved_view["name"],key=f"saved_name_{saved_view['id']}")
-            current_accounts={x["marketplace_account_id"] for x in rows(
-                "SELECT marketplace_account_id FROM saved_view_marketplaces WHERE saved_view_id=?",
-                (saved_view["id"],),
-            )}
-            st.caption("Destinazioni marketplace della vista")
-            managed_accounts=[]
-            account_cols=st.columns(min(4,len(accounts)))
-            for i,account in enumerate(accounts):
-                checked=account_cols[i%len(account_cols)].checkbox(
-                    f"{account['marketplace'].title()} — {account['account_name']}",
-                    value=account["id"] in current_accounts,
-                    key=f"saved_target_{saved_view['id']}_{account['id']}",
-                )
-                if checked: managed_accounts.append(account["id"])
+        b1,b2=st.columns([1,1])
+        if b1.button("Aggiorna vista salvata",type="primary",key=f"update_saved_{saved_view['id']}"):
+            if not new_name.strip(): st.error("Inserisci il nome della vista.")
+            elif managed.empty: st.error("La vista deve contenere almeno un prodotto.")
+            elif not managed_accounts: st.error("Seleziona almeno un marketplace di destinazione.")
+            else:
+                try:
+                    # normalize validates and standardizes manually added rows too.
+                    managed=normalize(managed).drop(columns=["Seleziona","Mantieni"],errors="ignore")
+                    if saved_destinations:
+                        managed["destination_countries"]=",".join(saved_destinations)
+                        managed["destination_country"]=(
+                            saved_destinations[0] if len(saved_destinations)==1 else ""
+                        )
+                    execute("UPDATE saved_views SET name=?,row_count=?,updated_at=? WHERE id=? AND seller_id=?",
+                            (new_name.strip(),len(managed),now_iso(),saved_view["id"],seller_id))
+                    save_saved_view_frame(
+                        view_id=saved_view["id"],seller_id=seller_id,
+                        name=new_name.strip(),frame=managed,
+                    )
+                    execute("DELETE FROM saved_view_marketplaces WHERE saved_view_id=?",(saved_view["id"],))
+                    for account_id in managed_accounts:
+                        execute("INSERT INTO saved_view_marketplaces(saved_view_id,marketplace_account_id) VALUES(?,?)",
+                                (saved_view["id"],account_id))
+                    st.success(f"Vista aggiornata: {len(managed)} prodotti e {len(managed_accounts)} destinazioni.")
+                    st.rerun()
+                except Exception as e: st.error(f"Impossibile aggiornare la vista: {e}")
 
-            b1,b2=st.columns([1,1])
-            if b1.button("Aggiorna vista salvata",type="primary",key=f"update_saved_{saved_view['id']}"):
-                if not new_name.strip(): st.error("Inserisci il nome della vista.")
-                elif managed.empty: st.error("La vista deve contenere almeno un prodotto.")
-                elif not managed_accounts: st.error("Seleziona almeno un marketplace di destinazione.")
-                else:
-                    try:
-                        # normalize validates and standardizes manually added rows too.
-                        managed=normalize(managed).drop(columns=["Seleziona","Mantieni"],errors="ignore")
-                        if saved_destinations:
-                            managed["destination_countries"]=",".join(saved_destinations)
-                            managed["destination_country"]=(
-                                saved_destinations[0] if len(saved_destinations)==1 else ""
-                            )
-                        managed.to_pickle(snapshot)
-                        execute("UPDATE saved_views SET name=?,row_count=?,updated_at=? WHERE id=? AND seller_id=?",
-                                (new_name.strip(),len(managed),now_iso(),saved_view["id"],seller_id))
-                        execute("DELETE FROM saved_view_marketplaces WHERE saved_view_id=?",(saved_view["id"],))
-                        for account_id in managed_accounts:
-                            execute("INSERT INTO saved_view_marketplaces(saved_view_id,marketplace_account_id) VALUES(?,?)",
-                                    (saved_view["id"],account_id))
-                        st.success(f"Vista aggiornata: {len(managed)} prodotti e {len(managed_accounts)} destinazioni.")
-                        st.rerun()
-                    except Exception as e: st.error(f"Impossibile aggiornare la vista: {e}")
-
-            with b2.popover("Elimina vista"):
-                st.warning("Questa operazione elimina la vista salvata, ma non il listino originale.")
-                confirm_view=st.text_input("Digita ELIMINA",key=f"confirm_delete_view_{saved_view['id']}")
-                if st.button("Elimina definitivamente",key=f"delete_view_{saved_view['id']}"):
-                    if confirm_view!="ELIMINA": st.error("Conferma non valida.")
-                    elif delete_saved_view(saved_view["id"],seller_id):
-                        st.success("Vista eliminata."); st.rerun()
-                    else: st.error("Vista non trovata.")
-        except Exception as e:
-            st.error(f"Impossibile aprire la vista: {e}")
+        with b2.popover("Elimina vista"):
+            st.warning("Questa operazione elimina la vista salvata, ma non il listino originale.")
+            confirm_view=st.text_input("Digita ELIMINA",key=f"confirm_delete_view_{saved_view['id']}")
+            if st.button("Elimina definitivamente",key=f"delete_view_{saved_view['id']}"):
+                if confirm_view!="ELIMINA": st.error("Conferma non valida.")
+                elif delete_saved_view(saved_view["id"],seller_id):
+                    st.success("Vista eliminata."); st.rerun()
+                else: st.error("Vista non trovata.")
+    except Exception as e:
+        st.error(f"Impossibile aprire la vista: {e}")
 else:st.info("Nessuna vista salvata.")

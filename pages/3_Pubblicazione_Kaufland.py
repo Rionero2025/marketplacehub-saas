@@ -22,6 +22,7 @@ from services.kaufland_offer import (commercial_values, composed_sku,
 from services.lists import (apply_weight_exclusion,country_cost,
                             destination_country_codes,normalize)
 from services.security import decrypt_dict
+from services.saved_view_storage import load_saved_view_frame
 from services.session import bootstrap, seller_selector
 
 embedded=bool(st.session_state.get("_embedded_marketplace_publication"))
@@ -48,9 +49,8 @@ WHERE sv.seller_id=? AND svm.marketplace_account_id=? ORDER BY sv.updated_at DES
 if not views:st.error("Non ci sono viste salvate destinate a questo account Kaufland. Creane una in Lavora sui listini.");st.stop()
 vmap={f"{x['name']} · {x['row_count']} prodotti · ID {x['id']}":x for x in views};view=vmap[st.selectbox("Vista salvata",list(vmap))]
 pl={"id":view["price_list_id"],"name":view["price_list_name"]}
-if not view["snapshot_path"] or not Path(view["snapshot_path"]).exists():st.error("Il file della vista salvata non è disponibile.");st.stop()
-try:df=normalize(pd.read_pickle(view["snapshot_path"]))
-except Exception as e:st.error(f"Impossibile leggere il listino: {e}");st.stop()
+try:df=normalize(load_saved_view_frame(view))
+except Exception as e:st.error(f"Impossibile leggere la vista salvata: {e}");st.stop()
 saved_destination_countries=destination_country_codes(df)
 compatible_saved=[
     code for code in country_names if code in saved_destination_countries

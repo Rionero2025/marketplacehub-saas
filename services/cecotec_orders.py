@@ -18,6 +18,8 @@ from urllib.parse import urlencode
 import pandas as pd
 import requests
 
+from services.saved_view_storage import load_saved_view_frame
+
 try:
     from services.db import DATA_DIR, execute, execute_many, json_text, now_iso, rows
 except Exception:  # pragma: no cover - permette i test standalone
@@ -808,22 +810,23 @@ def find_cecotec_snapshots(seller_id: int) -> list[dict[str, Any]]:
     return []
 
 
-def load_cecotec_catalog(snapshot_path: str | Path) -> tuple[dict[str, dict[str, str]], pd.DataFrame, dict[str, str]]:
-    path = Path(snapshot_path)
-    if not path.exists():
-        raise FileNotFoundError(f"Snapshot Cecotec non trovato: {path}")
-
-    suffix = path.suffix.lower()
-    if suffix in {".pkl", ".pickle"}:
-        frame = pd.read_pickle(path)
-    elif suffix == ".csv":
-        frame = pd.read_csv(path, dtype=str)
-    elif suffix in {".xlsx", ".xls"}:
-        frame = pd.read_excel(path, dtype=str)
+def load_cecotec_catalog(snapshot_path: str | Path | Mapping[str, Any]) -> tuple[dict[str, dict[str, str]], pd.DataFrame, dict[str, str]]:
+    if isinstance(snapshot_path, Mapping):
+        frame = load_saved_view_frame(snapshot_path).copy()
     else:
-        raise ValueError(f"Formato listino non supportato: {suffix}")
-
-    frame = frame.copy()
+        path = Path(snapshot_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Snapshot Cecotec non trovato: {path}")
+        suffix = path.suffix.lower()
+        if suffix in {".pkl", ".pickle"}:
+            frame = pd.read_pickle(path)
+        elif suffix == ".csv":
+            frame = pd.read_csv(path, dtype=str)
+        elif suffix in {".xlsx", ".xls"}:
+            frame = pd.read_excel(path, dtype=str)
+        else:
+            raise ValueError(f"Formato listino non supportato: {suffix}")
+        frame = frame.copy()
     frame.columns = [_norm_column(col) for col in frame.columns]
     ean_col = _pick_column(frame, ("ean", "ean13", "barcode", "gtin", "upc"))
     sku_col = _pick_column(
@@ -868,7 +871,7 @@ def load_cecotec_catalogs(
     conflicts: list[dict[str, Any]] = []
 
     for priority, snapshot in enumerate(snapshots):
-        catalog, frame, columns = load_cecotec_catalog(snapshot["snapshot_path"])
+        catalog, frame, columns = load_cecotec_catalog(snapshot)
         source_label = clean_text(snapshot.get("price_list_name")) or "Listino Cecotec"
         source_id = clean_text(snapshot.get("id"))
         loaded.append({

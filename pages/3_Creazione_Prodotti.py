@@ -53,6 +53,7 @@ from services.catalog_intelligence.workflow import (
 )
 from services.db import rows
 from services.session import bootstrap, seller_selector
+from services.saved_view_storage import resolve_saved_view_path
 
 
 bootstrap()
@@ -394,9 +395,13 @@ with source_tab:
             key=f"catalog_source_view_{seller_id}",
         )
         selected_view = view_labels[view_label]
-        path = Path(clean_text(selected_view.get("snapshot_path")))
-        if not path.is_file():
-            st.error(f"Il file della vista non è disponibile: {path}")
+        try:
+            path = resolve_saved_view_path(selected_view)
+            view_available = path.is_file()
+        except Exception as storage_error:
+            path = Path(clean_text(selected_view.get("snapshot_path")))
+            view_available = False
+            st.error(f"La vista non è disponibile né in cache né nello storage: {storage_error}")
         force_rebuild = st.checkbox(
             "Rigenera anche se questa stessa vista è già stata normalizzata",
             value=False,
@@ -406,7 +411,7 @@ with source_tab:
         if st.button(
             "Normalizza e memorizza i prodotti",
             type="primary",
-            disabled=not path.is_file(),
+            disabled=not view_available,
             key=f"catalog_normalize_{selected_view['id']}",
         ):
             progress_bar = st.progress(0)

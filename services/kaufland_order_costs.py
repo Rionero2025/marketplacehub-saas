@@ -8,6 +8,7 @@ import pandas as pd
 from services.db import rows
 from services.kaufland_profit import product_costs
 from services.lists import normalize
+from services.saved_view_storage import load_saved_view_frame
 
 
 def clean_identifier(value) -> str:
@@ -286,11 +287,8 @@ def load_published_supplier_cost_catalog(
     ]
     view_products = []
     for saved_view in relevant_views:
-        snapshot = Path(str(saved_view.get("snapshot_path") or ""))
-        if not snapshot.exists():
-            continue
         try:
-            frame = normalize(pd.read_pickle(snapshot))
+            frame = normalize(load_saved_view_frame(saved_view))
         except Exception:
             continue
         view_products.append(

@@ -15,6 +15,7 @@ from services.batch_memory import (attach_product_keys, frame_records, load_stat
 from services.db import execute, json_text, now_iso, row, rows
 from services.lists import country_cost, normalize
 from services.security import decrypt_dict
+from services.saved_view_storage import load_saved_view_frame
 from services.session import bootstrap, seller_selector
 from services.worten import (DEFAULT_API_URL, WORTEN_OFFER_COLUMNS, get_logistic_classes,
                              get_offer_states, normalize_offer_state, upload_offer_csv,
@@ -37,7 +38,6 @@ JOIN saved_view_marketplaces svm ON svm.saved_view_id=sv.id
 WHERE sv.seller_id=? AND svm.marketplace_account_id=? ORDER BY sv.updated_at DESC""",(seller_id,account["id"]))
 if not views: st.error("Nessuna vista salvata destinata a questo account Worten."); st.stop()
 vmap={f"{x['name']} · {x['row_count']} prodotti · ID {x['id']}":x for x in views}; view=vmap[c2.selectbox("Vista salvata",list(vmap))]
-if not view["snapshot_path"] or not Path(view["snapshot_path"]).exists(): st.error("File della vista non disponibile."); st.stop()
 
 cred=decrypt_dict(account["credentials_encrypted"]); api_key=cred.get("api_key",""); shop_id=cred.get("shop_id",""); api_url=cred.get("api_url",DEFAULT_API_URL)
 if st.button("Verifica connessione Worten",key="verify_worten_publication"):
@@ -99,7 +99,8 @@ if st.button("Salva regole Worten"):
                 "minimum_profit":minimum_profit}),now_iso()))
     st.success("Regole Worten salvate.")
 
-df=normalize(pd.read_pickle(view["snapshot_path"]));
+try:df=normalize(load_saved_view_frame(view))
+except Exception as e:st.error(f"Impossibile leggere la vista salvata: {e}");st.stop()
 if "destination_country" in df and not df.empty:
     saved_country=str(df["destination_country"].iloc[0] or "").lower()
     if saved_country and saved_country!="pt":

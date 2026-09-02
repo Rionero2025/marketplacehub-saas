@@ -57,3 +57,6 @@ I listini possono essere normalizzati una volta in background e materializzati n
 
 ## Performance Core v311
 `Lavora sui listini` usa ora una tabella prodotti server-side: filtri e paginazione vengono eseguiti su database e la pagina legge solo 100/250/500 righe alla volta. Il catalogo completo viene materializzato soltanto quando si salva esplicitamente una vista.
+
+## Performance Core v312 — Object Storage Ready
+Le viste salvate non dipendono più esclusivamente dai file `.pkl` locali. Ogni nuova vista passa dal layer object storage e conserva un hash di integrità; se la cache locale scompare, il file viene ricostruito dallo storage. Il backend predefinito è locale per sviluppo, mentre il SaaS può usare S3/Cloudflare R2/MinIO/GCS compatibile S3 senza cambiare la business logic. Vedi `STEP12_OBJECT_STORAGE_READY.md`.

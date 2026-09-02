@@ -1990,8 +1990,14 @@ def _packlink_catalog_path(
     price_list_id: int = 0,
     seller_id: int = 0,
     source_kind: str = "",
+    saved_view_id: int = 0,
 ) -> Path | None:
     """Resolve a list/saved-view path after Marketplace Hub folder upgrades."""
+    if saved_view_id and "vista" in clean_text(source_kind).lower():
+        try:
+            return resolve_saved_view_path(int(saved_view_id))
+        except Exception:
+            pass
     text = clean_text(raw_path)
     if not text:
         return None
@@ -2062,7 +2068,7 @@ def packlink_weight_catalog_signature(seller_id: int) -> str:
     if list_ids:
         placeholders = ",".join("?" for _ in list_ids)
         for item in rows(
-            f"""SELECT id,price_list_id,snapshot_path,updated_at
+            f"""SELECT id,price_list_id,snapshot_path,snapshot_sha256,snapshot_storage_key,updated_at
             FROM saved_views
             WHERE seller_id=? AND price_list_id IN ({placeholders})
             ORDER BY updated_at DESC,id DESC""",
@@ -2073,13 +2079,14 @@ def packlink_weight_catalog_signature(seller_id: int) -> str:
                 price_list_id=int(item.get("price_list_id") or 0),
                 seller_id=int(seller_id),
                 source_kind="vista salvata",
+                saved_view_id=int(item.get("id") or 0),
             )
             values.append((
                 "view",
                 int(item.get("id") or 0),
                 int(item.get("price_list_id") or 0),
-                str(path or item.get("snapshot_path") or ""),
-                path.stat().st_mtime_ns if path and path.exists() else 0,
+                clean_text(item.get("snapshot_sha256")),
+                clean_text(item.get("snapshot_storage_key")),
                 clean_text(item.get("updated_at")),
             ))
     return str(hash(tuple(values)))
@@ -2134,6 +2141,7 @@ def load_packlink_weight_catalog(seller_id: int) -> dict[str, Any]:
                 "supplier_name": clean_text(saved_view.get("supplier_name") or item.get("supplier_name")),
                 "price_list_name": clean_text(saved_view.get("price_list_name") or item.get("name")),
                 "source_kind": "vista salvata",
+                "saved_view_id": int(saved_view.get("id") or 0),
                 "path": saved_view.get("snapshot_path"),
                 "updated_at": clean_text(saved_view.get("updated_at")),
                 "priority": 1,
@@ -2151,6 +2159,7 @@ def load_packlink_weight_catalog(seller_id: int) -> dict[str, Any]:
             price_list_id=int(spec.get("price_list_id") or 0),
             seller_id=int(seller_id),
             source_kind=clean_text(spec.get("source_kind")),
+            saved_view_id=int(spec.get("saved_view_id") or 0),
         )
         if path is None:
             unavailable.append(

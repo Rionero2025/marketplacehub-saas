@@ -14,6 +14,7 @@ from services.db import accessible_lists
 from services.kaufland_order_costs import historical_sent_offers
 from services.kaufland_profit import product_costs
 from services.lists import normalize
+from services.saved_view_storage import load_saved_view_frame
 
 
 COUNTRY_CURRENCIES = {
@@ -103,12 +104,12 @@ def catalog_signature(seller_id: int, account_id: int) -> str:
         return "empty"
     placeholders = ",".join("?" for _ in list_ids)
     views = db.rows(
-        f"""SELECT sv.id,sv.price_list_id,sv.snapshot_path,sv.updated_at,
+        f"""SELECT sv.id,sv.price_list_id,sv.snapshot_path,sv.snapshot_sha256,sv.snapshot_storage_key,sv.updated_at,
         MAX(CASE WHEN svm.marketplace_account_id=? THEN 1 ELSE 0 END) account_mapped
         FROM saved_views sv
         LEFT JOIN saved_view_marketplaces svm ON svm.saved_view_id=sv.id
         WHERE sv.price_list_id IN ({placeholders})
-        GROUP BY sv.id,sv.price_list_id,sv.snapshot_path,sv.updated_at
+        GROUP BY sv.id,sv.price_list_id,sv.snapshot_path,sv.snapshot_sha256,sv.snapshot_storage_key,sv.updated_at
         ORDER BY sv.updated_at DESC,sv.id DESC""",
         (account_id, *list_ids),
     )
@@ -117,8 +118,10 @@ def catalog_signature(seller_id: int, account_id: int) -> str:
         path = Path(str(item.get("local_path") or ""))
         values.append(("list", int(item["id"]), str(path), path.stat().st_mtime_ns if path.exists() else 0))
     for item in views:
-        path = Path(str(item.get("snapshot_path") or ""))
-        values.append(("view", int(item["id"]), str(path), path.stat().st_mtime_ns if path.exists() else 0, item.get("updated_at"), item.get("account_mapped")))
+        values.append((
+            "view", int(item["id"]), str(item.get("snapshot_sha256") or ""),
+            str(item.get("updated_at") or ""), item.get("account_mapped"),
+        ))
     return str(hash(tuple(values)))
 
 
@@ -177,7 +180,10 @@ def load_seller_catalog(seller_id: int, account_id: int, environment: str) -> di
         view_id = int(item["id"])
         if view_id not in chosen_view_ids:
             continue
-        frame = _load_frame(item.get("snapshot_path"))
+        try:
+            frame = normalize(load_saved_view_frame(item))
+        except Exception:
+            frame = None
         if frame is None:
             unavailable.append(f"Vista {view_id} · {item.get('price_list_name') or ''}")
             continue
