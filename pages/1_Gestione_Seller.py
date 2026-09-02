@@ -21,6 +21,9 @@ from services.packlink import (
 )
 from services.security import decrypt_dict, encrypt_dict, masked
 from services.session import bootstrap
+from services.entitlements import assert_marketplace_capacity, assert_resource_capacity
+from services.catalog_sharing import tenant_for_seller
+from services.tenant_db import current_tenant_id
 from services.worten import DEFAULT_API_URL, validate_credentials as validate_worten
 
 
@@ -67,6 +70,9 @@ with tab1:
             st.error("La nostra percentuale e quella del partner devono totalizzare 100%.")
         else:
             try:
+                tenant_id = current_tenant_id()
+                if tenant_id > 0:
+                    assert_resource_capacity(tenant_id, "max_sellers", increment=1)
                 execute(
                     """INSERT INTO sellers(
                         name,legal_name,email,our_profit_pct,partner_profit_pct,created_at
@@ -134,6 +140,10 @@ with tab2:
                 st.error("Compila nome account e credenziali.")
             else:
                 try:
+                    selected_seller_id = int(seller_map[seller_name])
+                    seller_tenant_id = tenant_for_seller(selected_seller_id)
+                    if seller_tenant_id > 0:
+                        assert_marketplace_capacity(seller_tenant_id, marketplace)
                     execute(
                         """INSERT INTO marketplace_accounts
                         (seller_id,marketplace,account_name,credentials_encrypted,created_at)

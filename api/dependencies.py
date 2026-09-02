@@ -94,6 +94,21 @@ def require_permission(permission: str) -> Callable[[ApiUser], ApiUser]:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Area non autorizzata: {permission}",
             )
+        # v318: UI permissions and SaaS-plan entitlements are separate layers.
+        # Platform Admin can support any active tenant, but ordinary tenant users
+        # cannot call an API area disabled by their subscription.
+        if not user.is_admin:
+            from services.entitlements import feature_enabled, tenant_entitlements
+            if not feature_enabled(user.active_tenant_id, permission):
+                ent = tenant_entitlements(user.active_tenant_id)
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "code": "PLAN_ENTITLEMENT_REQUIRED",
+                        "feature": str(permission),
+                        "plan_code": str(ent.get("plan_code") or ""),
+                    },
+                )
         return user
     return dependency
 

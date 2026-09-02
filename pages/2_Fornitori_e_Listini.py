@@ -25,6 +25,7 @@ from services.catalog_sharing import (
     ensure_catalog_sharing_schema, set_price_list_sharing, tenant_for_seller,
 )
 from services.session import bootstrap, seller_selector
+from services.entitlements import assert_resource_capacity
 
 bootstrap(); st.title("Fornitori e Listini")
 ensure_catalog_sharing_schema()
@@ -126,6 +127,11 @@ with tab1:
         notes=st.text_area("Note fornitore")
         if st.button("Registra fornitore"):
             if supplier_name.strip():
+                try:
+                    if active_tenant_id > 0:
+                        assert_resource_capacity(active_tenant_id, "max_suppliers", increment=1)
+                except PermissionError as exc:
+                    st.error(str(exc)); st.stop()
                 execute("""INSERT INTO suppliers(owner_seller_id,owner_tenant_id,sharing_scope,name,notes,created_at)
                            VALUES(?,?,?,?,?,?)""",
                         (seller_id,active_tenant_id,"tenant",supplier_name.strip(),notes.strip(),now_iso()))
@@ -268,6 +274,8 @@ with tab1:
                             ab_client_code,ab_login,ab_password,ab_gateway,check=ab_check
                         )
                     sharing_scope="platform" if vis_code=="global" else "tenant"
+                    if active_tenant_id > 0:
+                        assert_resource_capacity(active_tenant_id, "max_price_lists", increment=1)
                     lid=execute("""INSERT INTO price_lists
                     (supplier_id,owner_seller_id,owner_tenant_id,sharing_scope,name,visibility,source_type,source_url,source_credentials_encrypted,created_at)
                     VALUES(?,?,?,?,?,?,?,?,?,?)""",(supplier_map[supplier_choice],seller_id,active_tenant_id,sharing_scope,list_name.strip(),vis_code,

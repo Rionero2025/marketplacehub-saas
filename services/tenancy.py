@@ -162,7 +162,7 @@ def create_tenant(
     *,
     slug: str = "",
     tenant_type: str = "merchant",
-    plan_code: str = "",
+    plan_code: str = "starter",
     owner_user_id: int | None = None,
 ) -> int:
     ensure_tenancy_schema()
@@ -172,6 +172,10 @@ def create_tenant(
     tenant_type = str(tenant_type or "merchant").strip().lower()
     if tenant_type not in TENANT_TYPES:
         raise ValueError("tenant_type non valido")
+    # v318: every new SaaS tenant starts with an explicit commercial plan.
+    # Legacy tenants were migrated separately and remain compatibility-safe.
+    from services.entitlements import validate_plan_for_tenant_type
+    plan_code = validate_plan_for_tenant_type(plan_code, tenant_type)
     base_slug = _slug(slug or name)
     candidate = base_slug
     suffix = 2
@@ -184,6 +188,8 @@ def create_tenant(
            VALUES(?,?,?,?,?,?,?)""",
         (name, candidate, tenant_type, "active", str(plan_code or ""), stamp, stamp),
     )
+    from services.entitlements import set_tenant_plan
+    set_tenant_plan(tenant_id, plan_code, status="manual")
     if owner_user_id:
         add_membership(tenant_id, int(owner_user_id), role="owner")
     return tenant_id
@@ -200,7 +206,10 @@ def add_membership(tenant_id: int, user_id: int, *, role: str = "operator", acti
     if role not in MEMBERSHIP_ROLES:
         raise ValueError("Ruolo tenant non valido.")
     stamp = now_iso()
-    existing = row("SELECT id FROM tenant_memberships WHERE tenant_id=? AND user_id=?", (tenant_id, user_id))
+    existing = row("SELECT id,active FROM tenant_memberships WHERE tenant_id=? AND user_id=?", (tenant_id, user_id))
+    if active and (not existing or not int(existing.get("active") or 0)):
+        from services.entitlements import assert_resource_capacity
+        assert_resource_capacity(tenant_id, "max_users", increment=1)
     if existing:
         execute(
             "UPDATE tenant_memberships SET role=?,active=?,updated_at=? WHERE tenant_id=? AND user_id=?",
@@ -225,6 +234,9 @@ def attach_seller(tenant_id: int, seller_id: int, *, transfer: bool = False) -> 
     if not seller_exists:
         raise ValueError("Seller non trovato.")
     current = row("SELECT tenant_id FROM tenant_sellers WHERE seller_id=?", (seller_id,))
+    if not current or int(current.get("tenant_id") or 0) != tenant_id:
+        from services.entitlements import assert_resource_capacity
+        assert_resource_capacity(tenant_id, "max_sellers", increment=1)
     if current and int(current["tenant_id"]) != tenant_id:
         if not transfer:
             raise ValueError("Il Seller appartiene già a un altro tenant.")

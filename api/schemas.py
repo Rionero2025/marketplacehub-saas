@@ -130,7 +130,7 @@ class TenantCreateRequest(ApiModel):
     name: str = Field(min_length=1, max_length=200)
     slug: str = Field(default="", max_length=100)
     tenant_type: str = Field(default="merchant", pattern="^(merchant|agency)$")
-    plan_code: str = Field(default="", max_length=80)
+    plan_code: str = Field(default="starter", max_length=80)
     owner_user_id: int | None = Field(default=None, gt=0)
 
 
@@ -152,3 +152,38 @@ class TenantActivateResponse(ApiModel):
     name: str
     tenant_type: str
     role: str = ""
+
+class PlanResponse(ApiModel):
+    code: str
+    name: str
+    tenant_type: str
+    public: bool
+    monthly_price_cents: int
+    currency: str = "EUR"
+    features: list[str] = Field(default_factory=list)
+    limits: dict[str, int | float | None] = Field(default_factory=dict)
+
+
+class TenantEntitlementsResponse(ApiModel):
+    tenant_id: int
+    plan_code: str
+    plan_name: str = ""
+    status: str
+    active: bool
+    monthly_price_cents: int = 0
+    currency: str = "EUR"
+    features: dict[str, bool] = Field(default_factory=dict)
+    limits: dict[str, int | float | None] = Field(default_factory=dict)
+    usage: dict[str, int | float] = Field(default_factory=dict)
+    remaining: dict[str, int | float | None] = Field(default_factory=dict)
+
+
+class TenantPlanUpdateRequest(ApiModel):
+    plan_code: str = Field(min_length=1, max_length=80)
+    status: str = Field(default="manual", pattern="^(manual|trialing|active|past_due|paused|canceled)$")
+
+
+class EntitlementOverrideRequest(ApiModel):
+    kind: str = Field(pattern="^(feature|limit)$")
+    enabled: bool | None = None
+    limit_value: float | None = Field(default=None, ge=0)

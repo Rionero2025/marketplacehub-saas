@@ -59,6 +59,9 @@ RLS_TABLES = (
     "kaufland_support_tickets",
     "kaufland_support_syncs",
     "kaufland_support_actions",
+    "tenant_subscriptions",
+    "tenant_entitlement_overrides",
+    "tenant_usage_monthly",
 )
 
 
@@ -188,10 +191,10 @@ def ensure_tenant_database_isolation() -> dict:
                     continue
                 columns = _table_columns(con, table)
                 seller_col = _seller_column(columns)
-                if table != "sellers" and not seller_col:
-                    # Some legacy child tables have no direct seller ownership.
-                    # They remain protected through their parent API for now and
-                    # will be normalized in the next schema pass.
+                direct_tenant = "tenant_id" in columns
+                if table != "sellers" and not seller_col and not direct_tenant:
+                    # Some legacy child tables have no direct seller/tenant ownership.
+                    # They remain protected through their parent API for now.
                     continue
                 con.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS tenant_id BIGINT")
                 if table == "sellers":
@@ -200,7 +203,7 @@ def ensure_tenant_database_isolation() -> dict:
                            FROM tenant_sellers ts
                            WHERE s.id=ts.seller_id AND s.tenant_id IS NULL"""
                     )
-                else:
+                elif seller_col:
                     con.execute(
                         f"""UPDATE {table} x SET tenant_id=ts.tenant_id
                             FROM tenant_sellers ts
@@ -211,7 +214,7 @@ def ensure_tenant_database_isolation() -> dict:
                 # existing business services do not need hundreds of rewrites.
                 fn = _safe_ident(f"mh_fill_tenant_{table}")
                 trigger = _safe_ident(f"mh_fill_tenant_{table}_trg")
-                if table == "sellers":
+                if table == "sellers" or (direct_tenant and not seller_col):
                     body = """
                     IF NEW.tenant_id IS NULL THEN
                         NEW.tenant_id := NULLIF(current_setting('marketplace_hub.tenant_id', true), '')::BIGINT;

@@ -79,3 +79,6 @@ Aggiunto `tenant_id` alle principali tabelle operative, contesto tenant transazi
 
 ## v317 — Catalog Sharing Model
 Fornitori e listini hanno ora proprietà Tenant e tre ambiti SaaS: `tenant`, `agency`, `platform`. Le vecchie condivisioni per Seller vengono mantenute come mirror di compatibilità, mentre FastAPI e PostgreSQL applicano il nuovo modello Tenant/Agency. Vedi `STEP17_CATALOG_SHARING_MODEL.md`.
+
+## v318 — Plans & Entitlements Engine
+I piani SaaS sono ora regole backend reali. Permessi utente e entitlement del piano vengono verificati separatamente; i worker ricontrollano il piano al momento dell'esecuzione; sono disponibili limiti centralizzati e contatori mensili. Vedi `STEP18_PLANS_ENTITLEMENTS.md`.

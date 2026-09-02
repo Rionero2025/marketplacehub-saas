@@ -87,6 +87,17 @@ def enqueue_job(request: JobRequest) -> JobReceipt:
         tenant_id = tenant_id_for_seller(int(request.seller_id))
     if tenant_id <= 0:
         raise RuntimeError("Impossibile accodare un job SaaS senza tenant_id.")
+    # v318: background work is governed by the same subscription rules as HTTP APIs.
+    from services.entitlements import (
+        assert_capacity, job_feature, record_usage, require_tenant_feature, tenant_resource_usage, limit_for,
+    )
+    feature = job_feature(request.kind)
+    if feature:
+        require_tenant_feature(tenant_id, feature)
+    monthly_limit = limit_for(tenant_id, "monthly_background_jobs")
+    if monthly_limit is not None:
+        usage = tenant_resource_usage(tenant_id)
+        assert_capacity(tenant_id, "monthly_background_jobs", usage.get("background_jobs", 0), increment=1, label="job mensili")
     job_id = uuid.uuid4().hex
     payload = _json_safe(request.payload)
     with connect() as con:
@@ -104,6 +115,7 @@ def enqueue_job(request: JobRequest) -> JobReceipt:
                 now_iso(),
             ),
         )
+    record_usage(tenant_id, "background_jobs", 1)
     return JobReceipt(job_id=job_id, status="queued")
 
 
@@ -550,6 +562,12 @@ def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
     seller_id = int(job.get("seller_id") or 0)
     if seller_id > 0:
         assert_seller_in_tenant(seller_id, tenant_id)
+    # Re-check at execution time too: a plan can be downgraded/suspended after
+    # the job was queued but before a worker claims it.
+    from services.entitlements import job_feature, require_tenant_feature
+    feature = job_feature(kind)
+    if feature:
+        require_tenant_feature(tenant_id, feature)
     with tenant_database_scope(tenant_id):
         return handler(job)
 
