@@ -9,3 +9,5 @@ Step 6 - v306 Worten + Accounting Workers: background order sync, accounting syn
 Step 7 - v307 Shared Cache: Redis-ready cross-process cache, user/seller/list cache, SQL invalidation.
 
 v309 - Packlink Mass Engine: quote parallele persistenti + bozze massive background con idempotency guard e blocco retry su esito incerto.
+
+Step 10 - v310 Catalog Engine Speed: materializzazione normalizzata, preview server-side, parsing background e cache rerun.

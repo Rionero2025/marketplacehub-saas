@@ -490,6 +490,34 @@ def _run_packlink_drafts_mass(job: dict[str, Any]) -> dict[str, Any]:
         progress=progress,
     )
 
+
+
+def _run_catalog_materialize(job: dict[str, Any]) -> dict[str, Any]:
+    from marketplace_core.catalogs import CatalogCore
+
+    payload = job.get("payload") or {}
+    seller_id = int(job.get("seller_id") or 0)
+    price_list_id = int(payload.get("price_list_id") or 0)
+    item = row(
+        """SELECT pl.id,pl.local_path FROM price_lists pl
+           WHERE pl.id=? AND (pl.owner_seller_id=? OR pl.visibility='global' OR EXISTS(
+               SELECT 1 FROM price_list_access pla
+               WHERE pla.price_list_id=pl.id AND pla.seller_id=?
+           ))""",
+        (price_list_id, seller_id, seller_id),
+    )
+    if not item:
+        raise RuntimeError("Listino non trovato o non autorizzato per questo Seller.")
+    source_path = str(item.get("local_path") or "")
+    if not source_path:
+        raise RuntimeError("Il listino non dispone di un file locale da normalizzare.")
+    core = CatalogCore()
+
+    def progress(done: int, total: int, label: str) -> None:
+        update_job_progress(str(job["id"]), done, total, label)
+
+    return core.materialize(price_list_id, source_path, progress=progress)
+
 def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
     kind = str(job.get("kind") or "")
     handlers: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -502,10 +530,11 @@ def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
         "packlink.quotes.mass": _run_packlink_quotes_mass,
         "packlink.drafts.mass": _run_packlink_drafts_mass,
         "tracking.documents.analyze": _run_tracking_documents_analyze,
+        "catalog.materialize": _run_catalog_materialize,
     }
     handler = handlers.get(kind)
     if handler is None:
-        raise RuntimeError(f"Job non supportato dal worker v309: {kind}")
+        raise RuntimeError(f"Job non supportato dal worker v310: {kind}")
     return handler(job)
 
 

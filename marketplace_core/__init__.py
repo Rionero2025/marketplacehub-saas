@@ -29,3 +29,5 @@ __all__ = [
     "TrackingCore",
     "TrackingScope",
 ]
+
+from marketplace_core.catalogs import CatalogCore, CatalogPage, CatalogStatus

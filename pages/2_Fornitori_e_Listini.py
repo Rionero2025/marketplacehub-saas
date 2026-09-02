@@ -5,6 +5,9 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from marketplace_core.catalogs import CatalogCore
+from marketplace_core.jobs import JobsCore
+
 from services.abonline import (ABOnlineClient, ABOnlineError,
                                DEFAULT_GATEWAY as ABONLINE_GATEWAY,
                                download_abonline_catalog, refresh_abonline_prices_stock)
@@ -324,38 +327,48 @@ with tab2:
                           "abonline" in item_supplier_token or
                           str(item.get("source_url","")).rstrip("/")==ABONLINE_GATEWAY.rstrip("/"))
         if item["local_path"] and Path(item["local_path"]).exists():
-            try:
-                df=normalize(read_list(item["local_path"]))
-                if "shipping_cost" not in df:df["shipping_cost"]=0.0
-                if "total_cost" not in df:df["total_cost"]=(df["cost"]+df["shipping_cost"]).round(2)
-                front=["ean","sku","name"]
-                if is_abonline_item and "cost_pln" in df:
-                    front+=["cost_pln","pln_per_eur"]
-                front+=["cost","shipping_cost","total_cost","quantity"]
-                remaining=[column for column in df.columns
-                           if column not in front and column!="cost_eur"]
-                st.caption(f"{len(df)} prodotti. Se il feed non fornisce la spedizione, impostala in 'Lavora sui listini'.")
-                if is_abonline_item and "cost_pln" in df:
-                    st.caption(
-                        "AB Online: `cost_pln` è il prezzo originale in zloty; "
-                        "`Prezzo acquisto €` è il valore convertito usato dai marketplace."
-                    )
-                if is_activeshop_item and "diamond_price_available" in df:
-                    diamond_ok=int(df["diamond_price_available"].fillna(False).astype(bool).sum())
-                    st.caption(f"Prezzo Diamond disponibile per {diamond_ok:,} prodotti su {len(df):,}.")
-                if is_hurtel_item and "wholesale_price" in df:
-                    st.caption(
-                        "Hurtel: `Prezzo acquisto €`/`wholesale_price` proviene dal feed LIGHT; "
-                        "`retail_price` proviene dal FULL ed è soltanto informativo."
-                    )
-                st.dataframe(df[front+remaining].head(200),use_container_width=True,
-                    column_config={"cost_pln":st.column_config.NumberColumn("Prezzo AB PLN",format="%.2f"),
-                                   "pln_per_eur":st.column_config.NumberColumn("Cambio PLN/EUR",format="%.4f"),
-                                   "cost":st.column_config.NumberColumn("Prezzo acquisto €",format="%.2f"),
-                                   "shipping_cost":st.column_config.NumberColumn("Costo spedizione €",format="%.2f"),
-                                   "total_cost":st.column_config.NumberColumn("Costo totale €",format="%.2f"),
-                                   "quantity":st.column_config.NumberColumn("Disponibilità",format="%d")})
-            except Exception as e:st.error(str(e))
+            catalog_core=CatalogCore(); jobs_core=JobsCore()
+            catalog_status=catalog_core.status(item["id"],item["local_path"])
+            st.markdown("#### Catalogo veloce")
+            if catalog_status.ready:
+                st.success(
+                    f"Catalogo indicizzato: {catalog_status.row_count:,} prodotti · "
+                    f"aggiornato {catalog_status.materialized_at or '—'}."
+                )
+                try:
+                    preview=catalog_core.preview(item["id"],200)
+                    df=pd.DataFrame.from_records(preview.rows)
+                    if not df.empty:
+                        if "shipping_cost" not in df:df["shipping_cost"]=0.0
+                        if "total_cost" not in df:df["total_cost"]=(pd.to_numeric(df.get("cost",0),errors="coerce").fillna(0)+pd.to_numeric(df.get("shipping_cost",0),errors="coerce").fillna(0)).round(2)
+                        front=[c for c in ["ean","sku","name","cost","shipping_cost","total_cost","quantity"] if c in df]
+                        remaining=[c for c in df.columns if c not in front][:12]
+                        st.dataframe(df[front+remaining],use_container_width=True,hide_index=True)
+                    st.caption("Anteprima server-side: vengono lette solo 200 righe, non l'intero listino.")
+                except Exception as e:st.error(f"Anteprima catalogo: {e}")
+            else:
+                size_mb=Path(item["local_path"]).stat().st_size/(1024*1024)
+                st.info(
+                    f"File sorgente disponibile ({size_mb:.1f} MB), ma non ancora indicizzato. "
+                    "La normalizzazione può essere eseguita in background senza bloccare la pagina."
+                )
+                job_key=f"catalog_materialize_job_{item['id']}"
+                if st.button("Prepara catalogo veloce in background",key=f"materialize_catalog_{item['id']}",type="primary"):
+                    receipt=jobs_core.submit(catalog_core.build_materialize_job(seller_id,item["id"]))
+                    jobs_core.start_local(receipt.job_id)
+                    st.session_state[job_key]=receipt.job_id
+                    st.rerun()
+                job_id=st.session_state.get(job_key)
+                if job_id:
+                    snap=jobs_core.snapshot(job_id)
+                    if snap:
+                        st.progress(min(1.0,max(0.0,snap.progress_pct/100.0)),text=snap.message or snap.status)
+                        if snap.terminal:
+                            if snap.status=="done":
+                                st.success("Catalogo indicizzato. Aggiorna la pagina per usare l'anteprima veloce.")
+                            elif snap.status=="error":st.error(snap.error or "Errore indicizzazione catalogo")
+                        elif st.button("Aggiorna stato catalogo",key=f"refresh_catalog_job_{item['id']}"):
+                            st.rerun()
         is_cecotec=bool(current_cred.get("stock_url")) and item["source_type"]=="upload"
         if is_abonline_item and item["owner_seller_id"]==seller_id:
             st.markdown("#### API XML AB Online")

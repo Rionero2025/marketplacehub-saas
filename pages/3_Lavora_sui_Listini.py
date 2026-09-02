@@ -7,6 +7,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from marketplace_core.catalogs import CatalogCore
+
 from services.db import (DATA_DIR, accessible_lists, delete_saved_view, execute,
                          json_text, now_iso, row, rows)
 from services.lists import (apply_weight_exclusion,country_cost,
@@ -28,7 +30,21 @@ lmap={f"{x['supplier_name']} · {x['name']} · ID {x['id']}":x for x in lists}
 pl=lmap[st.selectbox("Listino da lavorare",list(lmap))]
 if not pl["local_path"] or not Path(pl["local_path"]).exists():st.error("Il listino non è stato ancora scaricato.");st.stop()
 
-try:base=normalize(read_list(pl["local_path"]))
+try:
+    catalog_core=CatalogCore()
+    catalog_status=catalog_core.status(pl["id"],pl["local_path"])
+    if catalog_status.ready:
+        base=catalog_core.load_working_frame(pl["id"],catalog_status.source_fingerprint)
+        st.caption(
+            f"Catalogo indicizzato v310: {catalog_status.row_count:,} prodotti. "
+            "La normalizzazione non viene ripetuta a ogni filtro/rerun della pagina."
+        )
+    else:
+        base=normalize(read_list(pl["local_path"]))
+        st.info(
+            "Questo listino non è ancora indicizzato. In Fornitori e Listini usa "
+            "«Prepara catalogo veloce in background» per eliminare i parsing ripetuti."
+        )
 except Exception as e:st.error(f"Impossibile leggere il listino: {e}");st.stop()
 
 destination_country=""

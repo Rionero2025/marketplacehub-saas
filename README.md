@@ -50,3 +50,7 @@ La cache applicativa è ora Redis-ready con fallback locale. Utenti, Seller e li
 
 ## v309 — Packlink Mass Engine
 Le tariffe Packlink massive e la creazione massiva delle spedizioni sono ora job background. Le quote sono persistite nel database e la creazione usa guardie idempotenti per evitare doppie spedizioni in caso di retry/timeout. Vedi `STEP9_PACKLINK_MASS_ENGINE.md`.
+
+
+## v310 — Catalog Engine Speed
+I listini possono essere normalizzati una volta in background e materializzati nel database. Le anteprime leggono solo le righe necessarie e `Lavora sui listini` evita di riparsare XML/Excel/CSV ad ogni rerun. Vedi `STEP10_CATALOG_ENGINE_SPEED.md`.
