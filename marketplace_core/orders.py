@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, Mapping, Sequence
 
+from marketplace_core.contracts import JobRequest
+
 
 @dataclass(frozen=True, slots=True)
 class OrderScope:
@@ -123,6 +125,28 @@ class OrdersCore:
             limit=int(result.get("limit") or query.limit),
             offset=int(result.get("offset") or query.offset),
             has_more=bool(result.get("has_more")),
+        )
+
+
+    def build_sync_job(
+        self,
+        scope: OrderScope,
+        *,
+        maximum: int | None = 1000,
+        include_tracking_details: bool = True,
+    ) -> JobRequest:
+        market = scope.marketplace_key
+        if market != "kaufland":
+            raise ValueError("v305 background sync supporta Kaufland; Worten segue nel worker successivo")
+        return JobRequest(
+            kind="orders.kaufland.sync",
+            seller_id=scope.seller_id,
+            payload={
+                "account_id": scope.account_id,
+                "environment": scope.environment,
+                "maximum": maximum,
+                "include_tracking_details": bool(include_tracking_details),
+            },
         )
 
     def sync_kaufland(

@@ -6,6 +6,7 @@ must call these use-cases instead of embedding orchestration in their UI layer.
 from .accounting import AccountingCore, AccountingPeriod, AccountingScope
 from .orders import OrderPage, OrderQuery, OrderScope, OrdersCore
 from .buybox import BuyBoxCore, BuyBoxPage, BuyBoxQuery, BuyBoxScope
+from .jobs import JobSnapshot, JobsCore
 
 __all__ = [
     "AccountingCore",
@@ -19,4 +20,6 @@ __all__ = [
     "BuyBoxPage",
     "BuyBoxQuery",
     "BuyBoxScope",
+    "JobSnapshot",
+    "JobsCore",
 ]

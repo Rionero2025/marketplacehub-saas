@@ -819,6 +819,10 @@ def _init_db_once() -> None:
     from services.catalog_intelligence.schema import ensure_schema as ensure_catalog_schema
 
     ensure_catalog_schema()
+    # v305: persistent job queue shared by Streamlit today and dedicated SaaS workers later.
+    from services.background_jobs import ensure_job_schema
+
+    ensure_job_schema()
 
 
 

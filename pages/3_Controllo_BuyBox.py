@@ -15,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from marketplace_core.buybox import BuyBoxCore
+from marketplace_core.jobs import JobsCore
 
 try:
     from st_aggrid import (
@@ -92,6 +93,7 @@ def display_rome_time(value: str) -> str:
 
 bootstrap()
 buybox_core=BuyBoxCore()
+jobs_core=JobsCore()
 st.title("Controllo Buy Box")
 seller_id=seller_selector()
 if seller_id is None:st.stop()
@@ -786,139 +788,51 @@ st.caption(
 quick_cols=st.columns([3,2])
 if quick_cols[0].button(
     "⚡ Controlla solo se siamo ancora in Buy Box",
-    type="primary",use_container_width=True,disabled=chosen.empty,
-    key=f"buybox_quick_execute_v242_{scope}",
+    type="primary", use_container_width=True, disabled=chosen.empty,
+    key=f"buybox_quick_execute_v305_{scope}",
 ):
-    try:
-        repair_database_permissions(force=True)
-        database_write_probe()
-    except Exception as error:
-        status=database_storage_status()
-        st.error(
-            "Controllo rapido non avviato: il database locale non è scrivibile. "
-            f"Database: {status['database_path']} · Dettaglio: {error}"
-        )
-        st.stop()
-
-    quick_tasks=[item.to_dict() for _,item in chosen.iterrows()]
-    quick_checked_at=now_iso()
-    # Il percorso rapido usa una sola richiesta /buybox per offerta. Una frequenza
-    # conservativa permette parallelismo senza trasformare il controllo in un nuovo
-    # download completo dell'account.
-    client.before_request=None
-    client.requests_per_second=max(float(client.requests_per_second or 1),45.0)
-    quick_progress=st.progress(0.0)
-    quick_label=st.empty()
-    quick_preview=st.empty()
-    quick_results=[]
-    quick_errors=[]
-    quick_needs_full=[]
-    quick_changed=[]
-    pending_quick=[]
-    saved_quick=0
-
-    def quick_progress_callback(completed: int,total: int,outcome: dict) -> None:
-        nonlocal_saved = False
-        if outcome["kind"]=="ok":
-            result=outcome["result"]
-            quick_results.append(result)
-            pending_quick.append(result)
-            old=outcome.get("previous_status") or ""
-            if old and old!=str(result.get("status") or ""):
-                quick_changed.append({
-                    "Paese":country_label(result.get("paese","")),
-                    "SKU":result.get("sku",""),
-                    "Prima":old,
-                    "Ora":result.get("status",""),
-                })
-            if len(pending_quick)>=100:
-                save_checks(pending_quick)
-                pending_quick.clear()
-        elif outcome["kind"]=="needs_full":
-            quick_needs_full.append(outcome)
-        else:
-            quick_errors.append(outcome)
-        quick_progress.progress(completed/max(1,total))
-        quick_label.caption(
-            f"Controllate {completed:,} di {total:,} · "
-            f"aggiornate {len(quick_results):,} · "
-            f"da inizializzare {len(quick_needs_full):,} · errori {len(quick_errors):,}."
-        )
-        if quick_results and (completed==1 or completed%25==0 or completed==total):
-            quick_preview.dataframe(pd.DataFrame([{
-                "Paese":country_label(item.get("paese","")),
-                "SKU":item.get("sku",""),
-                "Stato":item.get("status",""),
-                "Posizione":item.get("our_rank"),
-                "Vincitore":item.get("winner_seller",""),
-                "Nostro totale":item.get("our_total"),
-                "Totale vincente":item.get("winner_total"),
-            } for item in quick_results[-20:]]),use_container_width=True,hide_index=True)
-
-    quick_outcomes=buybox_core.run_kaufland_quick_batch(
-        client,quick_tasks,
-        previous_by_offer=saved_checks_by_offer,
-        own_seller_pseudonyms=configured_pseudonyms,
-        checked_at=quick_checked_at,
+    quick_tasks = tuple(item.to_dict() for _, item in chosen.iterrows())
+    request = buybox_core.build_refresh_job(
+        BuyBoxScope(int(seller_id), int(account["id"]), "kaufland", environment),
+        mode="quick",
+        storefronts=tuple(chosen_countries),
+        skus=tuple(str(item.get("SKU inviato") or "") for item in quick_tasks),
+        tasks=quick_tasks,
+        own_seller_pseudonyms=tuple(sorted(configured_pseudonyms)),
         max_workers=20,
-        on_progress=quick_progress_callback,
     )
-    saved_quick=len(quick_results)-len(pending_quick)
-    if pending_quick:
-        save_checks(pending_quick)
-        saved_quick+=len(pending_quick)
-
-    status_counts={}
-    for item in quick_results:
-        state=str(item.get("status") or "")
-        status_counts[state]=status_counts.get(state,0)+1
-    execute(
-        """INSERT INTO operations(
-        seller_id,marketplace_account_id,price_list_id,marketplace,storefront,
-        operation_type,status,total_rows,success_rows,failed_rows,details_json,created_at
-        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (
-            seller_id,account["id"],None,"kaufland",",".join(chosen_countries),
-            "CONTROLLO_BUYBOX_RAPIDO",
-            "success" if len(quick_results)==len(quick_tasks) else ("partial" if quick_results else "failed"),
-            len(quick_tasks),len(quick_results),len(quick_tasks)-len(quick_results),
-            json_text({
-                "environment":environment,"saved_rows":saved_quick,
-                "status_counts":status_counts,"changed":len(quick_changed),
-                "needs_full":len(quick_needs_full),"api_errors":len(quick_errors),
-                "api_mode":"one_buybox_request_per_offer",
-            }),now_iso(),
-        ),
+    receipt = jobs_core.submit(request)
+    jobs_core.start_local(receipt.job_id)
+    st.session_state[f"buybox_quick_job_{scope}"] = receipt.job_id
+    st.success(
+        "Controllo Buy Box avviato in background. Puoi cambiare pagina e continuare a lavorare."
     )
-    qm=st.columns(5)
-    qm[0].metric("Aggiornate",len(quick_results))
-    qm[1].metric("Buy Box vinte",status_counts.get("Vinta",0))
-    qm[2].metric("Buy Box perse",status_counts.get("Persa",0))
-    qm[3].metric("Stato cambiato",len(quick_changed))
-    qm[4].metric("Controllo completo necessario",len(quick_needs_full))
-    if quick_changed:
-        st.warning("Sono cambiate queste Buy Box rispetto all'ultimo controllo salvato:")
-        st.dataframe(pd.DataFrame(quick_changed),use_container_width=True,hide_index=True)
-    if quick_needs_full:
-        st.info(
-            f"{len(quick_needs_full):,} offerte non hanno ancora l'ID prodotto necessario "
-            "al check rapido. Esegui il controllo completo una sola volta per inizializzarle."
-        )
-    if quick_errors:
-        st.warning(
-            f"{len(quick_errors):,} controlli live non sono riusciti. Il precedente stato "
-            "salvato è stato mantenuto e non è stato sovrascritto da un errore temporaneo."
-        )
-    if quick_results:
-        st.success(
-            f"Controllo rapido completato: {len(quick_results):,} stati Buy Box aggiornati "
-            "senza riscaricare le offerte dell'account."
-        )
 
-quick_cols[1].caption(
-    "Il controllo completo sotto serve solo alla prima inizializzazione o quando vuoi "
-    "ricalcolare costi, commissioni, logistica e abbinamenti listino."
-)
+quick_job_id = st.session_state.get(f"buybox_quick_job_{scope}")
+if quick_job_id:
+    quick_job = jobs_core.snapshot(quick_job_id)
+    if quick_job:
+        st.progress(
+            min(1.0, max(0.0, quick_job.progress_pct / 100.0)),
+            text=quick_job.message or quick_job.status,
+        )
+        qj1, qj2 = st.columns([1, 4])
+        if qj1.button("Aggiorna stato", key=f"buybox_job_refresh_{quick_job_id}"):
+            st.rerun()
+        if quick_job.status == "done":
+            result = dict(quick_job.result)
+            st.success(
+                f"Controllo completato · aggiornate {result.get('successful', 0)} / "
+                f"{result.get('total', 0)} · errori {result.get('errors', 0)} · "
+                f"controllo completo necessario {result.get('needs_full', 0)}."
+            )
+        elif quick_job.status == "error":
+            st.error(f"Controllo Buy Box non riuscito: {quick_job.error}")
+        else:
+            qj2.caption(
+                f"Job {quick_job.job_id[:8]} · {quick_job.status}. "
+                "Il lavoro continua anche se navighi in un'altra sezione."
+            )
 
 st.markdown("##### Controllo completo / diagnostica")
 

@@ -9,7 +9,6 @@ import streamlit as st
 
 from services.db import rows
 from services.fx import get_ecb_rates
-from services.kaufland import KauflandClient
 from services.kaufland_order_costs import (
     load_published_supplier_cost_catalog,
     resolve_supplier_purchase_cost,
@@ -29,12 +28,12 @@ from services.kaufland_orders import (
     selected_payment_deadline,
     SHIPPED_ORDER_UNIT_STATUSES,
     status_label,
-    sync_orders,
     ticket_holds,
 )
-from services.security import decrypt_dict
 from services.session import bootstrap, seller_selector
 from services.order_selection import apply_editor_checkbox_changes
+from marketplace_core.orders import OrderScope, OrdersCore
+from marketplace_core.jobs import JobsCore
 
 
 if not st.session_state.get("_embedded_marketplace_orders"):
@@ -116,12 +115,8 @@ st.info(
     "Questa sezione esegue soltanto letture e non modifica gli ordini."
 )
 
-credentials = decrypt_dict(account["credentials_encrypted"])
-client = KauflandClient(
-    credentials.get("client_key", ""),
-    credentials.get("secret_key", ""),
-    playground,
-)
+orders_core = OrdersCore()
+jobs_core = JobsCore()
 
 sync_col, scope_col, detail_col = st.columns([1.2, 1, 1.3])
 scope_label = scope_col.selectbox(
@@ -152,43 +147,30 @@ if sync_col.button(
     use_container_width=True,
     key=f"orders_sync_{account['id']}_{environment}",
 ):
-    progress_bar = st.progress(0.0, text="Avvio sincronizzazione…")
+    request = orders_core.build_sync_job(
+        OrderScope(int(seller_id), int(account["id"]), "kaufland", environment),
+        maximum=maximum,
+        include_tracking_details=include_tracking,
+    )
+    receipt = jobs_core.submit(request)
+    jobs_core.start_local(receipt.job_id)
+    st.session_state[f"orders_job_{account['id']}_{environment}"] = receipt.job_id
+    st.success("Sincronizzazione avviata in background. Puoi continuare a usare il programma.")
 
-    def update_progress(done: int, total: int, label: str) -> None:
-        progress_bar.progress(
-            min(1.0, done / max(1, total)),
-            text=f"{done}/{total} · {label}",
-        )
-
-    try:
-        result = sync_orders(
-            client,
-            seller_id,
-            account["id"],
-            environment,
-            maximum=maximum,
-            include_tracking_details=include_tracking,
-            progress=update_progress,
-        )
-        progress_bar.progress(1.0, text="Sincronizzazione completata")
-        if result["errors"]:
-            st.warning(
-                f"Salvate {result['saved']} di {result['seen']} unità ordine; "
-                f"{len(result['errors'])} dettagli non sono stati acquisiti."
-            )
-            with st.expander("Dettagli non acquisiti"):
-                st.dataframe(
-                    result["errors"], use_container_width=True, hide_index=True
-                )
+active_job_id = st.session_state.get(f"orders_job_{account['id']}_{environment}")
+if active_job_id:
+    job = jobs_core.snapshot(active_job_id)
+    if job:
+        st.progress(min(1.0, max(0.0, job.progress_pct / 100.0)), text=job.message or job.status)
+        jc1, jc2 = st.columns([1, 4])
+        if jc1.button("Aggiorna stato", key=f"orders_job_refresh_{active_job_id}"):
+            st.rerun()
+        if job.status == "done":
+            st.success(f"Sincronizzazione completata: {dict(job.result)}")
+        elif job.status == "error":
+            st.error(f"Sincronizzazione non riuscita: {job.error}")
         else:
-            st.success(
-                f"Sincronizzate {result['saved']} unità ordine; "
-                f"tracking verificati: {result['details_checked']}."
-            )
-        st.rerun()
-    except Exception as error:
-        progress_bar.empty()
-        st.error(f"Sincronizzazione ordini Kaufland non riuscita: {error}")
+            jc2.caption(f"Job {job.job_id[:8]} · {job.status} · puoi cambiare pagina senza interromperlo.")
 
 sync_info = last_sync(seller_id, account["id"], environment)
 if sync_info:
