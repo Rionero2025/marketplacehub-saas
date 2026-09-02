@@ -47,3 +47,6 @@ Le credenziali di produzione devono essere configurate come variabili d'ambiente
 
 ## Performance Core v307
 La cache applicativa è ora Redis-ready con fallback locale. Utenti, Seller e listini accessibili usano TTL brevi e invalidazione automatica sulle scritture, preparando il runtime multi-processo del SaaS.
+
+## v309 — Packlink Mass Engine
+Le tariffe Packlink massive e la creazione massiva delle spedizioni sono ora job background. Le quote sono persistite nel database e la creazione usa guardie idempotenti per evitare doppie spedizioni in caso di retry/timeout. Vedi `STEP9_PACKLINK_MASS_ENGINE.md`.

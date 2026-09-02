@@ -441,6 +441,55 @@ def _run_tracking_documents_analyze(job: dict[str, Any]) -> dict[str, Any]:
         progress=progress,
     )
 
+
+def _run_packlink_quotes_mass(job: dict[str, Any]) -> dict[str, Any]:
+    from marketplace_core.packlink import PacklinkCore, PacklinkScope
+
+    payload = job.get("payload") or {}
+    seller_id = int(job.get("seller_id") or 0)
+    core = PacklinkCore()
+
+    def progress(done: int, total: int, item: dict[str, Any]) -> None:
+        order_id = str(item.get("order_id") or "")
+        label = f"Tariffe Packlink: {order_id}" if order_id else "Tariffe Packlink"
+        update_job_progress(str(job["id"]), done, total, label)
+
+    return core.quote_many(
+        PacklinkScope(seller_id),
+        list(payload.get("tasks") or []),
+        origin_country=str(payload.get("origin_country") or ""),
+        origin_zip=str(payload.get("origin_zip") or ""),
+        source=str(payload.get("source") or "PRO"),
+        max_workers=int(payload.get("max_workers") or 6),
+        progress=progress,
+    )
+
+
+def _run_packlink_drafts_mass(job: dict[str, Any]) -> dict[str, Any]:
+    from marketplace_core.packlink import PacklinkCore, PacklinkScope
+
+    payload = job.get("payload") or {}
+    seller_id = int(job.get("seller_id") or 0)
+    core = PacklinkCore()
+
+    def progress(done: int, total: int, item: dict[str, Any]) -> None:
+        order_id = str(item.get("order_id") or "")
+        status = str(item.get("status") or "")
+        update_job_progress(
+            str(job["id"]), done, total,
+            f"Spedizioni Packlink: {order_id} · {status}" if order_id else "Spedizioni Packlink",
+        )
+
+    return core.create_drafts_many(
+        PacklinkScope(seller_id),
+        list(payload.get("tasks") or []),
+        sender=dict(payload.get("sender") or {}),
+        warehouse_id=str(payload.get("warehouse_id") or ""),
+        job_id=str(job.get("id") or ""),
+        max_workers=int(payload.get("max_workers") or 2),
+        progress=progress,
+    )
+
 def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
     kind = str(job.get("kind") or "")
     handlers: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
@@ -450,11 +499,13 @@ def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
         "accounting.orders.sync": _run_accounting_sync,
         "accounting.costs.refresh": _run_accounting_costs,
         "packlink.shipments.sync": _run_packlink_shipments_sync,
+        "packlink.quotes.mass": _run_packlink_quotes_mass,
+        "packlink.drafts.mass": _run_packlink_drafts_mass,
         "tracking.documents.analyze": _run_tracking_documents_analyze,
     }
     handler = handlers.get(kind)
     if handler is None:
-        raise RuntimeError(f"Job non supportato dal worker v308: {kind}")
+        raise RuntimeError(f"Job non supportato dal worker v309: {kind}")
     return handler(job)
 
 

@@ -2663,40 +2663,89 @@ else:
                 "ripristinate: non vengono richieste nuovamente a Packlink finché non modifichi manualmente il singolo ordine."
             )
 
-        flash_key = f"packlink_quote_all_flash_v227_{seller_id}"
-        flash = st.session_state.pop(flash_key, None)
-        if isinstance(flash, Mapping):
-            if flash.get("failures"):
-                failures = list(flash.get("failures") or [])
-                st.warning(
-                    f"Ricalcolo completato con {len(failures)} errori. "
-                    + (f"Primo errore: {failures[0]}" if failures else "")
-                )
-            elif flash.get("done"):
-                st.success("Tariffe Packlink aggiornate soltanto per gli ordini che ne avevano bisogno.")
+        quote_tasks = [
+            {
+                "account_id": int(order.get("marketplace_account_id") or 0),
+                "marketplace": clean_text(order.get("marketplace")).lower(),
+                "order_id": clean_text(order.get("order_id")),
+                "order_key": clean_text(order.get("order_key")),
+                "package": package_payload(_current_package(order)),
+            }
+            for order in pending_orders
+        ]
+        job_key = f"packlink_mass_quote_job_v309_{seller_id}_{sender_quote_signature}"
+        active_job_id = st.session_state.get(job_key)
+        active_job = jobs_core.snapshot(active_job_id) if active_job_id else None
 
         quote_button_label = (
-            f"Calcola tariffe solo per gli ordini senza tariffa valida ({len(pending_orders)})"
+            f"Calcola in background le tariffe mancanti ({len(pending_orders)})"
             if pending_orders else
             "Tutte le tariffe sono già valide · nessun ricalcolo necessario"
         )
         if st.button(
             quote_button_label,
-            type="primary", use_container_width=True, disabled=not bool(pending_orders),
-            key=f"packlink_load_missing_quotes_v227_{seller_id}",
+            type="primary", use_container_width=True,
+            disabled=not bool(pending_orders) or bool(active_job and not active_job.terminal),
+            key=f"packlink_load_missing_quotes_v309_{seller_id}",
         ):
-            progress = st.progress(0.0)
-            label = st.empty()
-            failures: list[str] = []
-            total_pending = len(pending_orders)
-            for position, order in enumerate(pending_orders, 1):
-                ok, error = _load_quotes(order)
-                if not ok:
-                    failures.append(f"{order.get('order_id')}: {error}")
-                progress.progress(position / max(1, total_pending))
-                label.caption(f"Tariffe ricalcolate: {position} di {total_pending} ordini necessari")
-            st.session_state[flash_key] = {"done": True, "failures": failures}
+            request = packlink_core.build_mass_quotes_job(
+                packlink_scope,
+                quote_tasks,
+                origin_country=clean_text(selected_sender.get("country")),
+                origin_zip=clean_text(selected_sender.get("zip_code")),
+                source=service_source,
+                max_workers=6,
+            )
+            receipt = jobs_core.submit(request)
+            jobs_core.start_local(receipt.job_id)
+            st.session_state[job_key] = receipt.job_id
+            st.success(
+                "Calcolo tariffe avviato in background: puoi continuare a usare Marketplace Hub."
+            )
             st.rerun()
+
+        active_job_id = st.session_state.get(job_key)
+        active_job = jobs_core.snapshot(active_job_id) if active_job_id else None
+        if active_job:
+            st.progress(
+                min(1.0, max(0.0, active_job.progress_pct / 100.0)),
+                text=active_job.message or active_job.status,
+            )
+            c1, c2 = st.columns([1, 4])
+            if c1.button("Aggiorna stato", key=f"packlink_quote_job_refresh_{active_job.job_id}"):
+                st.rerun()
+            if active_job.status == "done":
+                applied_key = f"packlink_quote_job_applied_{active_job.job_id}"
+                if not st.session_state.get(applied_key):
+                    persisted = packlink_core.quote_results(packlink_scope, quote_tasks)
+                    for order_key, item in persisted.items():
+                        quotes_state[order_key] = {
+                            "package_signature": clean_text(item.get("package_signature")),
+                            "package": dict(item.get("package") or {}),
+                            "services": list(item.get("services") or []),
+                            "loaded_at": clean_text(item.get("quoted_at")),
+                            "error": clean_text(item.get("error")),
+                        }
+                    st.session_state[quotes_key] = quotes_state
+                    st.session_state[applied_key] = True
+                    st.rerun()
+                result = dict(active_job.result)
+                if int(result.get("errors") or 0):
+                    st.warning(
+                        f"Tariffe completate: {int(result.get('successful') or 0)} riuscite · "
+                        f"{int(result.get('errors') or 0)} con errore."
+                    )
+                else:
+                    st.success(
+                        f"Tariffe Packlink aggiornate in parallelo per "
+                        f"{int(result.get('successful') or 0)} ordini."
+                    )
+            elif active_job.status == "error":
+                st.error(f"Calcolo tariffe Packlink non riuscito: {active_job.error}")
+            else:
+                c2.caption(
+                    f"Job {active_job.job_id[:8]} · {active_job.status} · il lavoro continua anche cambiando pagina."
+                )
 
     _render_packlink_quote_all_controls()
 
@@ -3225,83 +3274,117 @@ else:
         b2.metric("Già organizzati / non forzati", already_organized_count)
         b3.metric("Senza tariffa disponibile", missing_service_count)
         st.caption(
-            "Per gli ordini selezionati con «Seleziona tutti da rigenerare», pacco e tariffa precedenti vengono "
-            "ripristinati automaticamente e sono già candidati all'invio massivo. Non devi riselezionare i servizi. "
-            "Solo una modifica manuale del singolo ordine sostituisce la sua configurazione precedente."
-        )
-        st.caption(
-            "v230: prima di ogni POST la destinazione viene ricostruita dall'ordine corrente mostrato a video; "
-            "Paese e Città/codice postale non vengono mai riutilizzati da una vecchia candidatura di sessione."
+            "v309: l'invio massivo è eseguito dal Worker Engine con protezione idempotente. "
+            "Lo stesso ordine non può essere creato due volte per un retry automatico; se la risposta HTTP "
+            "è incerta, il retry viene bloccato finché non verifichi Packlink o scegli esplicitamente la forzatura."
         )
 
-        batch_result_key = f"packlink_batch_result_v219_{seller_id}"
+        batch_result_key = f"packlink_batch_result_v309_{seller_id}"
         previous_batch_result = st.session_state.get(batch_result_key)
         if isinstance(previous_batch_result, list) and previous_batch_result:
             st.dataframe(pd.DataFrame(previous_batch_result), use_container_width=True, hide_index=True)
 
+        batch_tasks = []
+        for candidate in ready_candidates:
+            order = candidate.get("order") or {}
+            batch_tasks.append({
+                "account_id": int(order.get("marketplace_account_id") or 0),
+                "marketplace": clean_text(order.get("marketplace")).lower(),
+                "order_id": clean_text(order.get("order_id")),
+                "order_key": clean_text(order.get("order_key")),
+                "package": dict(candidate.get("package") or {}),
+                "service": dict(candidate.get("service") or {}),
+                "declared_value": float(candidate.get("declared_value") or 0),
+                "forced": bool(candidate.get("forced")),
+            })
+
+        job_key = f"packlink_mass_draft_job_v309_{seller_id}"
+        current_job_id = st.session_state.get(job_key)
+        current_job = jobs_core.snapshot(current_job_id) if current_job_id else None
+
         if st.button(
-            f"Crea massivamente tutte le spedizioni Packlink pronte per pagamento ({len(ready_candidates)})",
+            f"Crea in background tutte le spedizioni Packlink pronte ({len(ready_candidates)})",
             type="primary", use_container_width=True,
-            # v253: le schede ordine sono frammenti indipendenti. Dopo la scelta manuale
-            # di una tariffa, il candidato è già in session_state ma questo riepilogo può
-            # essere ancora visivamente fermo al rerun precedente. Il pulsante resta quindi
-            # cliccabile: il suo stesso rerun rilegge tutti i candidati aggiornati e procede.
-            disabled=not bool(selected_orders),
-            key=f"packlink_create_batch_v253_{seller_id}",
+            disabled=(not bool(ready_candidates)) or bool(current_job and not current_job.terminal),
+            key=f"packlink_create_batch_v309_{seller_id}",
         ):
-            if not ready_candidates:
-                st.warning(
-                    "Nessuna spedizione è ancora pronta per l'invio massivo. Scegli una tariffa "
-                    "per almeno un ordine: il pulsante resta attivo e rilegge automaticamente "
-                    "le scelte manuali al click."
-                )
-                return
-            progress = st.progress(0.0)
-            status_box = st.empty()
-            results: list[dict[str, Any]] = []
-            success_count = 0
-            for position, candidate in enumerate(ready_candidates, 1):
-                order = candidate["order"]
-                try:
-                    reference = _create_draft_for_order(
-                        order, candidate["package"], candidate["service"],
-                        float(candidate["declared_value"]), forced=bool(candidate.get("forced")),
+            request = packlink_core.build_mass_drafts_job(
+                packlink_scope,
+                batch_tasks,
+                sender=dict(selected_sender_for_draft or {}),
+                warehouse_id=selected_sender_origin_id,
+                max_workers=2,
+            )
+            receipt = jobs_core.submit(request)
+            jobs_core.start_local(receipt.job_id)
+            st.session_state[job_key] = receipt.job_id
+            st.success(
+                "Creazione massiva avviata in background. Puoi cambiare pagina senza interrompere il lavoro."
+            )
+            st.rerun()
+
+        current_job_id = st.session_state.get(job_key)
+        current_job = jobs_core.snapshot(current_job_id) if current_job_id else None
+        if current_job:
+            st.progress(
+                min(1.0, max(0.0, current_job.progress_pct / 100.0)),
+                text=current_job.message or current_job.status,
+            )
+            j1, j2 = st.columns([1, 4])
+            if j1.button("Aggiorna stato", key=f"packlink_draft_job_refresh_{current_job.job_id}"):
+                st.rerun()
+            if current_job.status == "done":
+                result = dict(current_job.result)
+                items = list(result.get("items") or [])
+                applied_key = f"packlink_draft_job_applied_{current_job.job_id}"
+                if not st.session_state.get(applied_key):
+                    display_rows = []
+                    for item in items:
+                        status = clean_text(item.get("status"))
+                        order_key = clean_text(item.get("order_key"))
+                        if status in ("created", "duplicate"):
+                            order = selected_orders_by_key.get(order_key)
+                            if isinstance(order, Mapping):
+                                st.session_state.pop(_mass_candidate_key(order), None)
+                        display_rows.append({
+                            "Ordine": clean_text(item.get("order_id")),
+                            "Esito": status,
+                            "Riferimento Packlink": clean_text(item.get("reference")),
+                            "Corriere": clean_text(item.get("carrier")),
+                            "Servizio": clean_text(item.get("service")),
+                            "Errore": clean_text(item.get("error")),
+                        })
+                    st.session_state[batch_result_key] = display_rows
+                    st.session_state[applied_key] = True
+                    if int(result.get("created") or 0):
+                        update_connection_status(seller_id, ok=True)
+                    st.rerun()
+
+                created = int(result.get("created") or 0)
+                duplicates = int(result.get("duplicates") or 0)
+                uncertain = int(result.get("uncertain") or 0)
+                errors = int(result.get("errors") or 0)
+                if uncertain:
+                    st.warning(
+                        f"{uncertain} invii hanno esito HTTP incerto. Per sicurezza Marketplace Hub NON li ritenta "
+                        "automaticamente: verifica prima Packlink PRO, poi eventualmente usa la forzatura manuale."
                     )
-                    success_count += 1
-                    st.session_state.pop(_mass_candidate_key(order), None)
-                    results.append({
-                        "Ordine": clean_text(order.get("order_id")),
-                        "Esito": "Creato" + (" · FORZATO" if candidate.get("forced") else ""),
-                        "Riferimento Packlink": reference,
-                        "Corriere": clean_text(candidate["service"].get("carrier")),
-                        "Servizio": clean_text(candidate["service"].get("service")),
-                        "Errore": "",
-                    })
-                except Exception as exc:
-                    results.append({
-                        "Ordine": clean_text(order.get("order_id")),
-                        "Esito": "Errore", "Riferimento Packlink": "",
-                        "Corriere": clean_text(candidate["service"].get("carrier")),
-                        "Servizio": clean_text(candidate["service"].get("service")),
-                        "Errore": clean_text(exc),
-                    })
-                progress.progress(position / max(1, len(ready_candidates)))
-                status_box.caption(
-                    f"Invio spedizioni: {position} di {len(ready_candidates)} · create {success_count}"
-                )
-            st.session_state[batch_result_key] = results
-            if success_count:
-                update_connection_status(seller_id, ok=True)
-            if success_count == len(ready_candidates):
-                st.success(
-                    f"Creazione massiva completata: {success_count} spedizioni create. "
-                    "Apri Packlink PRO → Bozza → Pronti per il pagamento per pagarle insieme."
-                )
+                if errors:
+                    st.warning(
+                        f"Creazione massiva: {created} create · {duplicates} già presenti · "
+                        f"{uncertain} in verifica · {errors} errori."
+                    )
+                else:
+                    st.success(
+                        f"Creazione massiva completata: {created} create · {duplicates} già presenti"
+                        + (f" · {uncertain} da verificare" if uncertain else "") + "."
+                    )
+            elif current_job.status == "error":
+                update_connection_status(seller_id, ok=False, error=current_job.error)
+                st.error(f"Creazione massiva Packlink non riuscita: {current_job.error}")
             else:
-                st.warning(
-                    f"Creazione massiva completata: {success_count} create, "
-                    f"{len(ready_candidates) - success_count} con errore. "
-                    "Gli ordini riusciti restano memorizzati e non verranno duplicati al prossimo tentativo."
+                j2.caption(
+                    f"Job {current_job.job_id[:8]} · {current_job.status} · protetto contro invii duplicati."
                 )
 
     _render_packlink_batch_creator()

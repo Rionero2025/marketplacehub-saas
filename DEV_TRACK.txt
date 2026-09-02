@@ -7,3 +7,5 @@ Step 4 - v304 Buy Box Speed Core: BuyBoxCore UI-agnostic, paged saved checks, wo
 Step 5 - v305 Worker Engine: persistent jobs, local background runner, dedicated-worker contract.
 Step 6 - v306 Worten + Accounting Workers: background order sync, accounting sync/cost jobs.
 Step 7 - v307 Shared Cache: Redis-ready cross-process cache, user/seller/list cache, SQL invalidation.
+
+v309 - Packlink Mass Engine: quote parallele persistenti + bozze massive background con idempotency guard e blocco retry su esito incerto.
