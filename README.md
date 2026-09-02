@@ -82,3 +82,8 @@ Fornitori e listini hanno ora proprietà Tenant e tre ambiti SaaS: `tenant`, `ag
 
 ## v318 — Plans & Entitlements Engine
 I piani SaaS sono ora regole backend reali. Permessi utente e entitlement del piano vengono verificati separatamente; i worker ricontrollano il piano al momento dell'esecuzione; sono disponibili limiti centralizzati e contatori mensili. Vedi `STEP18_PLANS_ENTITLEMENTS.md`.
+
+
+## v319 Billing & Subscription Lifecycle
+
+Motore provider-independent per trial, rinnovi, past-due, grace period, sospensione, cancellazione e cambi piano. Stripe non è necessario in questa fase. Vedi `STEP19_BILLING_LIFECYCLE.md`.

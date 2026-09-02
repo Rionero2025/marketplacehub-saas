@@ -377,7 +377,7 @@ def set_tenant_plan(
     if required_type not in {"any", tenant_type}:
         raise ValueError(f"Il piano {code} non è compatibile con tenant_type={tenant_type}.")
     status = str(status or "manual").strip().lower()
-    allowed_statuses = {"manual", "trialing", "active", "past_due", "paused", "canceled"}
+    allowed_statuses = {"manual", "trialing", "active", "past_due", "paused", "suspended", "canceled"}
     if status not in allowed_statuses:
         raise ValueError("Stato abbonamento non valido.")
     stamp = now_iso()
@@ -514,7 +514,13 @@ def _effective_raw(tenant_id: int) -> dict[str, Any]:
         elif item.get("entitlement_kind") == "limit":
             limits[key] = _limit_value(item.get("limit_value"))
     status = str(sub.get("status") or "manual").lower()
-    active = status in {"manual", "trialing", "active"}
+    try:
+        from services.billing import subscription_access_active
+        active = subscription_access_active(sub)
+        if status == "paused":
+            status = "suspended"
+    except Exception:
+        active = status in {"manual", "trialing", "active"}
     return {
         "tenant_id": int(tenant_id),
         "plan_code": str(plan.get("code") or sub.get("plan_code") or "legacy"),

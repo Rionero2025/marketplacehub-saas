@@ -62,6 +62,7 @@ RLS_TABLES = (
     "tenant_subscriptions",
     "tenant_entitlement_overrides",
     "tenant_usage_monthly",
+    "billing_events",
 )
 
 

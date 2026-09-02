@@ -5,4 +5,4 @@ existing ``marketplace_core`` boundaries to web/mobile frontends and dedicated
 workers without duplicating business logic.
 """
 
-API_VERSION = "318"
+API_VERSION = "319"

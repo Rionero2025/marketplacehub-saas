@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -187,3 +187,85 @@ class EntitlementOverrideRequest(ApiModel):
     kind: str = Field(pattern="^(feature|limit)$")
     enabled: bool | None = None
     limit_value: float | None = Field(default=None, ge=0)
+
+
+class BillingSnapshotResponse(ApiModel):
+    tenant_id: int
+    tenant_name: str = ""
+    tenant_type: str = "merchant"
+    plan_code: str
+    plan_name: str = ""
+    status: str
+    access_active: bool = False
+    provider: str = "manual"
+    billing_interval: str = "monthly"
+    current_period_start: str = ""
+    current_period_end: str = ""
+    trial_start: str = ""
+    trial_end: str = ""
+    grace_period_end: str = ""
+    cancel_at_period_end: bool = False
+    cancel_requested_at: str = ""
+    canceled_at: str = ""
+    suspended_at: str = ""
+    ended_at: str = ""
+    next_plan_code: str = ""
+    next_plan_effective_at: str = ""
+    last_payment_at: str = ""
+    last_payment_status: str = ""
+    last_payment_reference: str = ""
+    last_payment_amount_cents: int = 0
+    status_reason: str = ""
+    monthly_price_cents: int = 0
+    currency: str = "EUR"
+
+
+class BillingTrialRequest(ApiModel):
+    plan_code: str = Field(min_length=1, max_length=80)
+    days: int = Field(default=14, ge=1, le=90)
+
+
+class BillingActivateRequest(ApiModel):
+    plan_code: str = Field(min_length=1, max_length=80)
+    billing_interval: str = Field(default="monthly", pattern="^(monthly|annual|manual)$")
+    provider: str = Field(default="manual", pattern="^(manual|stripe)$")
+    period_start: datetime | None = None
+    period_end: datetime | None = None
+    external_customer_id: str = Field(default="", max_length=255)
+    external_subscription_id: str = Field(default="", max_length=255)
+    reference: str = Field(default="", max_length=255)
+
+
+class BillingPaymentSuccessRequest(ApiModel):
+    amount_cents: int = Field(default=0, ge=0)
+    currency: str = Field(default="EUR", min_length=3, max_length=3)
+    reference: str = Field(default="", max_length=255)
+    external_event_id: str = Field(default="", max_length=255)
+    paid_at: datetime | None = None
+    period_end: datetime | None = None
+
+
+class BillingPaymentFailedRequest(ApiModel):
+    grace_days: int | None = Field(default=None, ge=0, le=90)
+    reference: str = Field(default="", max_length=255)
+    external_event_id: str = Field(default="", max_length=255)
+    failed_at: datetime | None = None
+
+
+class BillingSuspendRequest(ApiModel):
+    reason: str = Field(default="manual", max_length=500)
+
+
+class BillingResumeRequest(ApiModel):
+    reason: str = Field(default="manual", max_length=500)
+
+
+class BillingCancelRequest(ApiModel):
+    at_period_end: bool = True
+    reason: str = Field(default="", max_length=500)
+
+
+class BillingPlanChangeRequest(ApiModel):
+    plan_code: str = Field(min_length=1, max_length=80)
+    immediate: bool = False
+    effective_at: datetime | None = None
