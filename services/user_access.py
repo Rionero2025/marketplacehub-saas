@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 from services.db import execute, row, rows
+from services.shared_cache import cache_get_or_set
 
 # Le chiavi sono stabili: vengono salvate nel DB e usate da app.py per costruire
 # il menu consentito al singolo utente.
@@ -177,11 +178,18 @@ def seller_ids_from_record(record: dict | None) -> list[int] | None:
 
 def get_user(user_id: int) -> dict | None:
     ensure_user_schema()
-    found = row("SELECT * FROM app_users WHERE id=?", (int(user_id),))
-    if found:
-        found["permissions"] = permissions_from_record(found)
-        found["seller_ids"] = seller_ids_from_record(found)
-    return found
+    user_id = int(user_id)
+
+    def load() -> dict | None:
+        found = row("SELECT * FROM app_users WHERE id=?", (user_id,))
+        if found:
+            found["permissions"] = permissions_from_record(found)
+            found["seller_ids"] = seller_ids_from_record(found)
+        return found
+
+    # Shared across Streamlit sessions/worker processes when Redis is configured.
+    # Writes to app_users invalidate the whole users namespace centrally.
+    return cache_get_or_set("users", f"id:{user_id}", load, ttl_seconds=30)
 
 
 def find_user(username: str) -> dict | None:
@@ -198,11 +206,15 @@ def find_user(username: str) -> dict | None:
 
 def list_users() -> list[dict]:
     ensure_user_schema()
-    result = rows("SELECT * FROM app_users ORDER BY lower(username),id")
-    for item in result:
-        item["permissions"] = permissions_from_record(item)
-        item["seller_ids"] = seller_ids_from_record(item)
-    return result
+
+    def load() -> list[dict]:
+        result = rows("SELECT * FROM app_users ORDER BY lower(username),id")
+        for item in result:
+            item["permissions"] = permissions_from_record(item)
+            item["seller_ids"] = seller_ids_from_record(item)
+        return result
+
+    return cache_get_or_set("users", "list", load, ttl_seconds=15)
 
 
 def _seller_json(is_admin: bool, seller_ids: Iterable[int | str] | None) -> str:

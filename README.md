@@ -44,3 +44,6 @@ Non committare mai:
 - esportazioni e dati clienti
 
 Le credenziali di produzione devono essere configurate come variabili d'ambiente/secret nel provider cloud.
+
+## Performance Core v307
+La cache applicativa è ora Redis-ready con fallback locale. Utenti, Seller e listini accessibili usano TTL brevi e invalidazione automatica sulle scritture, preparando il runtime multi-processo del SaaS.

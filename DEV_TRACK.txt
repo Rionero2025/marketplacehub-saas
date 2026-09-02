@@ -4,3 +4,6 @@ Step 2 - v302 Speed Core: dashboard snapshot, cache contract, auth rerun throttl
 Step 3 - v303 Orders Speed Core: SQL archive window, server-side pagination, OrdersCore, order indexes.
 
 Step 4 - v304 Buy Box Speed Core: BuyBoxCore UI-agnostic, paged saved checks, worker job contract, performance indexes, Kaufland quick batch fuori dalla pagina.
+Step 5 - v305 Worker Engine: persistent jobs, local background runner, dedicated-worker contract.
+Step 6 - v306 Worten + Accounting Workers: background order sync, accounting sync/cost jobs.
+Step 7 - v307 Shared Cache: Redis-ready cross-process cache, user/seller/list cache, SQL invalidation.

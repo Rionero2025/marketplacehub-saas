@@ -16,6 +16,7 @@ from pathlib import Path
 
 from services.database_config import database_engine, load_database_config, database_config_public
 from services import postgresql_backend
+from services.shared_cache import cache_get_or_set
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
@@ -937,7 +938,13 @@ def execute(sql: str, params=()) -> int:
             cur = con.execute(sql, params)
             return int(cur.lastrowid or 0)
 
-    return _retry_locked(write)
+    result = _retry_locked(write)
+    try:
+        from services.cache_invalidation import invalidate_for_sql
+        invalidate_for_sql(sql)
+    except Exception:
+        pass
+    return result
 
 
 def execute_many(sql: str, parameter_rows: Iterable[tuple]) -> int:
@@ -950,7 +957,13 @@ def execute_many(sql: str, parameter_rows: Iterable[tuple]) -> int:
             cur = con.executemany(sql, values)
             return max(0, int(cur.rowcount or 0))
 
-    return _retry_locked(write_many)
+    result = _retry_locked(write_many)
+    try:
+        from services.cache_invalidation import invalidate_for_sql
+        invalidate_for_sql(sql)
+    except Exception:
+        pass
+    return result
 
 
 def database_write_probe() -> bool:
@@ -1173,29 +1186,39 @@ def _authenticated_seller_scope() -> set[int] | None:
 
 def sellers(active_only=True) -> list[dict]:
     scope = _authenticated_seller_scope()
-    clauses: list[str] = []
-    params: list[int] = []
-    if active_only:
-        clauses.append("active=1")
-    if scope is not None:
-        if not scope:
-            return []
-        ordered = sorted(scope)
-        clauses.append(f"id IN ({','.join('?' for _ in ordered)})")
-        params.extend(ordered)
-    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    return rows(f"SELECT * FROM sellers {where} ORDER BY name", tuple(params))
+    if scope is not None and not scope:
+        return []
+    ordered_scope = tuple(sorted(scope)) if scope is not None else None
+
+    def load() -> list[dict]:
+        clauses: list[str] = []
+        params: list[int] = []
+        if active_only:
+            clauses.append("active=1")
+        if ordered_scope is not None:
+            clauses.append(f"id IN ({','.join('?' for _ in ordered_scope)})")
+            params.extend(ordered_scope)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        return rows(f"SELECT * FROM sellers {where} ORDER BY name", tuple(params))
+
+    cache_key = (bool(active_only), ordered_scope or "all")
+    return cache_get_or_set("sellers", cache_key, load, ttl_seconds=30)
 
 
 def accessible_lists(seller_id: int) -> list[dict]:
-    return rows("""
-      SELECT DISTINCT pl.*, s.name supplier_name, own.name owner_name
-      FROM price_lists pl
-      JOIN suppliers s ON s.id=pl.supplier_id
-      JOIN sellers own ON own.id=pl.owner_seller_id
-      LEFT JOIN price_list_access a ON a.price_list_id=pl.id AND a.seller_id=?
-      WHERE pl.active=1 AND (
-        pl.owner_seller_id=? OR pl.visibility='global' OR
-        (pl.visibility='shared' AND a.seller_id IS NOT NULL)
-      ) ORDER BY s.name, pl.name
-    """, (seller_id, seller_id))
+    seller_id = int(seller_id)
+
+    def load() -> list[dict]:
+        return rows("""
+          SELECT DISTINCT pl.*, s.name supplier_name, own.name owner_name
+          FROM price_lists pl
+          JOIN suppliers s ON s.id=pl.supplier_id
+          JOIN sellers own ON own.id=pl.owner_seller_id
+          LEFT JOIN price_list_access a ON a.price_list_id=pl.id AND a.seller_id=?
+          WHERE pl.active=1 AND (
+            pl.owner_seller_id=? OR pl.visibility='global' OR
+            (pl.visibility='shared' AND a.seller_id IS NOT NULL)
+          ) ORDER BY s.name, pl.name
+        """, (seller_id, seller_id))
+
+    return cache_get_or_set("accessible_lists", seller_id, load, ttl_seconds=30)

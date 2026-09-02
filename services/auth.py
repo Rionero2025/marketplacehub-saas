@@ -91,10 +91,10 @@ def _refresh_database_session(session: dict, *, force: bool = False) -> dict | N
     if session.get("source") != "database":
         return session
 
-    # Streamlit reruns the script on every widget interaction. Querying app_users
-    # on every rerun adds latency to every page. v302 keeps authorization fresh
-    # with a short configurable interval while preserving immediate checks at login.
-    refresh_seconds = max(1.0, float(os.getenv("MARKETPLACE_HUB_SESSION_REFRESH_SECONDS", "10")))
+    # Streamlit reruns the script on every widget interaction. v307 combines the
+    # browser-session throttle with the shared Redis-ready user cache, so multiple
+    # sessions/processes do not repeat the same PostgreSQL authorization read.
+    refresh_seconds = max(1.0, float(os.getenv("MARKETPLACE_HUB_SESSION_REFRESH_SECONDS", "15")))
     now = time.monotonic()
     last_checked = float(st.session_state.get(_SESSION_REFRESH_KEY) or 0.0)
     if not force and last_checked and now - last_checked < refresh_seconds:

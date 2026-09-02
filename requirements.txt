@@ -19,3 +19,5 @@ truststore>=0.10
 reportlab>=4.0
 
 psycopg[binary,pool]>=3.2,<4
+
+redis>=5.0,<7
