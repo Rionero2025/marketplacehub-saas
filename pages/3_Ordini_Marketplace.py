@@ -26,18 +26,20 @@ accounts = rows(
     """,
     (seller_id,),
 )
+supported_marketplaces = {"kaufland", "worten"}
 available = sorted({
     str(item["marketplace"]).strip().lower()
-    for item in accounts if str(item["marketplace"]).strip().lower() == "kaufland"
+    for item in accounts
+    if str(item["marketplace"]).strip().lower() in supported_marketplaces
 })
 if not available:
     st.warning(
-        "Questo Seller non possiede un account Kaufland attivo. "
-        "Abilitalo prima in Gestione Seller."
+        "Questo Seller non possiede account Kaufland o Worten attivi. "
+        "Abilita almeno un marketplace in Gestione Seller."
     )
     st.stop()
 
-labels = {"kaufland": "Kaufland"}
+labels = {"kaufland": "Kaufland", "worten": "Worten"}
 marketplace = st.selectbox(
     "Marketplace degli ordini",
     available,
@@ -46,7 +48,10 @@ marketplace = st.selectbox(
 )
 st.divider()
 
-implementations = {"kaufland": "3_Ordini_Kaufland.py"}
+implementations = {
+    "kaufland": "3_Ordini_Kaufland.py",
+    "worten": "3_Ordini_Worten.py",
+}
 st.session_state["_embedded_marketplace_orders"] = True
 try:
     runpy.run_path(

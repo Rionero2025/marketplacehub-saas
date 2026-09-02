@@ -234,6 +234,16 @@ def claim_next_job(*, worker_id: str | None = None, kind_prefix: str = "") -> di
     return None
 
 
+def _payload_date(payload: dict[str, Any], key: str) -> date:
+    value = str(payload.get(key) or "").strip()
+    if not value:
+        raise RuntimeError(f"Parametro job mancante: {key}")
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError as exc:
+        raise RuntimeError(f"Data job non valida per {key}: {value}") from exc
+
+
 def _account_credentials(seller_id: int, account_id: int) -> tuple[dict[str, Any], dict[str, Any]]:
     from services.security import decrypt_dict
     account = row(
@@ -323,15 +333,87 @@ def _run_buybox_kaufland_quick(job: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_orders_worten(job: dict[str, Any]) -> dict[str, Any]:
+    from marketplace_core.orders import OrderScope, OrdersCore
+
+    payload = job.get("payload") or {}
+    seller_id = int(job.get("seller_id") or 0)
+    account_id = int(payload.get("account_id") or 0)
+    environment = str(payload.get("environment") or "live")
+    date_from = _payload_date(payload, "date_from")
+    date_to = _payload_date(payload, "date_to")
+    _account, credentials = _account_credentials(seller_id, account_id)
+    core = OrdersCore()
+    scope = OrderScope(seller_id, account_id, "worten", environment)
+
+    def progress(done: int, total: int, label: str) -> None:
+        update_job_progress(str(job["id"]), done, total, label)
+
+    saved = core.sync_normalized(
+        scope, credentials, date_from=date_from, date_to=date_to, progress=progress
+    )
+    return {
+        "marketplace": "worten",
+        "saved": int(saved),
+        "date_from": date_from.isoformat(),
+        "date_to": date_to.isoformat(),
+    }
+
+
+def _run_accounting_sync(job: dict[str, Any]) -> dict[str, Any]:
+    from marketplace_core.accounting import AccountingCore, AccountingPeriod, AccountingScope
+
+    payload = job.get("payload") or {}
+    seller_id = int(job.get("seller_id") or 0)
+    account_id = int(payload.get("account_id") or 0)
+    marketplace = str(payload.get("marketplace") or "").strip().lower()
+    date_from = _payload_date(payload, "date_from")
+    date_to = _payload_date(payload, "date_to")
+    _account, credentials = _account_credentials(seller_id, account_id)
+    core = AccountingCore()
+    scope = AccountingScope(seller_id, account_id, marketplace)
+
+    def progress(done: int, total: int, label: str) -> None:
+        update_job_progress(str(job["id"]), done, total, label)
+
+    return core.synchronize(
+        scope, credentials, AccountingPeriod(date_from, date_to),
+        full=bool(payload.get("full")), progress=progress,
+    )
+
+
+def _run_accounting_costs(job: dict[str, Any]) -> dict[str, Any]:
+    from marketplace_core.accounting import AccountingCore, AccountingPeriod, AccountingScope
+
+    payload = job.get("payload") or {}
+    seller_id = int(job.get("seller_id") or 0)
+    account_id = int(payload.get("account_id") or 0)
+    marketplace = str(payload.get("marketplace") or "").strip().lower()
+    date_from = _payload_date(payload, "date_from")
+    date_to = _payload_date(payload, "date_to")
+    core = AccountingCore()
+    scope = AccountingScope(seller_id, account_id, marketplace)
+
+    def progress(done: int, total: int, label: str) -> None:
+        update_job_progress(str(job["id"]), done, total, label)
+
+    return core.refresh_costs(
+        scope, AccountingPeriod(date_from, date_to), progress=progress
+    )
+
+
 def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
     kind = str(job.get("kind") or "")
     handlers: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
         "orders.kaufland.sync": _run_orders_kaufland,
+        "orders.worten.sync": _run_orders_worten,
         "buybox.kaufland.quick": _run_buybox_kaufland_quick,
+        "accounting.orders.sync": _run_accounting_sync,
+        "accounting.costs.refresh": _run_accounting_costs,
     }
     handler = handlers.get(kind)
     if handler is None:
-        raise RuntimeError(f"Job non supportato dal worker v305: {kind}")
+        raise RuntimeError(f"Job non supportato dal worker v306: {kind}")
     return handler(job)
 
 

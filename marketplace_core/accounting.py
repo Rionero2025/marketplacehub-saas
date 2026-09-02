@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Mapping
 
+from marketplace_core.contracts import JobRequest
+
 
 @dataclass(frozen=True, slots=True)
 class AccountingScope:
@@ -83,6 +85,41 @@ class AccountingCore:
             scope.seller_id, price_list_ids
         )
 
+    def build_sync_job(
+        self,
+        scope: AccountingScope,
+        period: AccountingPeriod,
+        *,
+        full: bool = False,
+    ) -> JobRequest:
+        return JobRequest(
+            kind="accounting.orders.sync",
+            seller_id=scope.seller_id,
+            payload={
+                "account_id": scope.account_id,
+                "marketplace": scope.marketplace_key,
+                "date_from": period.date_from.isoformat(),
+                "date_to": period.date_to.isoformat(),
+                "full": bool(full),
+            },
+        )
+
+    def build_refresh_costs_job(
+        self,
+        scope: AccountingScope,
+        period: AccountingPeriod,
+    ) -> JobRequest:
+        return JobRequest(
+            kind="accounting.costs.refresh",
+            seller_id=scope.seller_id,
+            payload={
+                "account_id": scope.account_id,
+                "marketplace": scope.marketplace_key,
+                "date_from": period.date_from.isoformat(),
+                "date_to": period.date_to.isoformat(),
+            },
+        )
+
     def synchronize(
         self,
         scope: AccountingScope,
@@ -90,6 +127,7 @@ class AccountingCore:
         period: AccountingPeriod,
         *,
         full: bool = False,
+        progress=None,
     ) -> dict[str, Any]:
         return self._service().synchronize_accounting_orders(
             credentials,
@@ -99,12 +137,15 @@ class AccountingCore:
             date_from=period.date_from,
             date_to=period.date_to,
             full=full,
+            progress=progress,
         )
 
     def refresh_costs(
         self,
         scope: AccountingScope,
         period: AccountingPeriod,
+        *,
+        progress=None,
     ) -> dict[str, int]:
         return self._service().refresh_accounting_costs(
             scope.seller_id,
@@ -112,6 +153,7 @@ class AccountingCore:
             scope.marketplace_key,
             date_from=period.date_from,
             date_to=period.date_to,
+            progress=progress,
         )
 
     def rows(

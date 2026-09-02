@@ -31,6 +31,7 @@ from services.accounting import (
     upsert_accounting_rows,
 )
 from marketplace_core.accounting import AccountingCore, AccountingPeriod, AccountingScope
+from marketplace_core.jobs import JobsCore
 
 from services.accounting_pdf import (
     accounting_pdf_bytes,
@@ -610,6 +611,7 @@ if review_active:
 st.divider()
 st.markdown("### Scarica e aggiorna gli ordini")
 accounting_core = AccountingCore()
+jobs_core = JobsCore()
 accounting_core_scope = AccountingScope(seller_id, account_id, marketplace)
 accounting_core_status = accounting_core.status(accounting_core_scope, credentials)
 environment = accounting_core_status.environment
@@ -781,56 +783,100 @@ if st.session_state.get(full_request_key):
     ):
         st.session_state[full_request_key] = False
         st.rerun()
+sync_job_key = f"accounting_sync_job_{scope}"
 if incremental_clicked or full_confirmed:
-    try:
-        with st.spinner(
-            f"Aggiornamento ordini {marketplace_labels.get(marketplace, marketplace.title())}…"
-        ):
-            sync_result = accounting_core.synchronize(
-                accounting_core_scope,
-                credentials,
-                AccountingPeriod(date_from, date_to),
-                full=bool(full_confirmed),
-            )
-        mode_label = (
-            "Risincronizzazione completa" if full_confirmed
-            else "Aggiornamento incrementale"
+    existing_job = jobs_core.snapshot(st.session_state.get(sync_job_key, "")) if st.session_state.get(sync_job_key) else None
+    if existing_job and not existing_job.terminal:
+        st.warning("È già in corso una sincronizzazione contabile per questo account.")
+    else:
+        request = accounting_core.build_sync_job(
+            accounting_core_scope,
+            AccountingPeriod(date_from, date_to),
+            full=bool(full_confirmed),
         )
+        receipt = jobs_core.submit(request)
+        jobs_core.start_local(receipt.job_id)
+        st.session_state[sync_job_key] = receipt.job_id
         st.success(
-            f"{mode_label} completato: {sync_result['new_orders']:,} nuovi ordini, "
-            f"{sync_result['updated_orders']:,} ordini modificati, "
-            f"{sync_result['unchanged_orders']:,} ordini ricontrollati senza variazioni. "
-            f"Prima dell'aggiornamento erano già presenti {sync_result['existing_orders']:,} ordini; "
-            f"ora il database ne conserva {sync_result['total_orders']:,}. "
-            f"Intervallo API effettivo: {sync_result['effective_from']:%d/%m/%Y} - "
-            f"{sync_result['effective_to']:%d/%m/%Y}."
-        )
-        st.rerun()
-    except Exception as exc:
-        st.error(
-            "Impossibile aggiornare gli ordini. Lo storico già presente non è stato "
-            f"cancellato: {exc}"
+            "Sincronizzazione contabile avviata in background. "
+            "Puoi cambiare pagina e continuare a usare Marketplace Hub."
         )
 
-if costs_col.button(
+sync_job_id = st.session_state.get(sync_job_key)
+if sync_job_id:
+    sync_job = jobs_core.snapshot(sync_job_id)
+    if sync_job:
+        st.progress(
+            min(1.0, max(0.0, sync_job.progress_pct / 100.0)),
+            text=sync_job.message or sync_job.status,
+        )
+        sj1, sj2 = st.columns([1, 4])
+        if sj1.button("Aggiorna stato", key=f"accounting_sync_job_refresh_{sync_job_id}"):
+            st.rerun()
+        if sync_job.status == "done":
+            result = dict(sync_job.result)
+            st.success(
+                f"Sincronizzazione completata · nuovi ordini {int(result.get('new_orders') or 0):,} · "
+                f"modificati {int(result.get('updated_orders') or 0):,} · "
+                f"invariati {int(result.get('unchanged_orders') or 0):,} · "
+                f"totale in memoria {int(result.get('total_orders') or 0):,}."
+            )
+        elif sync_job.status == "error":
+            st.error(f"Sincronizzazione contabile non riuscita: {sync_job.error}")
+        else:
+            sj2.caption(
+                f"Job {sync_job.job_id[:8]} · {sync_job.status} · "
+                "continua anche se navighi in un'altra sezione."
+            )
+
+costs_clicked = costs_col.button(
     "Ricalcola costi con i listini selezionati",
     use_container_width=True,
     key=f"accounting_refresh_costs_{scope}",
-):
-    try:
-        with st.spinner("Ricerca EAN esatto nei listini selezionati…"):
-            cost_result = accounting_core.refresh_costs(
-                accounting_core_scope,
-                AccountingPeriod(date_from, date_to),
-            )
-        st.success(
-            f"Ricalcolo completato: {cost_result['matched']:,} costi trovati, "
-            f"{cost_result['preserved']:,} costi già validi conservati, "
-            f"{cost_result['missing']:,} da verificare, "
-            f"{cost_result['catalogs']:,} listini analizzati."
+)
+cost_job_key = f"accounting_cost_job_{scope}"
+if costs_clicked:
+    existing_cost_job = jobs_core.snapshot(st.session_state.get(cost_job_key, "")) if st.session_state.get(cost_job_key) else None
+    if existing_cost_job and not existing_cost_job.terminal:
+        st.warning("È già in corso un ricalcolo costi per questo account.")
+    else:
+        request = accounting_core.build_refresh_costs_job(
+            accounting_core_scope, AccountingPeriod(date_from, date_to)
         )
-    except Exception as exc:
-        st.error(f"Impossibile ricalcolare i costi: {exc}")
+        receipt = jobs_core.submit(request)
+        jobs_core.start_local(receipt.job_id)
+        st.session_state[cost_job_key] = receipt.job_id
+        st.success(
+            "Ricalcolo costi avviato in background. Puoi continuare a lavorare mentre "
+            "il motore esegue i match EAN / SKU / SKU composito."
+        )
+
+cost_job_id = st.session_state.get(cost_job_key)
+if cost_job_id:
+    cost_job = jobs_core.snapshot(cost_job_id)
+    if cost_job:
+        st.progress(
+            min(1.0, max(0.0, cost_job.progress_pct / 100.0)),
+            text=cost_job.message or cost_job.status,
+        )
+        cj1, cj2 = st.columns([1, 4])
+        if cj1.button("Aggiorna stato costi", key=f"accounting_cost_job_refresh_{cost_job_id}"):
+            st.rerun()
+        if cost_job.status == "done":
+            result = dict(cost_job.result)
+            st.success(
+                f"Ricalcolo completato · trovati {int(result.get('matched') or 0):,} · "
+                f"conservati {int(result.get('preserved') or 0):,} · "
+                f"da verificare {int(result.get('missing') or 0):,} · "
+                f"listini {int(result.get('catalogs') or 0):,}."
+            )
+        elif cost_job.status == "error":
+            st.error(f"Ricalcolo costi non riuscito: {cost_job.error}")
+        else:
+            cj2.caption(
+                f"Job {cost_job.job_id[:8]} · {cost_job.status} · "
+                "il ricalcolo continua in background."
+            )
 
 st.caption(
     "Il costo viene cercato tramite EAN/GTIN esatto esclusivamente nei listini che hai "

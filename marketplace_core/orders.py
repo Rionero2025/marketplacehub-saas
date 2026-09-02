@@ -134,20 +134,37 @@ class OrdersCore:
         *,
         maximum: int | None = 1000,
         include_tracking_details: bool = True,
+        date_from: date | None = None,
+        date_to: date | None = None,
     ) -> JobRequest:
         market = scope.marketplace_key
-        if market != "kaufland":
-            raise ValueError("v305 background sync supporta Kaufland; Worten segue nel worker successivo")
-        return JobRequest(
-            kind="orders.kaufland.sync",
-            seller_id=scope.seller_id,
-            payload={
-                "account_id": scope.account_id,
-                "environment": scope.environment,
-                "maximum": maximum,
-                "include_tracking_details": bool(include_tracking_details),
-            },
-        )
+        if market == "kaufland":
+            return JobRequest(
+                kind="orders.kaufland.sync",
+                seller_id=scope.seller_id,
+                payload={
+                    "account_id": scope.account_id,
+                    "environment": scope.environment,
+                    "maximum": maximum,
+                    "include_tracking_details": bool(include_tracking_details),
+                },
+            )
+        if market == "worten":
+            if date_from is None or date_to is None:
+                raise ValueError("Worten richiede date_from e date_to per la sincronizzazione")
+            if date_to < date_from:
+                raise ValueError("date_to non può precedere date_from")
+            return JobRequest(
+                kind="orders.worten.sync",
+                seller_id=scope.seller_id,
+                payload={
+                    "account_id": scope.account_id,
+                    "environment": scope.environment,
+                    "date_from": date_from.isoformat(),
+                    "date_to": date_to.isoformat(),
+                },
+            )
+        raise ValueError(f"Marketplace ordini non supportato: {market}")
 
     def sync_kaufland(
         self,
@@ -179,6 +196,7 @@ class OrdersCore:
         *,
         date_from: date,
         date_to: date,
+        progress=None,
     ) -> int:
         """Sync Kaufland/Worten into the normalized shared order cache."""
         from services.cecotec_orders import (
@@ -188,6 +206,8 @@ class OrdersCore:
         )
 
         market = scope.marketplace_key
+        if callable(progress):
+            progress(0, 2, f"Scarico ordini {market.title()}…")
         if market == "kaufland":
             fresh = fetch_kaufland_orders(
                 credentials,
@@ -204,6 +224,11 @@ class OrdersCore:
             )
         else:
             raise ValueError(f"Marketplace ordini non supportato: {market}")
-        return upsert_order_cache(
+        if callable(progress):
+            progress(1, 2, f"Salvo {len(fresh):,} righe ordine…")
+        saved = upsert_order_cache(
             scope.seller_id, scope.account_id, market, fresh
         )
+        if callable(progress):
+            progress(2, 2, f"Ordini {market.title()} aggiornati")
+        return saved

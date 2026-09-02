@@ -2390,9 +2390,12 @@ def synchronize_accounting_orders(
     date_to: date,
     full: bool = False,
     overlap_days: int = 7,
+    progress=None,
 ) -> dict[str, Any]:
     """Incrementally synchronize an account while preserving its full cache."""
     marketplace_key = clean_text(marketplace).lower()
+    if callable(progress):
+        progress(0, 3, f"Preparo sincronizzazione {marketplace_key.title()}…")
     environment = accounting_sync_environment(marketplace_key, credentials)
     previous_state = accounting_sync_state(
         seller_id, account_id, marketplace_key, environment=environment
@@ -2444,9 +2447,13 @@ def synchronize_accounting_orders(
             raise ValueError(
                 f"Sincronizzazione contabile non ancora disponibile per {marketplace_key}."
             )
+        if callable(progress):
+            progress(1, 3, f"Scaricati {len(fetched):,} movimenti · salvataggio…")
         stats = upsert_accounting_rows_with_stats(
             seller_id, account_id, marketplace_key, fetched
         )
+        if callable(progress):
+            progress(2, 3, "Aggiorno riepilogo contabile…")
         _record_sync_finish(
             seller_id,
             account_id,
@@ -2468,6 +2475,8 @@ def synchronize_accounting_orders(
         )
         raise
     summary = accounting_cache_summary(seller_id, account_id, marketplace_key)
+    if callable(progress):
+        progress(3, 3, "Sincronizzazione contabile completata")
     return {
         **stats,
         **summary,
@@ -2661,6 +2670,7 @@ def refresh_accounting_costs(
     *,
     date_from: date | None = None,
     date_to: date | None = None,
+    progress=None,
 ) -> dict[str, int]:
     """Recalculate cached order costs using exact EAN across all accessible lists."""
     catalog_selection = accounting_catalog_selection(seller_id)
@@ -2674,12 +2684,27 @@ def refresh_accounting_costs(
         "cancelled": 0,
         "preserved": 0,
     }
+    total_candidates = 0
+    for candidate in records:
+        created = _date_time(candidate.get("order_created"))
+        if date_from and created and created.date() < date_from:
+            continue
+        if date_to and created and created.date() > date_to:
+            continue
+        total_candidates += 1
+    if callable(progress):
+        progress(0, total_candidates or 1, "Preparo ricalcolo costi…")
+    progress_step = max(1, total_candidates // 100) if total_candidates else 1
+    progress_index = 0
     for item in records:
         created = _date_time(item.get("order_created"))
         if date_from and created and created.date() < date_from:
             continue
         if date_to and created and created.date() > date_to:
             continue
+        progress_index += 1
+        if callable(progress) and (progress_index == 1 or progress_index % progress_step == 0):
+            progress(progress_index - 1, total_candidates or 1, f"Ricalcolo costi {progress_index:,}/{total_candidates:,}")
         result["examined"] += 1
         raw_status = item.get("raw_status") or item.get("status_label")
         note = _without_cost_warning(item.get("note"))
@@ -2747,6 +2772,8 @@ def refresh_accounting_costs(
                 now_iso(), int(item["id"]),
             ),
         )
+    if callable(progress):
+        progress(total_candidates or 1, total_candidates or 1, "Ricalcolo costi completato")
     return result
 
 
