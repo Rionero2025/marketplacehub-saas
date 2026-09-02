@@ -1,0 +1,23 @@
+MARKETPLACE HUB v291 - GESTIONE UTENTI E PERMESSI MENU
+
+Sostituire/aggiungere su GitHub questi file mantenendo i percorsi:
+- app.py
+- services/auth.py
+- services/user_access.py   (nuovo)
+- pages/1_Gestione_Utenti.py (nuovo)
+
+Dopo il deploy:
+1. Accedi con l'account amministratore Render già esistente.
+2. Nel menu compare "Gestione Utenti".
+3. Crea username/password e seleziona con checkbox le aree del menu abilitate.
+4. Gli utenti non vedono nel menu le aree non autorizzate.
+5. L'admin vede sempre tutte le aree e può gestire gli utenti.
+
+SESSIONE:
+- Dopo il login non vengono richieste di nuovo username/password durante navigazione e rerun.
+- La password NON viene salvata in chiaro; viene mantenuta solo la sessione autenticata.
+- La sessione termina con "Esci" o con la chiusura/reset della sessione browser Streamlit.
+
+DATABASE:
+- La tabella app_users viene creata automaticamente al primo avvio.
+- Compatibile con SQLite e PostgreSQL.

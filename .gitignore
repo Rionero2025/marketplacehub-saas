@@ -1,0 +1,48 @@
+# Secrets and environment
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Runtime data: never commit operational/customer data
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+
+# Local databases and migrations
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+data/database.toml
+data/backups/
+data/postgresql_migration_report_*.json
+
+# Generated business files
+*.xlsx
+*.xls
+*.csv
+*.pdf
+*.pkl
+*.pickle
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Runtime templates are source assets and must stay versioned
+!templates/*.csv
+!templates/*.xls
+!templates/*.xlsx

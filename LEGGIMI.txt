@@ -1,0 +1,12 @@
+Marketplace Hub HOTFIX v290 - costo da EAN / SKU / SKU composito
+
+Sostituire su GitHub SOLO:
+  services/accounting.py
+
+Nuova priorita costo:
+1. EAN/GTIN esatto nei listini accessibili
+2. SKU/codice prodotto esatto estratto dallo SKU composito
+3. altri listini accessibili compatibili
+4. fallback al costo gia incorporato nello SKU composito fornitore_codice_costo_prezzominimo
+
+Il fallback 4 viene usato solo se non viene trovato un costo positivo nei listini.

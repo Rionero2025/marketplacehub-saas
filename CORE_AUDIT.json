@@ -1,0 +1,778 @@
+{
+  "summary": {
+    "page_count": 28,
+    "service_count": 71,
+    "service_streamlit_coupling": [
+      "services/auth.py",
+      "services/db.py",
+      "services/session.py"
+    ],
+    "largest_pages": [
+      {
+        "file": "pages/4_Packlink_PRO.py",
+        "lines": 3358,
+        "functions": 32,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/3_Controllo_BuyBox.py",
+        "lines": 2789,
+        "functions": 23,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/4_Contabilita.py",
+        "lines": 2237,
+        "functions": 10,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/3_Controllo_BuyBox_Worten.py",
+        "lines": 2191,
+        "functions": 11,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/4_Tracciabilita_Ordini.py",
+        "lines": 1832,
+        "functions": 7,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/3_Creazione_Prodotti.py",
+        "lines": 1608,
+        "functions": 11,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/3_Ordini_Kaufland.py",
+        "lines": 1606,
+        "functions": 11,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/0_Dashboard.py",
+        "lines": 1353,
+        "functions": 11,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/3_Assistenza_Marketplace.py",
+        "lines": 1175,
+        "functions": 16,
+        "classes": 0,
+        "imports_streamlit": true
+      },
+      {
+        "file": "pages/4_Ordini_Cecotec.py",
+        "lines": 1086,
+        "functions": 2,
+        "classes": 0,
+        "imports_streamlit": true
+      }
+    ]
+  },
+  "files": [
+    {
+      "file": "pages/0_Dashboard.py",
+      "lines": 1353,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/1_Gestione_Seller.py",
+      "lines": 454,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/1_Gestione_Utenti.py",
+      "lines": 237,
+      "functions": 2,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/2_Fornitori_e_Listini.py",
+      "lines": 707,
+      "functions": 10,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/2_Provider_IA.py",
+      "lines": 275,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Assistenza_Kaufland.py",
+      "lines": 821,
+      "functions": 9,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Assistenza_Marketplace.py",
+      "lines": 1175,
+      "functions": 16,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Cancellazione_Kaufland.py",
+      "lines": 828,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Cancellazione_Marketplace.py",
+      "lines": 40,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Cancellazione_Worten.py",
+      "lines": 564,
+      "functions": 2,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Controllo_BuyBox.py",
+      "lines": 2789,
+      "functions": 23,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Controllo_BuyBox_Worten.py",
+      "lines": 2191,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Creazione_Prodotti.py",
+      "lines": 1608,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Lavora_sui_Listini.py",
+      "lines": 345,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Ordini_Kaufland.py",
+      "lines": 1606,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Ordini_Marketplace.py",
+      "lines": 59,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Prodotti_Piu_Venduti.py",
+      "lines": 513,
+      "functions": 8,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Pubblicazione_Kaufland.py",
+      "lines": 509,
+      "functions": 5,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Pubblicazione_Marketplace.py",
+      "lines": 40,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/3_Pubblicazione_Worten.py",
+      "lines": 232,
+      "functions": 6,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/4_Contabilita.py",
+      "lines": 2237,
+      "functions": 10,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/4_Ordini_Cecotec.py",
+      "lines": 1086,
+      "functions": 2,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/4_Ordini_INNPRO.py",
+      "lines": 554,
+      "functions": 2,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/4_Packlink_PRO.py",
+      "lines": 3358,
+      "functions": 32,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/4_Storico.py",
+      "lines": 34,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/4_Tracciabilita_Ordini.py",
+      "lines": 1832,
+      "functions": 7,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/5_Backup_Trasferimento.py",
+      "lines": 204,
+      "functions": 1,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "pages/5_Database.py",
+      "lines": 90,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "services/abonline.py",
+      "lines": 677,
+      "functions": 41,
+      "classes": 2,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/accounting.py",
+      "lines": 4256,
+      "functions": 122,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/accounting_pdf.py",
+      "lines": 572,
+      "functions": 17,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/activeshop.py",
+      "lines": 128,
+      "functions": 6,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/ai_providers.py",
+      "lines": 1105,
+      "functions": 37,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/auth.py",
+      "lines": 185,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "services/batch_memory.py",
+      "lines": 133,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/__init__.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/accounts.py",
+      "lines": 57,
+      "functions": 2,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/ai_enrichment.py",
+      "lines": 527,
+      "functions": 14,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/capabilities.py",
+      "lines": 69,
+      "functions": 3,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/category_classifier.py",
+      "lines": 768,
+      "functions": 23,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/category_schema.py",
+      "lines": 246,
+      "functions": 4,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/feed.py",
+      "lines": 526,
+      "functions": 17,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/mapping.py",
+      "lines": 134,
+      "functions": 3,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/marketplaces/__init__.py",
+      "lines": 6,
+      "functions": 0,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/marketplaces/kaufland.py",
+      "lines": 426,
+      "functions": 15,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/marketplaces/mirakl.py",
+      "lines": 729,
+      "functions": 34,
+      "classes": 2,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/models.py",
+      "lines": 134,
+      "functions": 0,
+      "classes": 9,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/normalization.py",
+      "lines": 1083,
+      "functions": 32,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/publication.py",
+      "lines": 1442,
+      "functions": 46,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/repository.py",
+      "lines": 2512,
+      "functions": 64,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/schema.py",
+      "lines": 728,
+      "functions": 4,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/taxonomy.py",
+      "lines": 213,
+      "functions": 3,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/utils.py",
+      "lines": 157,
+      "functions": 15,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/validation.py",
+      "lines": 455,
+      "functions": 9,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/catalog_intelligence/workflow.py",
+      "lines": 778,
+      "functions": 6,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/cecotec_orders.py",
+      "lines": 2318,
+      "functions": 58,
+      "classes": 2,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/dashboard.py",
+      "lines": 733,
+      "functions": 24,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/data_transfer.py",
+      "lines": 819,
+      "functions": 27,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/database_config.py",
+      "lines": 174,
+      "functions": 7,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/db.py",
+      "lines": 1194,
+      "functions": 37,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "services/deletion_scope.py",
+      "lines": 110,
+      "functions": 6,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/fx.py",
+      "lines": 58,
+      "functions": 2,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/innpro_orders.py",
+      "lines": 472,
+      "functions": 20,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland.py",
+      "lines": 728,
+      "functions": 48,
+      "classes": 2,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_bulk_deletion.py",
+      "lines": 143,
+      "functions": 6,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_buybox.py",
+      "lines": 654,
+      "functions": 23,
+      "classes": 4,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_buybox_account.py",
+      "lines": 627,
+      "functions": 16,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_buybox_fast.py",
+      "lines": 218,
+      "functions": 5,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_history.py",
+      "lines": 64,
+      "functions": 1,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_inventory_deletion.py",
+      "lines": 356,
+      "functions": 10,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_live_inventory.py",
+      "lines": 915,
+      "functions": 23,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_offer.py",
+      "lines": 74,
+      "functions": 6,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_order_costs.py",
+      "lines": 303,
+      "functions": 5,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_orders.py",
+      "lines": 1418,
+      "functions": 42,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_profit.py",
+      "lines": 287,
+      "functions": 7,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/kaufland_support.py",
+      "lines": 838,
+      "functions": 31,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/lists.py",
+      "lines": 1172,
+      "functions": 53,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/marketplace_order_states.py",
+      "lines": 1311,
+      "functions": 35,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/order_selection.py",
+      "lines": 67,
+      "functions": 5,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/order_tracking.py",
+      "lines": 1369,
+      "functions": 42,
+      "classes": 2,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/packlink.py",
+      "lines": 3467,
+      "functions": 123,
+      "classes": 2,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/packlink_csv.py",
+      "lines": 473,
+      "functions": 13,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/packlink_order_import.py",
+      "lines": 274,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/postgresql_backend.py",
+      "lines": 438,
+      "functions": 32,
+      "classes": 5,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/product_stats.py",
+      "lines": 404,
+      "functions": 19,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/profit_sharing.py",
+      "lines": 63,
+      "functions": 5,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/security.py",
+      "lines": 90,
+      "functions": 10,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/session.py",
+      "lines": 53,
+      "functions": 2,
+      "classes": 0,
+      "imports_streamlit": true
+    },
+    {
+      "file": "services/shipping_deadlines.py",
+      "lines": 310,
+      "functions": 10,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/supplier_documents.py",
+      "lines": 826,
+      "functions": 28,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/support_connectors.py",
+      "lines": 332,
+      "functions": 11,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/support_hub.py",
+      "lines": 895,
+      "functions": 25,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/tracking_shipping_rules.py",
+      "lines": 266,
+      "functions": 7,
+      "classes": 1,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/user_access.py",
+      "lines": 353,
+      "functions": 21,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/worten.py",
+      "lines": 1347,
+      "functions": 40,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/worten_buybox_actions.py",
+      "lines": 278,
+      "functions": 7,
+      "classes": 0,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/worten_support.py",
+      "lines": 477,
+      "functions": 24,
+      "classes": 2,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/worten_tracking_api.py",
+      "lines": 868,
+      "functions": 32,
+      "classes": 4,
+      "imports_streamlit": false
+    },
+    {
+      "file": "services/wysiwyg.py",
+      "lines": 47,
+      "functions": 3,
+      "classes": 0,
+      "imports_streamlit": false
+    }
+  ]
+}

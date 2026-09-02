@@ -1,0 +1,11 @@
+# Copiare in data/database.toml solo se si configura PostgreSQL manualmente.
+engine = "sqlite"
+postgresql_host = "127.0.0.1"
+postgresql_port = 5432
+postgresql_database = "marketplace_hub"
+postgresql_user = "marketplace_hub"
+postgresql_password = "CAMBIA_QUESTA_PASSWORD"
+postgresql_sslmode = "prefer"
+postgresql_pool_min = 2
+postgresql_pool_max = 12
+postgresql_connect_timeout = 10

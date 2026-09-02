@@ -1,0 +1,22 @@
+MARKETPLACE HUB v292 - UTENTI + PERMESSI SELLER
+================================================
+
+Novità rispetto a v291:
+- selezione multipla dei Seller visibili per ogni utente;
+- checkbox Seller nella creazione e modifica utente;
+- amministratore: tutte le aree + tutti i Seller automaticamente;
+- filtro Seller centralizzato in services/db.py;
+- seller_selector mostra soltanto i Seller autorizzati;
+- Dashboard e funzioni che usano sellers() ereditano automaticamente lo scope;
+- se un Seller viene revocato mentre l'utente è collegato, la selezione attiva viene azzerata;
+- utenti creati con v291 mantengono temporaneamente accesso a tutti i Seller; al primo salvataggio
+  in Gestione Utenti lo scope diventa esplicito.
+
+FILE DA AGGIUNGERE/SOSTITUIRE SU GITHUB:
+- services/user_access.py
+- services/auth.py
+- services/session.py
+- services/db.py
+- pages/1_Gestione_Utenti.py
+
+app.py della v291 resta invariato.
