@@ -7,13 +7,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import API_VERSION
-from api.routers import accounting, auth, billing, buybox, catalogs, health, jobs, orders, plans, sellers, tenants
+from api.routers import accounting, auth, billing, buybox, catalogs, health, jobs, onboarding, orders, plans, sellers, tenants
 from api.session_store import ensure_api_session_schema
 from services.db import init_db
 from services.performance_indexes import ensure_performance_indexes
 from services.tenancy import ensure_tenancy_schema
 from services.entitlements import ensure_entitlement_schema
 from services.billing import ensure_billing_schema
+from services.onboarding import ensure_onboarding_schema
 from services.tenant_db import ensure_tenant_database_isolation, platform_database_scope
 
 
@@ -30,6 +31,7 @@ async def lifespan(_: FastAPI):
         ensure_tenancy_schema()
         ensure_entitlement_schema()
         ensure_billing_schema()
+        ensure_onboarding_schema()
         ensure_api_session_schema()
         try:
             ensure_performance_indexes()
@@ -65,6 +67,7 @@ if origins:
 app.include_router(health.router)
 for router in (
     auth.router,
+    onboarding.router,
     tenants.router,
     plans.router,
     billing.router,

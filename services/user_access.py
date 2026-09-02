@@ -61,6 +61,7 @@ def ensure_user_schema() -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL UNIQUE,
             display_name TEXT NOT NULL DEFAULT '',
+            email TEXT NOT NULL DEFAULT '',
             password_hash TEXT NOT NULL,
             is_admin INTEGER NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1,
@@ -78,6 +79,10 @@ def ensure_user_schema() -> None:
         row("SELECT seller_ids_json FROM app_users LIMIT 1")
     except Exception:
         execute("ALTER TABLE app_users ADD COLUMN seller_ids_json TEXT NOT NULL DEFAULT 'null'")
+    try:
+        row("SELECT email FROM app_users LIMIT 1")
+    except Exception:
+        execute("ALTER TABLE app_users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
     _SCHEMA_READY = True
 
 
@@ -231,6 +236,7 @@ def create_user(
     password: str,
     *,
     display_name: str = "",
+    email: str = "",
     permissions: Iterable[str] | None = None,
     seller_ids: Iterable[int | str] | None = None,
     is_admin: bool = False,
@@ -250,13 +256,14 @@ def create_user(
     return execute(
         """
         INSERT INTO app_users(
-            username,display_name,password_hash,is_admin,active,permissions_json,
+            username,display_name,email,password_hash,is_admin,active,permissions_json,
             seller_ids_json,created_at,updated_at,last_login_at
-        ) VALUES(?,?,?,?,?,?,?,?,?,?)
+) VALUES(?,?,?,?,?,?,?,?,?,?,?)
         """,
         (
             username,
             str(display_name or "").strip(),
+            str(email or "").strip().lower(),
             hash_password(password),
             1 if is_admin else 0,
             1 if active else 0,
@@ -274,6 +281,7 @@ def update_user(
     *,
     username: str,
     display_name: str = "",
+    email: str = "",
     permissions: Iterable[str] | None = None,
     seller_ids: Iterable[int | str] | None = None,
     is_admin: bool = False,
@@ -299,6 +307,7 @@ def update_user(
     params = [
         username,
         str(display_name or "").strip(),
+        str(email or current.get("email") or "").strip().lower(),
         1 if is_admin else 0,
         1 if active else 0,
         json.dumps(selected, ensure_ascii=False, separators=(",", ":")),
@@ -307,7 +316,7 @@ def update_user(
     ]
     sql = """
         UPDATE app_users
-        SET username=?,display_name=?,is_admin=?,active=?,permissions_json=?,
+        SET username=?,display_name=?,email=?,is_admin=?,active=?,permissions_json=?,
             seller_ids_json=?,updated_at=?
     """
     if str(new_password or ""):

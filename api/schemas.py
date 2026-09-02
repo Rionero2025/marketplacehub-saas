@@ -269,3 +269,49 @@ class BillingPlanChangeRequest(ApiModel):
     plan_code: str = Field(min_length=1, max_length=80)
     immediate: bool = False
     effective_at: datetime | None = None
+
+class OnboardingSignupRequest(ApiModel):
+    company_name: str = Field(min_length=1, max_length=200)
+    username: str = Field(min_length=1, max_length=160)
+    password: str = Field(min_length=8, max_length=1024)
+    display_name: str = Field(default="", max_length=200)
+    email: str = Field(default="", max_length=320)
+    seller_name: str = Field(default="", max_length=200)
+    legal_name: str = Field(default="", max_length=240)
+    plan_code: str = Field(default="starter", max_length=80)
+    trial_days: int | None = Field(default=None, ge=1, le=90)
+    remember: bool = True
+    invite_code: str = Field(default="", max_length=200)
+
+
+class OnboardingSignupResponse(ApiModel):
+    token: str
+    expires_at: int
+    user: UserResponse
+    tenant: TenantResponse
+    seller: SellerResponse
+    billing: BillingSnapshotResponse
+
+
+class MarketplaceConnectRequest(ApiModel):
+    seller_id: int = Field(gt=0)
+    marketplace: str = Field(pattern="^(kaufland|worten)$")
+    account_name: str = Field(default="", max_length=200)
+    credentials: dict[str, Any]
+    verify_credentials: bool = True
+
+
+class MarketplaceConnectResponse(ApiModel):
+    account_id: int
+    marketplace: str
+    account_name: str
+    validation: dict[str, Any] = Field(default_factory=dict)
+
+
+class OnboardingStatusResponse(ApiModel):
+    tenant_id: int
+    completed_steps: list[str] = Field(default_factory=list)
+    next_step: str
+    sellers: list[dict[str, Any]] = Field(default_factory=list)
+    marketplace_accounts: list[dict[str, Any]] = Field(default_factory=list)
+    billing: dict[str, Any] = Field(default_factory=dict)

@@ -87,3 +87,9 @@ I piani SaaS sono ora regole backend reali. Permessi utente e entitlement del pi
 ## v319 Billing & Subscription Lifecycle
 
 Motore provider-independent per trial, rinnovi, past-due, grace period, sospensione, cancellazione e cambi piano. Stripe non è necessario in questa fase. Vedi `STEP19_BILLING_LIFECYCLE.md`.
+
+## v320 — SaaS Self-Service Onboarding
+Registrazione autonoma del cliente: Tenant Merchant, Owner, primo Seller, trial, sessione browser e collegamento Kaufland/Worten. La registrazione pubblica resta disattivata finché non viene impostato `MARKETPLACE_HUB_PUBLIC_SIGNUP=1`. Vedi `STEP20_SAAS_ONBOARDING.md`.
+
+## v321 — Frontend SaaS Next.js
+È disponibile la nuova UI in `frontend/`. Streamlit resta temporaneamente come interfaccia legacy durante la migrazione funzionale, mentre il nuovo frontend usa FastAPI come unico backend.
