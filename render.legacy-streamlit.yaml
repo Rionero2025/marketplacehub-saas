@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: marketplace-hub
+    runtime: docker
+    region: frankfurt
+    plan: free
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: marketplace-hub-db
+          property: connectionString
+      - key: MARKETPLACE_HUB_DB_ENGINE
+        value: postgresql
+      - key: MARKETPLACE_HUB_MASTER_KEY
+        sync: false
+      - key: MARKETPLACE_HUB_REQUIRE_AUTH
+        value: "true"
+      - key: MARKETPLACE_HUB_ADMIN_USERNAME
+        sync: false
+      - key: MARKETPLACE_HUB_ADMIN_PASSWORD
+        sync: false
+      - key: MARKETPLACE_HUB_PG_POOL_MIN
+        value: "1"
+      - key: MARKETPLACE_HUB_PG_POOL_MAX
+        value: "4"
+      - key: TZ
+        value: Europe/Rome
+
+databases:
+  - name: marketplace-hub-db
+    region: frankfurt
+    plan: free
+    databaseName: marketplace_hub
+    user: marketplace_hub
+    postgresMajorVersion: "17"
+    ipAllowList: []

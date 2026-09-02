@@ -1,37 +1,122 @@
+# Marketplace Hub SaaS — STAGING v323
+# Architettura reale: Next.js + FastAPI + Worker + PostgreSQL + Render Key Value.
+# Nomi volutamente separati dalla produzione marketplacehub-1.
+
 services:
   - type: web
-    name: marketplace-hub
-    runtime: docker
+    name: marketplacehub-saas-api-staging
+    runtime: python
     region: frankfurt
     plan: free
-    healthCheckPath: /_stcore/health
+    buildCommand: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+    preDeployCommand: python tools/init_saas_db.py
+    startCommand: python tools/run_api.py
+    healthCheckPath: /ready
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: marketplace-hub-db
+          name: marketplacehub-saas-db-staging
           property: connectionString
       - key: MARKETPLACE_HUB_DB_ENGINE
         value: postgresql
+      - key: MARKETPLACE_HUB_REDIS_URL
+        fromService:
+          name: marketplacehub-saas-cache-staging
+          type: keyvalue
+          property: connectionString
       - key: MARKETPLACE_HUB_MASTER_KEY
         sync: false
-      - key: MARKETPLACE_HUB_REQUIRE_AUTH
-        value: "true"
-      - key: MARKETPLACE_HUB_ADMIN_USERNAME
+      - key: MARKETPLACE_HUB_PUBLIC_SIGNUP
+        value: "1"
+      - key: MARKETPLACE_HUB_SIGNUP_INVITE_CODE
         sync: false
-      - key: MARKETPLACE_HUB_ADMIN_PASSWORD
+      - key: MARKETPLACE_HUB_DEFAULT_TRIAL_DAYS
+        value: "14"
+      - key: MARKETPLACE_HUB_COOKIE_SECURE
+        value: "1"
+      - key: MARKETPLACE_HUB_API_DOCS
+        value: "1"
+      - key: MARKETPLACE_HUB_API_WORKERS
+        value: "1"
+      - key: MARKETPLACE_HUB_PG_POOL_MIN
+        value: "1"
+      - key: MARKETPLACE_HUB_PG_POOL_MAX
+        value: "4"
+      - key: MARKETPLACE_HUB_CACHE_NAMESPACE
+        value: marketplacehub:staging:v323
+      - key: MARKETPLACE_HUB_STORAGE_BACKEND
+        value: local
+      - key: TZ
+        value: Europe/Rome
+
+  - type: worker
+    name: marketplacehub-saas-worker-staging
+    runtime: python
+    region: frankfurt
+    plan: 0.5c-512mb
+    buildCommand: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+    startCommand: python tools/run_worker.py --poll 0.5
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: marketplacehub-saas-db-staging
+          property: connectionString
+      - key: MARKETPLACE_HUB_DB_ENGINE
+        value: postgresql
+      - key: MARKETPLACE_HUB_REDIS_URL
+        fromService:
+          name: marketplacehub-saas-cache-staging
+          type: keyvalue
+          property: connectionString
+      - key: MARKETPLACE_HUB_MASTER_KEY
         sync: false
       - key: MARKETPLACE_HUB_PG_POOL_MIN
         value: "1"
       - key: MARKETPLACE_HUB_PG_POOL_MAX
         value: "4"
+      - key: MARKETPLACE_HUB_CACHE_NAMESPACE
+        value: marketplacehub:staging:v323
+      - key: MARKETPLACE_HUB_STORAGE_BACKEND
+        value: local
       - key: TZ
         value: Europe/Rome
 
-databases:
-  - name: marketplace-hub-db
+  - type: web
+    name: marketplacehub-saas-web-staging
+    runtime: node
     region: frankfurt
     plan: free
-    databaseName: marketplace_hub
-    user: marketplace_hub
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- -p $PORT -H 0.0.0.0
+    healthCheckPath: /login
+    envVars:
+      - key: MARKETPLACE_HUB_API_HOSTPORT
+        fromService:
+          name: marketplacehub-saas-api-staging
+          type: web
+          property: hostport
+      - key: NODE_VERSION
+        value: "22.16.0"
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+  - type: keyvalue
+    name: marketplacehub-saas-cache-staging
+    region: frankfurt
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+    persistenceMode: off
+
+databases:
+  - name: marketplacehub-saas-db-staging
+    region: frankfurt
+    plan: 0.1c-256mb
+    diskSizeGB: 5
+    databaseName: marketplacehub_saas_staging
+    user: marketplacehub_saas
     postgresMajorVersion: "17"
     ipAllowList: []
