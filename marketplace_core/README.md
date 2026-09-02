@@ -11,3 +11,8 @@ Rules:
 5. A feature is considered extracted only when Streamlit calls a Core method instead of coordinating several service calls itself.
 
 The first extracted vertical slice is **Accounting**: state/cache, catalog selection, incremental/full synchronization, cost refresh and row retrieval.
+
+## v303 Orders Core
+
+`orders.py` adds a bounded, UI-independent order query contract. List views must use
+`OrderQuery(limit, offset, filters...)` rather than loading complete order histories.

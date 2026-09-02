@@ -537,6 +537,12 @@ def ensure_schema() -> None:
         )
         """,
         """
+        CREATE INDEX IF NOT EXISTS idx_cecotec_order_cache_speed_v303
+        ON cecotec_order_cache(
+            seller_id, marketplace_account_id, marketplace, order_created DESC, row_key
+        )
+        """,
+        """
         CREATE INDEX IF NOT EXISTS idx_cecotec_order_cache_synced
         ON cecotec_order_cache(
             seller_id, marketplace_account_id, marketplace, synced_at
@@ -1969,6 +1975,105 @@ def cached_orders(
         + " ORDER BY order_created DESC,order_id,row_key",
         tuple(params),
     )
+
+def cached_orders_page(
+    seller_id: int,
+    account_id: int,
+    marketplace: str,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    statuses: Sequence[str] | None = None,
+    suppliers: Sequence[str] | None = None,
+    search: str = "",
+    limit: int = 250,
+    offset: int = 0,
+    include_raw: bool = False,
+) -> dict[str, Any]:
+    """Bounded server-side page for normalized Kaufland/Worten order caches."""
+    _require_db()
+    clauses = ["seller_id=?", "marketplace_account_id=?", "marketplace=?"]
+    params: list[Any] = [seller_id, account_id, marketplace]
+    if date_from is not None:
+        clauses.append("order_created>=?")
+        params.append(date_from.isoformat())
+    if date_to is not None:
+        clauses.append("order_created<?")
+        params.append((date_to + timedelta(days=1)).isoformat())
+
+    def add_in(column: str, values: Sequence[str] | None) -> None:
+        clean = [clean_text(value) for value in (values or []) if clean_text(value)]
+        if clean:
+            clauses.append(f"{column} IN ({','.join('?' for _ in clean)})")
+            params.extend(clean)
+
+    add_in("normalized_status", statuses)
+    add_in("supplier", suppliers)
+    term = clean_text(search).lower()
+    if term:
+        pattern = f"%{term}%"
+        clauses.append(
+            "(LOWER(COALESCE(order_id,'')) LIKE ? OR "
+            "LOWER(COALESCE(order_line_id,'')) LIKE ? OR "
+            "LOWER(COALESCE(composite_sku,'')) LIKE ? OR "
+            "LOWER(COALESCE(product_title,'')) LIKE ? OR "
+            "LOWER(COALESCE(customer_name,'')) LIKE ?)"
+        )
+        params.extend([pattern] * 5)
+
+    where_sql = " AND ".join(clauses)
+    total_rows = rows(
+        f"SELECT COUNT(*) AS row_count FROM cecotec_order_cache WHERE {where_sql}",
+        tuple(params),
+    )
+    total = int(total_rows[0].get("row_count") or 0) if total_rows else 0
+    safe_limit = max(1, min(int(limit or 250), 2000))
+    safe_offset = max(0, int(offset or 0))
+    projection = "*" if include_raw else """
+        seller_id,marketplace_account_id,marketplace,row_key,order_id,order_line_id,
+        order_created,raw_status,normalized_status,supplier,composite_sku,
+        product_title,quantity,customer_name,address,postal_code,phone,city,
+        storefront,country_code,customer_email,synced_at
+    """
+    items = rows(
+        f"SELECT {projection} FROM cecotec_order_cache WHERE {where_sql} "
+        "ORDER BY order_created DESC,order_id,row_key LIMIT ? OFFSET ?",
+        tuple(params) + (safe_limit, safe_offset),
+    )
+    return {
+        "items": items,
+        "total": total,
+        "limit": safe_limit,
+        "offset": safe_offset,
+        "has_more": safe_offset + len(items) < total,
+    }
+
+
+def cached_order_facets(
+    seller_id: int, account_id: int, marketplace: str
+) -> dict[str, Any]:
+    """Small filter metadata query for API/UI controls."""
+    _require_db()
+    scope = "seller_id=? AND marketplace_account_id=? AND marketplace=?"
+    base = (seller_id, account_id, marketplace)
+
+    def facet(column: str) -> list[str]:
+        return [
+            clean_text(item.get("value"))
+            for item in rows(
+                f"SELECT DISTINCT {column} AS value FROM cecotec_order_cache "
+                f"WHERE {scope} AND COALESCE({column},'')<>'' ORDER BY {column}",
+                base,
+            )
+            if clean_text(item.get("value"))
+        ]
+
+    info = cached_order_cache_info(seller_id, account_id, marketplace)
+    info["statuses"] = facet("normalized_status")
+    info["suppliers"] = facet("supplier")
+    info["countries"] = facet("country_code")
+    return info
+
 
 def delete_cached_range(
     seller_id: int,

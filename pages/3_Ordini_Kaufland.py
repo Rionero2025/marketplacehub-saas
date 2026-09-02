@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 import streamlit as st
@@ -24,6 +24,7 @@ from services.kaufland_orders import (
     payment_schedule,
     save_order_tracking,
     saved_orders,
+    saved_orders_archive_info,
     selected_order_financial_summary,
     selected_payment_deadline,
     SHIPPED_ORDER_UNIT_STATUSES,
@@ -221,10 +222,56 @@ else:
         "ed esegui almeno una volta «Sincronizza da Kaufland»."
     )
 
-orders = saved_orders(seller_id, account["id"], environment)
-if not orders:
+archive_info = saved_orders_archive_info(
+    seller_id, account["id"], environment
+)
+archive_total = int(archive_info.get("row_count") or 0)
+if archive_total <= 0:
     st.info("Premi «Sincronizza ordini da Kaufland» per creare l’archivio ordini.")
     st.stop()
+
+# v303: daily use no longer transfers and enriches the entire historical archive
+# on every Streamlit rerun. Full history remains one click away.
+archive_mode = st.selectbox(
+    "Caricamento archivio",
+    ["Ultimi 90 giorni (veloce)", "Ultimi 365 giorni", "Tutto archivio"],
+    index=0,
+    key=f"orders_archive_window_{account['id']}_{environment}",
+    help=(
+        "Limita già la query PostgreSQL prima di costruire la tabella. "
+        "Usa Tutto archivio solo quando devi lavorare sullo storico completo."
+    ),
+)
+last_archive_dt = pd.to_datetime(
+    archive_info.get("last_created_at"), errors="coerce", utc=True
+)
+archive_date_to = (
+    last_archive_dt.date() if pd.notna(last_archive_dt) else date.today()
+)
+archive_date_from = None
+if archive_mode.startswith("Ultimi 90"):
+    archive_date_from = archive_date_to - timedelta(days=89)
+elif archive_mode.startswith("Ultimi 365"):
+    archive_date_from = archive_date_to - timedelta(days=364)
+
+orders = saved_orders(
+    seller_id,
+    account["id"],
+    environment,
+    date_from=archive_date_from,
+    date_to=archive_date_to if archive_date_from is not None else None,
+)
+if not orders:
+    st.info("Nessun ordine presente nella finestra di archivio selezionata.")
+    st.stop()
+if len(orders) < archive_total:
+    st.caption(
+        f"Modalità veloce: caricate {len(orders):,} di {archive_total:,} unità "
+        "direttamente da PostgreSQL. Se ti serve lo storico precedente scegli "
+        "«Tutto archivio»."
+    )
+else:
+    st.caption(f"Archivio completo caricato: {archive_total:,} unità.")
 
 frame = pd.DataFrame(orders)
 legacy_defaults = {

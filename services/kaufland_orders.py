@@ -5,7 +5,7 @@ import math
 import re
 import unicodedata
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from services.db import connect, execute, json_text, now_iso, row, rows
 
@@ -1241,16 +1241,178 @@ def sync_orders(
         raise
 
 
-def saved_orders(
+def _saved_orders_where(
+    seller_id: int,
+    account_id: int,
+    environment: str,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    statuses: tuple[str, ...] | list[str] | None = None,
+    storefronts: tuple[str, ...] | list[str] | None = None,
+    currencies: tuple[str, ...] | list[str] | None = None,
+    carriers: tuple[str, ...] | list[str] | None = None,
+    search: str = "",
+) -> tuple[str, tuple]:
+    """Build one parameterized archive scope shared by count/page queries.
+
+    Keeping filtering in SQL is important for the SaaS path: FastAPI/worker
+    callers must never pull the complete order history simply to show one page.
+    """
+    clauses = [
+        "seller_id=?",
+        "marketplace_account_id=?",
+        "environment=?",
+    ]
+    params: list = [int(seller_id), int(account_id), str(environment)]
+    if date_from is not None:
+        clauses.append("ts_created_iso>=?")
+        params.append(date_from.isoformat())
+    if date_to is not None:
+        clauses.append("ts_created_iso<?")
+        params.append((date_to + timedelta(days=1)).isoformat())
+
+    def add_in(column: str, values) -> None:
+        clean = [str(value).strip() for value in (values or []) if str(value).strip()]
+        if not clean:
+            return
+        clauses.append(f"{column} IN ({','.join('?' for _ in clean)})")
+        params.extend(clean)
+
+    add_in("status", statuses)
+    add_in("storefront", storefronts)
+    add_in("currency", currencies)
+    add_in("carrier_code", carriers)
+
+    term = str(search or "").strip().lower()
+    if term:
+        pattern = f"%{term}%"
+        clauses.append(
+            "("
+            "LOWER(COALESCE(id_order,'')) LIKE ? OR "
+            "LOWER(COALESCE(id_order_unit,'')) LIKE ? OR "
+            "LOWER(COALESCE(sku,'')) LIKE ? OR "
+            "LOWER(COALESCE(ean,'')) LIKE ? OR "
+            "LOWER(COALESCE(product_name,'')) LIKE ? OR "
+            "LOWER(COALESCE(tracking_numbers,'')) LIKE ?"
+            ")"
+        )
+        params.extend([pattern] * 6)
+    return " AND ".join(clauses), tuple(params)
+
+
+def saved_orders_archive_info(
     seller_id: int, account_id: int, environment: str
-) -> list[dict]:
+) -> dict:
+    """Cheap metadata/facets without loading order payloads into Python."""
+    base = (int(seller_id), int(account_id), str(environment))
+    scope = "seller_id=? AND marketplace_account_id=? AND environment=?"
+    summary = rows(
+        f"""SELECT COUNT(*) AS row_count,
+        MIN(ts_created_iso) AS first_created_at,
+        MAX(ts_created_iso) AS last_created_at
+        FROM kaufland_order_units WHERE {scope}""",
+        base,
+    )
+
+    def facet(column: str) -> list[str]:
+        return [
+            str(item.get("value") or "").strip()
+            for item in rows(
+                f"SELECT DISTINCT {column} AS value FROM kaufland_order_units "
+                f"WHERE {scope} AND COALESCE({column},'')<>'' ORDER BY {column}",
+                base,
+            )
+            if str(item.get("value") or "").strip()
+        ]
+
+    item = dict(summary[0]) if summary else {}
+    return {
+        "row_count": int(item.get("row_count") or 0),
+        "first_created_at": str(item.get("first_created_at") or ""),
+        "last_created_at": str(item.get("last_created_at") or ""),
+        "statuses": facet("status"),
+        "storefronts": facet("storefront"),
+        "currencies": facet("currency"),
+        "carriers": facet("carrier_code"),
+    }
+
+
+def saved_orders_page(
+    seller_id: int,
+    account_id: int,
+    environment: str,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    statuses: tuple[str, ...] | list[str] | None = None,
+    storefronts: tuple[str, ...] | list[str] | None = None,
+    currencies: tuple[str, ...] | list[str] | None = None,
+    carriers: tuple[str, ...] | list[str] | None = None,
+    search: str = "",
+    limit: int = 250,
+    offset: int = 0,
+    include_raw: bool = False,
+) -> dict:
+    """Server-side page of the Kaufland archive.
+
+    The legacy ``saved_orders`` API remains available, while SaaS/API callers
+    can request bounded pages. ``raw_json`` is deliberately excluded by default
+    because it is one of the heaviest columns and is not needed in list views.
+    """
+    where_sql, params = _saved_orders_where(
+        seller_id, account_id, environment, date_from=date_from, date_to=date_to,
+        statuses=statuses, storefronts=storefronts, currencies=currencies,
+        carriers=carriers, search=search,
+    )
+    total_rows = rows(
+        f"SELECT COUNT(*) AS row_count FROM kaufland_order_units WHERE {where_sql}",
+        params,
+    )
+    total = int(total_rows[0].get("row_count") or 0) if total_rows else 0
+    safe_limit = max(1, min(int(limit or 250), 2000))
+    safe_offset = max(0, int(offset or 0))
+    projection = "*" if include_raw else """
+        id,seller_id,marketplace_account_id,environment,id_order_unit,id_order,
+        storefront,country_code,currency,ts_created_iso,ts_updated_iso,status,
+        cancel_reason,sku,ean,product_name,product_url,product_price_local,
+        shipping_local,sold_total_local,revenue_gross_local,revenue_net_local,
+        commission_local,commission_pct,commission_source,payout_local,
+        received_at,received_source,payment_due_at,payment_source,vat_pct,
+        carrier_code,tracking_numbers,detail_checked_at,synced_at
+    """
     result = rows(
-        """
-        SELECT * FROM kaufland_order_units
-        WHERE seller_id=? AND marketplace_account_id=? AND environment=?
-        ORDER BY ts_created_iso DESC,id DESC
-        """,
-        (seller_id, account_id, environment),
+        f"SELECT {projection} FROM kaufland_order_units WHERE {where_sql} "
+        "ORDER BY ts_created_iso DESC,id DESC LIMIT ? OFFSET ?",
+        params + (safe_limit, safe_offset),
+    )
+    for item in result:
+        enrich_saved_order(item)
+    return {
+        "items": result,
+        "total": total,
+        "limit": safe_limit,
+        "offset": safe_offset,
+        "has_more": safe_offset + len(result) < total,
+    }
+
+
+def saved_orders(
+    seller_id: int,
+    account_id: int,
+    environment: str,
+    *,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> list[dict]:
+    """Compatibility archive reader, now capable of SQL date pruning."""
+    where_sql, params = _saved_orders_where(
+        seller_id, account_id, environment, date_from=date_from, date_to=date_to
+    )
+    result = rows(
+        f"SELECT * FROM kaufland_order_units WHERE {where_sql} "
+        "ORDER BY ts_created_iso DESC,id DESC",
+        params,
     )
     for item in result:
         enrich_saved_order(item)

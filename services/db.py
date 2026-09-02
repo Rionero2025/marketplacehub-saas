@@ -616,6 +616,10 @@ def _init_db_once() -> None:
         ON kaufland_order_units(
             seller_id,marketplace_account_id,environment,ts_created_iso
         );
+        CREATE INDEX IF NOT EXISTS idx_kaufland_orders_speed_v303
+        ON kaufland_order_units(
+            seller_id,marketplace_account_id,environment,ts_created_iso DESC,id DESC
+        );
         CREATE INDEX IF NOT EXISTS idx_kaufland_orders_filters
         ON kaufland_order_units(
             marketplace_account_id,environment,storefront,status

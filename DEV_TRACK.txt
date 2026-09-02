@@ -1,1 +1,4 @@
 Step 1 - Performance Core extraction
+
+Step 2 - v302 Speed Core: dashboard snapshot, cache contract, auth rerun throttling.
+Step 3 - v303 Orders Speed Core: SQL archive window, server-side pagination, OrdersCore, order indexes.
