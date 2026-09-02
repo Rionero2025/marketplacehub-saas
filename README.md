@@ -69,3 +69,6 @@ Marketplace Hub espone ora un backend HTTP indipendente da Streamlit in `api/`.
 Gli endpoint iniziali coprono autenticazione, Seller/account, ordini, Contabilità,
 Buy Box, cataloghi e job background, mantenendo la business logic nel Performance
 Core. Avvio: `python tools/run_api.py`. Vedi `STEP14_FASTAPI_FOUNDATION.md`.
+
+## v315 — True Multi-Tenant Foundation
+Marketplace Hub distingue ora il cliente SaaS (`tenant`) dal Seller operativo. Sono supportati tenant Merchant e Agency, membership utenti, ownership Seller per tenant, collegamento Agency → clienti e contesto tenant attivo nelle sessioni FastAPI. L'installazione esistente viene adottata una sola volta come tenant Agency, senza alterare i dati operativi.

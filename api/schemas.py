@@ -24,6 +24,11 @@ class UserResponse(ApiModel):
     permissions: list[str]
     seller_ids: list[int] | None
     expires_at: int
+    tenant_ids: list[int] = Field(default_factory=list)
+    active_tenant_id: int = 0
+    active_tenant_name: str = ""
+    active_tenant_type: str = ""
+    tenant_role: str = ""
 
 
 class LoginResponse(ApiModel):
@@ -82,3 +87,43 @@ class AccountingJobRequest(ApiModel):
 
 class CatalogMaterializeRequest(ApiModel):
     price_list_id: int = Field(gt=0)
+
+
+class TenantResponse(ApiModel):
+    id: int
+    name: str
+    slug: str
+    tenant_type: str
+    status: str = "active"
+    plan_code: str = ""
+    access_mode: str = ""
+    role: str = ""
+    active: bool = False
+
+
+class TenantCreateRequest(ApiModel):
+    name: str = Field(min_length=1, max_length=200)
+    slug: str = Field(default="", max_length=100)
+    tenant_type: str = Field(default="merchant", pattern="^(merchant|agency)$")
+    plan_code: str = Field(default="", max_length=80)
+    owner_user_id: int | None = Field(default=None, gt=0)
+
+
+class TenantMembershipRequest(ApiModel):
+    role: str = Field(default="operator", pattern="^(owner|admin|manager|operator|viewer)$")
+    active: bool = True
+
+
+class TenantSellerAttachRequest(ApiModel):
+    transfer: bool = False
+
+
+class AgencyClientLinkRequest(ApiModel):
+    active: bool = True
+
+
+class TenantActivateResponse(ApiModel):
+    active_tenant_id: int
+    name: str
+    tenant_type: str
+    role: str = ""

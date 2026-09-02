@@ -1,0 +1,13 @@
+Marketplace Hub v315 — True Multi-Tenant Foundation
+
+Caricare questo contenuto nella root del repository marketplacehub-saas mantenendo le cartelle.
+Commit suggerito: v315 true multi tenant foundation
+
+Aggiunge:
+- Tenant Merchant / Agency
+- membership utenti per tenant
+- Seller proprietario di un solo tenant
+- Agency -> clienti merchant
+- active_tenant_id nella sessione API
+- isolamento Seller sul tenant attivo anche per Platform Admin
+- migrazione legacy una tantum dell'installazione corrente in tenant Agency

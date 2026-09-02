@@ -22,6 +22,11 @@ def _user_response(user) -> UserResponse:
         permissions=sorted(user.permissions),
         seller_ids=sellers,
         expires_at=user.expires_at,
+        tenant_ids=sorted(user.tenant_ids),
+        active_tenant_id=user.active_tenant_id,
+        active_tenant_name=user.active_tenant_name,
+        active_tenant_type=user.active_tenant_type,
+        tenant_role=user.tenant_role,
     )
 
 
@@ -48,12 +53,9 @@ def login(payload: LoginRequest, response: Response) -> LoginResponse:
         path="/",
     )
     from api.dependencies import ApiUser
-    user = ApiUser.from_record({
-        **record,
-        "permissions": record.get("permissions") or [],
-        "seller_ids": record.get("seller_ids"),
-        "expires_at": session.expires_at,
-    })
+    from api.session_store import session_user
+    current = session_user(session.token) or {}
+    user = ApiUser.from_record(current)
     return LoginResponse(
         token=session.token,
         expires_at=session.expires_at,

@@ -7,10 +7,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import API_VERSION
-from api.routers import accounting, auth, buybox, catalogs, health, jobs, orders, sellers
+from api.routers import accounting, auth, buybox, catalogs, health, jobs, orders, sellers, tenants
 from api.session_store import ensure_api_session_schema
 from services.db import init_db
 from services.performance_indexes import ensure_performance_indexes
+from services.tenancy import ensure_tenancy_schema
 
 
 def _cors_origins() -> list[str]:
@@ -21,6 +22,7 @@ def _cors_origins() -> list[str]:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    ensure_tenancy_schema()
     ensure_api_session_schema()
     try:
         ensure_performance_indexes()
@@ -55,6 +57,7 @@ if origins:
 app.include_router(health.router)
 for router in (
     auth.router,
+    tenants.router,
     sellers.router,
     orders.router,
     accounting.router,

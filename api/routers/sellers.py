@@ -13,17 +13,15 @@ router = APIRouter(prefix="/sellers", tags=["sellers"])
 def list_sellers(
     user: ApiUser = Depends(require_permission("dashboard")),
 ) -> list[SellerResponse]:
-    params: list[int] = []
-    where = ["active=1"]
-    if not user.is_admin and user.seller_ids is not None:
-        ids = sorted(user.seller_ids)
-        if not ids:
-            return []
-        where.append("id IN (" + ",".join("?" for _ in ids) + ")")
-        params.extend(ids)
+    # v315: sellers are always constrained by the active tenant, including
+    # Platform Admin. Cross-tenant work requires an explicit tenant switch.
+    ids = sorted(user.seller_ids or ())
+    if not ids:
+        return []
     items = rows(
-        "SELECT id,name,legal_name,active FROM sellers WHERE " + " AND ".join(where) + " ORDER BY name",
-        tuple(params),
+        "SELECT id,name,legal_name,active FROM sellers "
+        "WHERE active=1 AND id IN (" + ",".join("?" for _ in ids) + ") ORDER BY name",
+        tuple(ids),
     )
     return [
         SellerResponse(

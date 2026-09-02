@@ -28,6 +28,8 @@ def test_api_user_enforces_permissions_and_seller_scope():
         permissions=frozenset({"marketplace_orders", "accounting"}),
         seller_ids=frozenset({3, 8}),
         expires_at=9999999999,
+        tenant_ids=frozenset({1}),
+        active_tenant_id=1,
     )
     assert user.can("accounting")
     assert not user.can("database")
@@ -36,15 +38,18 @@ def test_api_user_enforces_permissions_and_seller_scope():
     assert not user.can_access_seller(9)
 
 
-def test_admin_is_unrestricted():
+def test_admin_permissions_are_unrestricted_but_seller_scope_is_tenant_bound():
     admin = ApiUser(
         id=1,
         username="admin",
         display_name="Admin",
         is_admin=True,
         permissions=frozenset(),
-        seller_ids=None,
+        seller_ids=frozenset({3}),
         expires_at=9999999999,
+        tenant_ids=frozenset({1, 2}),
+        active_tenant_id=1,
     )
     assert admin.can("database")
-    assert admin.can_access_seller(999999)
+    assert admin.can_access_seller(3)
+    assert not admin.can_access_seller(999999)

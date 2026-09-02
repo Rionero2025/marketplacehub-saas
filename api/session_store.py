@@ -8,6 +8,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from services.db import connect, row
+from services.tenancy import (
+    accessible_tenants_for_user,
+    default_tenant_id,
+    effective_seller_ids,
+    ensure_tenancy_schema,
+    tenant_context_for_user,
+)
 from services.user_access import get_user, permissions_from_record, seller_ids_from_record
 
 _SCHEMA_READY = False
@@ -34,12 +41,14 @@ class ApiSession:
     token: str
     user_id: int
     expires_at: int
+    active_tenant_id: int = 0
 
 
 def ensure_api_session_schema() -> None:
     global _SCHEMA_READY
     if _SCHEMA_READY:
         return
+    ensure_tenancy_schema()
     with connect() as con:
         con.executescript(
             """
@@ -49,7 +58,8 @@ def ensure_api_session_schema() -> None:
                 created_at_epoch INTEGER NOT NULL,
                 expires_at_epoch INTEGER NOT NULL,
                 revoked_at_epoch INTEGER NOT NULL DEFAULT 0,
-                last_seen_at_epoch INTEGER NOT NULL DEFAULT 0
+                last_seen_at_epoch INTEGER NOT NULL DEFAULT 0,
+                active_tenant_id INTEGER NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS idx_api_sessions_user
             ON api_sessions(user_id,expires_at_epoch);
@@ -57,6 +67,12 @@ def ensure_api_session_schema() -> None:
             ON api_sessions(expires_at_epoch,revoked_at_epoch);
             """
         )
+    # Upgrade v314 sessions without invalidating them.
+    try:
+        row("SELECT active_tenant_id FROM api_sessions LIMIT 1")
+    except Exception:
+        with connect() as con:
+            con.execute("ALTER TABLE api_sessions ADD COLUMN active_tenant_id INTEGER NOT NULL DEFAULT 0")
     _SCHEMA_READY = True
 
 
@@ -75,22 +91,28 @@ def issue_session(user_id: int, *, remember: bool = False) -> ApiSession:
     user_id = int(user_id)
     if user_id <= 0:
         raise ValueError("user_id non valido")
+    record = get_user(user_id)
+    if not record:
+        raise ValueError("Utente non trovato")
+    global_admin = bool(int(record.get("is_admin") or 0))
+    active_tenant_id = default_tenant_id(user_id, global_admin=global_admin)
+    if active_tenant_id <= 0:
+        raise ValueError("L'utente non è associato ad alcuna azienda/tenant.")
     token = secrets.token_urlsafe(48)
     created = _now()
     expires = created + _ttl_seconds(bool(remember))
     with connect() as con:
         con.execute(
             """INSERT INTO api_sessions(
-                token_hash,user_id,created_at_epoch,expires_at_epoch,last_seen_at_epoch
-            ) VALUES(?,?,?,?,?)""",
-            (_token_hash(token), user_id, created, expires, created),
+                token_hash,user_id,created_at_epoch,expires_at_epoch,last_seen_at_epoch,active_tenant_id
+            ) VALUES(?,?,?,?,?,?)""",
+            (_token_hash(token), user_id, created, expires, created, active_tenant_id),
         )
-    # Bounded cleanup; no user-visible side effect if an old session remains.
     try:
         cleanup_sessions()
     except Exception:
         pass
-    return ApiSession(token=token, user_id=user_id, expires_at=expires)
+    return ApiSession(token=token, user_id=user_id, expires_at=expires, active_tenant_id=active_tenant_id)
 
 
 def revoke_session(token: str) -> bool:
@@ -106,6 +128,34 @@ def revoke_session(token: str) -> bool:
         return bool(int(getattr(cur, "rowcount", 0) or 0))
 
 
+def switch_session_tenant(token: str, tenant_id: int) -> dict | None:
+    ensure_api_session_schema()
+    token = str(token or "").strip()
+    if not token:
+        return None
+    now = _now()
+    session = row(
+        """SELECT user_id FROM api_sessions
+           WHERE token_hash=? AND revoked_at_epoch=0 AND expires_at_epoch>?""",
+        (_token_hash(token), now),
+    )
+    if not session:
+        return None
+    record = get_user(int(session.get("user_id") or 0))
+    if not record:
+        return None
+    global_admin = bool(int(record.get("is_admin") or 0))
+    context = tenant_context_for_user(int(record["id"]), int(tenant_id), global_admin=global_admin)
+    if not context:
+        return None
+    with connect() as con:
+        con.execute(
+            "UPDATE api_sessions SET active_tenant_id=?,last_seen_at_epoch=? WHERE token_hash=?",
+            (int(tenant_id), now, _token_hash(token)),
+        )
+    return context
+
+
 def session_user(token: str) -> dict[str, Any] | None:
     ensure_api_session_schema()
     token = str(token or "").strip()
@@ -113,7 +163,7 @@ def session_user(token: str) -> dict[str, Any] | None:
         return None
     now = _now()
     session = row(
-        """SELECT user_id,expires_at_epoch,last_seen_at_epoch
+        """SELECT user_id,expires_at_epoch,last_seen_at_epoch,active_tenant_id
            FROM api_sessions
            WHERE token_hash=? AND revoked_at_epoch=0 AND expires_at_epoch>?""",
         (_token_hash(token), now),
@@ -127,7 +177,36 @@ def session_user(token: str) -> dict[str, Any] | None:
         except Exception:
             pass
         return None
-    # Avoid a DB write on every API call.
+
+    user_id = int(record.get("id") or 0)
+    global_admin = bool(int(record.get("is_admin") or 0))
+    tenants = accessible_tenants_for_user(user_id, global_admin=global_admin)
+    tenant_ids = [int(item["id"]) for item in tenants]
+    active_tenant_id = int(session.get("active_tenant_id") or 0)
+    context = tenant_context_for_user(user_id, active_tenant_id, global_admin=global_admin)
+    if not context:
+        active_tenant_id = default_tenant_id(user_id, global_admin=global_admin)
+        context = tenant_context_for_user(user_id, active_tenant_id, global_admin=global_admin)
+        if active_tenant_id > 0:
+            try:
+                with connect() as con:
+                    con.execute(
+                        "UPDATE api_sessions SET active_tenant_id=? WHERE token_hash=?",
+                        (active_tenant_id, _token_hash(token)),
+                    )
+            except Exception:
+                pass
+    if not context:
+        return None
+
+    legacy_scope = seller_ids_from_record(record)
+    seller_ids = effective_seller_ids(
+        user_id,
+        active_tenant_id,
+        global_admin=global_admin,
+        legacy_seller_scope=legacy_scope,
+    )
+
     last_seen = int(session.get("last_seen_at_epoch") or 0)
     if now - last_seen >= 60:
         try:
@@ -138,13 +217,17 @@ def session_user(token: str) -> dict[str, Any] | None:
                 )
         except Exception:
             pass
-    is_admin = bool(int(record.get("is_admin") or 0))
     return {
-        "id": int(record.get("id") or 0),
+        "id": user_id,
         "username": str(record.get("username") or ""),
         "display_name": str(record.get("display_name") or ""),
-        "is_admin": is_admin,
+        "is_admin": global_admin,
         "permissions": permissions_from_record(record),
-        "seller_ids": None if is_admin else seller_ids_from_record(record),
+        "seller_ids": seller_ids,
         "expires_at": int(session.get("expires_at_epoch") or 0),
+        "tenant_ids": tenant_ids,
+        "active_tenant_id": active_tenant_id,
+        "active_tenant_name": str(context.get("name") or ""),
+        "active_tenant_type": str(context.get("tenant_type") or ""),
+        "tenant_role": str(context.get("role") or ""),
     }
