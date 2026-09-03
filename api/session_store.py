@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from services.db import connect, row
+from services.db import connect, execute, now_iso, row, rows
 from services.tenancy import (
     accessible_tenants_for_user,
     default_tenant_id,
@@ -16,6 +16,8 @@ from services.tenancy import (
     tenant_context_for_user,
 )
 from services.user_access import get_user, permissions_from_record, seller_ids_from_record
+from services.database_config import database_engine
+from services.tenant_db import platform_database_scope
 
 _SCHEMA_READY = False
 
@@ -156,6 +158,74 @@ def switch_session_tenant(token: str, tenant_id: int) -> dict | None:
     return context
 
 
+
+
+def _repair_owner_seller_scope(user_id: int, tenant_id: int, context: dict) -> bool:
+    """Repair an incomplete merchant onboarding without widening non-owner access.
+
+    v323 introduced PostgreSQL tenant RLS while the legacy Seller ownership map
+    still lives in ``tenant_sellers``.  A signup interrupted during that bridge
+    can leave the new Owner with a valid tenant/session but no effective Seller.
+
+    For a direct tenant Owner only, reconstruct ``tenant_sellers`` from the
+    authoritative PostgreSQL ``sellers.tenant_id`` marker when necessary and
+    restore the Owner's legacy ``seller_ids_json`` restriction.  The repair is
+    deliberately a no-op for operators/managers and when no tenant-owned Seller
+    exists, so it can never grant cross-tenant access.
+    """
+    if int(user_id or 0) <= 0 or int(tenant_id or 0) <= 0:
+        return False
+    if str((context or {}).get("role") or "").strip().lower() != "owner":
+        return False
+
+    try:
+        with platform_database_scope():
+            owned = rows(
+                "SELECT seller_id FROM tenant_sellers WHERE tenant_id=? AND active=1 ORDER BY seller_id",
+                (int(tenant_id),),
+            )
+
+            # PostgreSQL RLS adds sellers.tenant_id.  If the compatibility map
+            # was not written during signup, rebuild it only from rows already
+            # stamped with this exact tenant id.
+            if not owned and database_engine() == "postgresql":
+                candidates = rows(
+                    "SELECT id FROM sellers WHERE tenant_id=? AND active=1 ORDER BY id",
+                    (int(tenant_id),),
+                )
+                for item in candidates:
+                    seller_id = int(item.get("id") or 0)
+                    if seller_id <= 0:
+                        continue
+                    execute(
+                        """INSERT INTO tenant_sellers(tenant_id,seller_id,active,created_at)
+                           VALUES(?,?,1,?)
+                           ON CONFLICT(seller_id) DO UPDATE SET tenant_id=excluded.tenant_id,active=1""",
+                        (int(tenant_id), seller_id, now_iso()),
+                    )
+                owned = rows(
+                    "SELECT seller_id FROM tenant_sellers WHERE tenant_id=? AND active=1 ORDER BY seller_id",
+                    (int(tenant_id),),
+                )
+
+            seller_ids = sorted(
+                {int(item.get("seller_id") or 0) for item in owned if int(item.get("seller_id") or 0) > 0}
+            )
+            if not seller_ids:
+                return False
+
+            import json
+            execute(
+                "UPDATE app_users SET seller_ids_json=?,updated_at=? WHERE id=?",
+                (json.dumps(seller_ids, separators=(",", ":")), now_iso(), int(user_id)),
+            )
+            return True
+    except Exception:
+        # Session resolution must never fail just because a best-effort repair
+        # could not be completed. The normal empty-scope behavior remains safe.
+        return False
+
+
 def session_user(token: str) -> dict[str, Any] | None:
     ensure_api_session_schema()
     token = str(token or "").strip()
@@ -206,6 +276,18 @@ def session_user(token: str) -> dict[str, Any] | None:
         global_admin=global_admin,
         legacy_seller_scope=legacy_scope,
     )
+
+    # Self-heal only a direct Owner whose freshly created workspace has become
+    # seller-less because the v323 RLS/legacy ownership bridge was incomplete.
+    if not global_admin and not seller_ids and _repair_owner_seller_scope(user_id, active_tenant_id, context):
+        record = get_user(user_id) or record
+        legacy_scope = seller_ids_from_record(record)
+        seller_ids = effective_seller_ids(
+            user_id,
+            active_tenant_id,
+            global_admin=False,
+            legacy_seller_scope=legacy_scope,
+        )
 
     last_seen = int(session.get("last_seen_at_epoch") or 0)
     if now - last_seen >= 60:
