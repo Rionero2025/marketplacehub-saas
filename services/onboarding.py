@@ -84,6 +84,109 @@ def _owner_permissions(plan_code: str) -> list[str]:
     return [key for key in ALL_MENU_KEYS if key in features and key not in forbidden]
 
 
+
+def _seller_rows_for_tenant(tenant_id: int) -> list[dict[str, Any]]:
+    """Read the tenant's active Sellers under the PostgreSQL tenant context.
+
+    The SaaS v323 RLS policies hide ``sellers`` unless the connection carries the
+    correct tenant id.  Onboarding/status used to join ``tenant_sellers`` to
+    ``sellers`` without that context, which made an already-created Seller look
+    missing in the web UI.
+    """
+    tenant_id = int(tenant_id)
+    if tenant_id <= 0:
+        return []
+    with tenant_database_scope(tenant_id):
+        return rows(
+            """SELECT s.id,s.name FROM tenant_sellers ts JOIN sellers s ON s.id=ts.seller_id
+               WHERE ts.tenant_id=? AND ts.active=1 AND s.active=1 ORDER BY s.id""",
+            (tenant_id,),
+        )
+
+
+def repair_tenant_seller_links(tenant_id: int) -> list[dict[str, Any]]:
+    """Repair only links proven by this tenant's completed signup event.
+
+    Existing workspaces created while the PostgreSQL/RLS bridge was being fixed
+    can contain the Seller row and the Owner user but miss the compatibility row
+    in ``tenant_sellers``.  The ``signup_completed`` event is the safest source
+    for reconstructing that exact tenant/user/Seller relation; no name matching
+    and no cross-tenant guessing is used.
+    """
+    tenant_id = int(tenant_id)
+    if tenant_id <= 0:
+        return []
+
+    current = _seller_rows_for_tenant(tenant_id)
+    if current:
+        return current
+
+    try:
+        with platform_database_scope():
+            events = rows(
+                """SELECT id,user_id,seller_id FROM onboarding_events
+                   WHERE tenant_id=? AND event_type='signup_completed' AND seller_id IS NOT NULL
+                   ORDER BY id DESC""",
+                (tenant_id,),
+            )
+
+            for event in events:
+                seller_id = int(event.get("seller_id") or 0)
+                user_id = int(event.get("user_id") or 0)
+                if seller_id <= 0:
+                    continue
+
+                # The Seller must itself be stamped with this exact tenant by
+                # the v323 PostgreSQL trigger.  This prevents accidental relinks.
+                seller = row(
+                    "SELECT id FROM sellers WHERE id=? AND tenant_id=? AND active=1",
+                    (seller_id, tenant_id),
+                )
+                if not seller:
+                    continue
+
+                mapping = row(
+                    "SELECT tenant_id FROM tenant_sellers WHERE seller_id=?",
+                    (seller_id,),
+                )
+                if mapping:
+                    if int(mapping.get("tenant_id") or 0) != tenant_id:
+                        continue
+                    execute(
+                        "UPDATE tenant_sellers SET active=1 WHERE tenant_id=? AND seller_id=?",
+                        (tenant_id, seller_id),
+                    )
+                else:
+                    execute(
+                        """INSERT INTO tenant_sellers(tenant_id,seller_id,active,created_at)
+                           VALUES(?,?,1,?)""",
+                        (tenant_id, seller_id, now_iso()),
+                    )
+
+                # Signup already writes this scope, but restore it if the old
+                # interrupted flow left the Owner record incomplete.
+                if user_id > 0:
+                    user = row("SELECT seller_ids_json FROM app_users WHERE id=?", (user_id,)) or {}
+                    try:
+                        saved = json.loads(str(user.get("seller_ids_json") or "[]"))
+                    except (TypeError, ValueError, json.JSONDecodeError):
+                        saved = []
+                    seller_ids = sorted({
+                        *[int(value) for value in saved if str(value).isdigit() and int(value) > 0],
+                        seller_id,
+                    })
+                    execute(
+                        "UPDATE app_users SET seller_ids_json=?,updated_at=? WHERE id=?",
+                        (json.dumps(seller_ids, separators=(",", ":")), now_iso(), user_id),
+                    )
+
+    except Exception:
+        # Status pages must stay available even if an old/incomplete record
+        # cannot be repaired automatically.
+        pass
+
+    return _seller_rows_for_tenant(tenant_id)
+
 def register_merchant(
     *,
     company_name: str,
@@ -133,6 +236,18 @@ def register_merchant(
                     (internal_seller_name, str(legal_name or "").strip(), email, 0.0, 100.0, 1, now_iso()),
                 )
             attach_seller(tenant_id, seller_id)
+            # Verify the compatibility relation used by the web workspace.
+            # The Seller row is already tenant-stamped by the PostgreSQL trigger.
+            linked = row(
+                "SELECT 1 ok FROM tenant_sellers WHERE tenant_id=? AND seller_id=? AND active=1",
+                (tenant_id, seller_id),
+            )
+            if not linked:
+                execute(
+                    """INSERT INTO tenant_sellers(tenant_id,seller_id,active,created_at)
+                       VALUES(?,?,1,?)""",
+                    (tenant_id, seller_id, now_iso()),
+                )
             user_id = create_user(
                 username,
                 password,
@@ -184,6 +299,7 @@ def connect_marketplace(
     market = str(marketplace or "").strip().lower()
     if market not in {"kaufland", "worten"}:
         raise ValueError("Marketplace onboarding supportato: Kaufland o Worten.")
+    repair_tenant_seller_links(tenant_id)
     owned = row("SELECT 1 ok FROM tenant_sellers WHERE tenant_id=? AND seller_id=? AND active=1", (tenant_id, seller_id))
     if not owned:
         raise ValueError("Seller non appartenente al tenant attivo.")
@@ -239,11 +355,7 @@ def connect_marketplace(
 
 def onboarding_status(tenant_id: int) -> dict[str, Any]:
     tenant_id = int(tenant_id)
-    seller_rows = rows(
-        """SELECT s.id,s.name FROM tenant_sellers ts JOIN sellers s ON s.id=ts.seller_id
-           WHERE ts.tenant_id=? AND ts.active=1 AND s.active=1 ORDER BY s.id""",
-        (tenant_id,),
-    )
+    seller_rows = repair_tenant_seller_links(tenant_id)
     seller_ids = [int(s["id"]) for s in seller_rows]
     accounts = []
     if seller_ids:
