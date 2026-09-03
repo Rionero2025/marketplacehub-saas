@@ -9,8 +9,7 @@ services:
     region: frankfurt
     plan: free
     buildCommand: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
-    preDeployCommand: python tools/init_saas_db.py
-    startCommand: python tools/run_api.py
+    startCommand: python tools/init_saas_db.py && python tools/run_api.py
     healthCheckPath: /ready
     envVars:
       - key: DATABASE_URL
