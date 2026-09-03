@@ -8,6 +8,24 @@ from typing import Callable
 class KauflandError(RuntimeError): pass
 
 
+def _extract_account_display_name(payload, depth=0):
+    """Best-effort account label from API responses without inventing a shop name."""
+    if depth > 3 or not isinstance(payload, dict):
+        return ""
+    preferred = ("shop_name", "seller_name", "account_name", "merchant_name", "display_name")
+    for key in preferred:
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    for key in ("shop", "seller", "account", "merchant", "data"):
+        value = payload.get(key)
+        if isinstance(value, dict):
+            found = _extract_account_display_name(value, depth + 1)
+            if found:
+                return found
+    return ""
+
+
 _RATE_LOCK = threading.Lock()
 _RATE_NEXT_REQUEST: dict[str, float] = {}
 
@@ -333,6 +351,30 @@ class KauflandClient:
                 if code and len(code)<=5:
                     values.append(code)
         return list(dict.fromkeys(values))
+
+
+    def connection_profile(self):
+        """Verify credentials and return account metadata exposed by Seller API.
+
+        Kaufland Seller API v2 does not guarantee a dedicated public shop-name
+        field. We therefore return a display name only when an authenticated
+        response actually exposes one, plus the storefronts/locales enabled for
+        the account. The caller can use a technical alias when display_name is
+        empty without pretending it came from Kaufland.
+        """
+        ping = self.ping()
+        storefronts = self.storefronts()
+        locales = self.locales()
+        return {
+            "ok": True,
+            "display_name": _extract_account_display_name(ping),
+            "storefronts": storefronts,
+            "locales": [
+                str(item.get("code") or "").strip()
+                for item in locales
+                if isinstance(item, dict) and str(item.get("code") or "").strip()
+            ],
+        }
 
     def locales(self):
         """Return the product-data locales enabled for this seller account."""
