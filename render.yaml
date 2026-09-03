@@ -9,7 +9,7 @@ services:
     region: frankfurt
     plan: free
     buildCommand: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
-    startCommand: python tools/init_saas_db.py && python tools/run_api.py
+    startCommand: python -m tools.init_saas_db && python -m tools.run_api
     healthCheckPath: /ready
     envVars:
       - key: DATABASE_URL
@@ -54,7 +54,7 @@ services:
     region: frankfurt
     plan: 0.5c-512mb
     buildCommand: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
-    startCommand: python tools/run_worker.py --poll 0.5
+    startCommand: python -m tools.run_worker --poll 0.5
     envVars:
       - key: DATABASE_URL
         fromDatabase:
