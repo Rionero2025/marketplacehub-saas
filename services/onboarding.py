@@ -9,7 +9,7 @@ from services.billing import billing_snapshot, start_trial
 from services.db import execute, now_iso, row, rows
 from services.entitlements import STANDARD_FEATURES, list_plans, assert_marketplace_capacity
 from services.security import encrypt_dict
-from services.tenant_db import platform_database_scope
+from services.tenant_db import platform_database_scope, tenant_database_scope
 from services.tenancy import add_membership, attach_seller, create_tenant, tenant_record
 from services.user_access import ALL_MENU_KEYS, create_user, delete_user, find_user
 
@@ -122,11 +122,16 @@ def register_merchant(
         try:
             tenant_id = create_tenant(company_name, tenant_type="merchant", plan_code=plan_code)
             internal_seller_name = _unique_seller_name(seller_name, tenant_id)
-            seller_id = execute(
-                """INSERT INTO sellers(name,legal_name,email,our_profit_pct,partner_profit_pct,active,created_at)
-                   VALUES(?,?,?,?,?,?,?)""",
-                (internal_seller_name, str(legal_name or "").strip(), email, 0.0, 100.0, 1, now_iso()),
-            )
+            # PostgreSQL staging/prod protects sellers with tenant-aware RLS.
+            # The legacy INSERT intentionally omits tenant_id, so bind the new
+            # tenant while inserting: the database trigger can then populate
+            # sellers.tenant_id correctly instead of rejecting the row.
+            with tenant_database_scope(tenant_id):
+                seller_id = execute(
+                    """INSERT INTO sellers(name,legal_name,email,our_profit_pct,partner_profit_pct,active,created_at)
+                       VALUES(?,?,?,?,?,?,?)""",
+                    (internal_seller_name, str(legal_name or "").strip(), email, 0.0, 100.0, 1, now_iso()),
+                )
             attach_seller(tenant_id, seller_id)
             user_id = create_user(
                 username,
