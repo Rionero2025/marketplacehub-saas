@@ -2,14 +2,26 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api } from "@/lib/api";
 import { Logo } from "./Logo";
 import { useWorkspace } from "./WorkspaceProvider";
 import { Icon, type IconName } from "./Icon";
 import { JobPulse } from "./JobPulse";
 
-const navGroups = [
+type NavItem = {
+  href: string;
+  label: string;
+  permission: string;
+  icon: IconName;
+};
+
+type NavGroup = {
+  label: string;
+  items: readonly NavItem[];
+};
+
+const navGroups: readonly NavGroup[] = [
   { label: "Workspace", items: [
     { href:"/dashboard", label:"Dashboard", permission:"dashboard", icon:"dashboard" },
     { href:"/orders", label:"Ordini", permission:"marketplace_orders", icon:"orders" },
@@ -23,7 +35,7 @@ const navGroups = [
     { href:"/jobs", label:"Attività", permission:"dashboard", icon:"jobs" },
     { href:"/settings", label:"Impostazioni", permission:"seller_management", icon:"settings" },
   ]},
-] as const;
+];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname(); const router = useRouter();
@@ -35,7 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (loading) return <div className="screenCenter"><div className="spinner"/><span>Preparazione workspace…</span></div>;
   if (!user) return null;
   const groups = navGroups.map(group => ({ ...group, items: group.items.filter(item => user.is_admin || user.permissions.includes(item.permission)) })).filter(group => group.items.length);
-  const current = useMemo(() => navGroups.flatMap(g => g.items).find(item => path === item.href || path.startsWith(`${item.href}/`)), [path]);
+  const current = navGroups.flatMap(group => group.items).find(item => path === item.href || path.startsWith(`${item.href}/`));
   const toggleCollapsed = () => { const next = !collapsed; setCollapsed(next); localStorage.setItem("mh:sidebar:collapsed", next ? "1" : "0"); };
   return <div className={`appFrame ${collapsed ? "sidebarCollapsed" : ""}`}>
     {mobileOpen && <button className="sidebarBackdrop" aria-label="Chiudi menu" onClick={() => setMobileOpen(false)}/>} 
