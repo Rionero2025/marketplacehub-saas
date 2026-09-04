@@ -67,3 +67,8 @@ Deduplica ordini nel servizio condiviso background_jobs: advisory lock transazio
 ### Blocco 05 — cataloghi atomici
 
 Il core cataloghi prepara chunk normalizzati in una tabella temporanea privata della connessione. La sostituzione di prodotti e metadata avviene in una sola transazione; PostgreSQL serializza le pubblicazioni dello stesso listino con advisory lock.
+
+
+### Blocco 06 — recupero job interrotti
+
+Ogni esecuzione del worker aggiorna un heartbeat indipendente ogni 30 secondi, anche durante chiamate senza progressi. Prima del prossimo claim il worker recupera i job senza heartbeat da almeno 300 secondi. Le scritture di esito/progresso sono condizionate da worker_id, tentativo e stato running.

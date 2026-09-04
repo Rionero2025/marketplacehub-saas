@@ -50,3 +50,8 @@ ISSUE-03/04: confini verificati con 108 test CI, inclusi PostgreSQL; resta la re
 ### Blocco 05 — cataloghi atomici
 
 ISSUE-05 deduplica chiusa con PR #4; recupero orfani resta aperto. ISSUE-06: correzione atomica sul ramo dedicato, in verifica SQLite/PostgreSQL. Nessun claim di accelerazione o copertura dei volumi reali.
+
+
+### Blocco 06 — recupero job interrotti
+
+Materializzazione atomica integrata con PR #5. Recupero orfani in verifica sul blocco 06. Il heartbeat indipendente riduce i falsi orfani; un outage database superiore alla lease resta un caso di esecuzione sovrapposta per gli import ripetibili.

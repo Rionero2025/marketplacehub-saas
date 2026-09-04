@@ -6,7 +6,8 @@ import os
 import socket
 import threading
 import uuid
-from datetime import date, datetime, timezone
+import logging
+from datetime import date, datetime, timezone, timedelta
 from typing import Any, Callable
 
 from marketplace_core.contracts import JobReceipt, JobRequest
@@ -182,33 +183,44 @@ def recent_jobs(*, seller_id: int | None = None, kind_prefix: str = "", limit: i
     return [_decode(item) or {} for item in rows(sql, tuple(params))]
 
 
-def update_job_progress(job_id: str, current: int, total: int, message: str = "") -> None:
+def _claim_guard(claim: dict[str, Any] | None) -> tuple[str, tuple]:
+    if claim is None:
+        return "", ()
+    return " AND worker_id=? AND attempts=? AND status='running'", (
+        str(claim.get("worker_id") or ""), int(claim.get("attempts") or 0),
+    )
+
+
+def update_job_progress(job_id: str, current: int, total: int, message: str = "", *, claim: dict | None = None) -> None:
     total_i = max(0, int(total or 0))
     current_i = max(0, int(current or 0))
     pct = min(100.0, (current_i / total_i * 100.0) if total_i else 0.0)
+    guard, args = _claim_guard(claim)
     with connect() as con:
         con.execute(
             """UPDATE background_jobs SET progress_current=?,progress_total=?,progress_pct=?,
-               message=?,heartbeat_at=? WHERE id=? AND status='running'""",
-            (current_i, total_i, pct, str(message or ""), now_iso(), job_id),
+               message=?,heartbeat_at=? WHERE id=? AND status='running'""" + guard,
+            (current_i, total_i, pct, str(message or ""), now_iso(), job_id, *args),
         )
 
 
-def complete_job(job_id: str, result: Any = None, message: str = "Completato") -> None:
+def complete_job(job_id: str, result: Any = None, message: str = "Completato", *, claim: dict | None = None) -> None:
+    guard, args = _claim_guard(claim)
     with connect() as con:
         con.execute(
             """UPDATE background_jobs SET status='done',progress_pct=100,message=?,
-               result_json=?,heartbeat_at=?,finished_at=? WHERE id=?""",
-            (str(message or "Completato"), json_text(_json_safe(result or {})), now_iso(), now_iso(), job_id),
+               result_json=?,heartbeat_at=?,finished_at=? WHERE id=?""" + guard,
+            (str(message or "Completato"), json_text(_json_safe(result or {})), now_iso(), now_iso(), job_id, *args),
         )
 
 
-def fail_job(job_id: str, error: BaseException | str) -> None:
+def fail_job(job_id: str, error: BaseException | str, *, claim: dict | None = None) -> None:
+    guard, args = _claim_guard(claim)
     with connect() as con:
         con.execute(
             """UPDATE background_jobs SET status='error',error=?,message='Errore',
-               heartbeat_at=?,finished_at=? WHERE id=?""",
-            (str(error), now_iso(), now_iso(), job_id),
+               heartbeat_at=?,finished_at=? WHERE id=?""" + guard,
+            (str(error), now_iso(), now_iso(), job_id, *args),
         )
 
 
@@ -321,7 +333,7 @@ def _run_orders_kaufland(job: dict[str, Any]) -> dict[str, Any]:
     scope = OrderScope(seller_id, account_id, "kaufland", environment)
 
     def progress(done: int, total: int, label: str) -> None:
-        update_job_progress(str(job["id"]), done, total, label)
+        update_job_progress(str(job["id"]), done, total, label, claim=job)
 
     return core.sync_kaufland(
         scope,
@@ -357,7 +369,7 @@ def _run_buybox_kaufland_quick(job: dict[str, Any]) -> dict[str, Any]:
 
     def progress(done: int, total: int, outcome: dict[str, Any]) -> None:
         kind = str(outcome.get("kind") or "")
-        update_job_progress(str(job["id"]), done, total, f"Buy Box: {kind}")
+        update_job_progress(str(job["id"]), done, total, f"Buy Box: {kind}", claim=job)
 
     outcomes = core.run_kaufland_quick_batch(
         client,
@@ -395,7 +407,7 @@ def _run_orders_worten(job: dict[str, Any]) -> dict[str, Any]:
     scope = OrderScope(seller_id, account_id, "worten", environment)
 
     def progress(done: int, total: int, label: str) -> None:
-        update_job_progress(str(job["id"]), done, total, label)
+        update_job_progress(str(job["id"]), done, total, label, claim=job)
 
     saved = core.sync_normalized(
         scope, credentials, date_from=date_from, date_to=date_to, progress=progress
@@ -422,7 +434,7 @@ def _run_accounting_sync(job: dict[str, Any]) -> dict[str, Any]:
     scope = AccountingScope(seller_id, account_id, marketplace)
 
     def progress(done: int, total: int, label: str) -> None:
-        update_job_progress(str(job["id"]), done, total, label)
+        update_job_progress(str(job["id"]), done, total, label, claim=job)
 
     return core.synchronize(
         scope, credentials, AccountingPeriod(date_from, date_to),
@@ -443,7 +455,7 @@ def _run_accounting_costs(job: dict[str, Any]) -> dict[str, Any]:
     scope = AccountingScope(seller_id, account_id, marketplace)
 
     def progress(done: int, total: int, label: str) -> None:
-        update_job_progress(str(job["id"]), done, total, label)
+        update_job_progress(str(job["id"]), done, total, label, claim=job)
 
     return core.refresh_costs(
         scope, AccountingPeriod(date_from, date_to), progress=progress
@@ -458,7 +470,7 @@ def _run_packlink_shipments_sync(job: dict[str, Any]) -> dict[str, Any]:
     core = PacklinkCore()
 
     def progress(done: int, total: int, label: str) -> None:
-        update_job_progress(str(job["id"]), done, total, label)
+        update_job_progress(str(job["id"]), done, total, label, claim=job)
 
     return core.synchronize_shipments(PacklinkScope(seller_id), progress=progress)
 
@@ -478,7 +490,7 @@ def _run_tracking_documents_analyze(job: dict[str, Any]) -> dict[str, Any]:
     core = TrackingCore()
 
     def progress(done: int, total: int, label: str) -> None:
-        update_job_progress(str(job["id"]), done, total, label)
+        update_job_progress(str(job["id"]), done, total, label, claim=job)
 
     return core.analyze_archived_documents(
         TrackingScope(seller_id, account_id, marketplace),
@@ -500,7 +512,7 @@ def _run_packlink_quotes_mass(job: dict[str, Any]) -> dict[str, Any]:
     def progress(done: int, total: int, item: dict[str, Any]) -> None:
         order_id = str(item.get("order_id") or "")
         label = f"Tariffe Packlink: {order_id}" if order_id else "Tariffe Packlink"
-        update_job_progress(str(job["id"]), done, total, label)
+        update_job_progress(str(job["id"]), done, total, label, claim=job)
 
     return core.quote_many(
         PacklinkScope(seller_id),
@@ -526,6 +538,7 @@ def _run_packlink_drafts_mass(job: dict[str, Any]) -> dict[str, Any]:
         update_job_progress(
             str(job["id"]), done, total,
             f"Spedizioni Packlink: {order_id} · {status}" if order_id else "Spedizioni Packlink",
+            claim=job,
         )
 
     return core.create_drafts_many(
@@ -562,7 +575,7 @@ def _run_catalog_materialize(job: dict[str, Any]) -> dict[str, Any]:
     core = CatalogCore()
 
     def progress(done: int, total: int, label: str) -> None:
-        update_job_progress(str(job["id"]), done, total, label)
+        update_job_progress(str(job["id"]), done, total, label, claim=job)
 
     return core.materialize(price_list_id, source_path, progress=progress)
 
@@ -602,27 +615,91 @@ def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
         return handler(job)
 
 
+def heartbeat_job(job: dict[str, Any]) -> bool:
+    guard, args = _claim_guard(job)
+    with connect() as con:
+        cursor = con.execute(
+            "UPDATE background_jobs SET heartbeat_at=? WHERE id=?" + guard,
+            (now_iso(), str(job["id"]), *args),
+        )
+        return bool(cursor.rowcount)
+
+
+def recover_stale_jobs(*, stale_seconds: int = 300, max_attempts: int = 3, kind_prefix: str = "") -> dict[str, int]:
+    """Retry only idempotent imports; uncertain external actions need review."""
+    ensure_job_schema()
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max(60, stale_seconds))).isoformat(timespec="seconds")
+    safe_retry = {"orders.kaufland.sync", "orders.worten.sync", "catalog.materialize"}
+    result = {"requeued": 0, "review": 0}
+    with connect() as con:
+        if database_engine() != "postgresql":
+            con.execute("BEGIN IMMEDIATE")
+        query = """SELECT * FROM background_jobs WHERE status='running'
+            AND COALESCE(NULLIF(heartbeat_at,''),NULLIF(started_at,''),created_at)<?"""
+        args: list[Any] = [cutoff]
+        if kind_prefix:
+            query += " AND kind LIKE ?"
+            args.append(kind_prefix + "%")
+        query += " ORDER BY created_at LIMIT 100"
+        if database_engine() == "postgresql":
+            query += " FOR UPDATE SKIP LOCKED"
+        for raw in con.execute(query, tuple(args)).fetchall():
+            job = dict(raw)
+            retry = job["kind"] in safe_retry and int(job.get("attempts") or 0) < max(1, max_attempts)
+            if retry:
+                con.execute(
+                    """UPDATE background_jobs SET status='queued',worker_id='',started_at='',
+                       heartbeat_at='',finished_at='',progress_current=0,progress_total=0,progress_pct=0,
+                       error='',message='Riaccodato dopo interruzione del worker' WHERE id=?""",
+                    (job["id"],),
+                )
+                result["requeued"] += 1
+            else:
+                con.execute(
+                    """UPDATE background_jobs SET status='error',finished_at=?,
+                       message='Verifica richiesta dopo interruzione',
+                       error='Worker non più attivo: verificare l’esito prima di ripetere il lavoro.' WHERE id=?""",
+                    (now_iso(), job["id"]),
+                )
+                result["review"] += 1
+    return result
+
+
+def _run_claimed(job: dict[str, Any], *, heartbeat_interval: float = 30.0) -> None:
+    stop = threading.Event()
+    def pulse():
+        while not stop.wait(heartbeat_interval):
+            try:
+                if not heartbeat_job(job):
+                    return
+            except Exception:
+                logging.getLogger(__name__).warning("Job heartbeat unavailable: %s", job["id"])
+    thread = threading.Thread(target=pulse, daemon=True, name=f"mh-heartbeat-{str(job['id'])[:8]}")
+    thread.start()
+    try:
+        result = execute_claimed_job(job)
+        complete_job(str(job["id"]), result, claim=job)
+    except Exception as error:
+        fail_job(str(job["id"]), error, claim=job)
+    finally:
+        stop.set()
+        thread.join(timeout=1)
+
+
 def run_job(job_id: str) -> bool:
     job = claim_job(job_id)
     if not job:
         return False
-    try:
-        result = execute_claimed_job(job)
-        complete_job(job_id, result)
-    except Exception as error:
-        fail_job(job_id, error)
+    _run_claimed(job)
     return True
 
 
 def run_next_job(*, kind_prefix: str = "") -> bool:
+    recover_stale_jobs(kind_prefix=kind_prefix)
     job = claim_next_job(kind_prefix=kind_prefix)
     if not job:
         return False
-    try:
-        result = execute_claimed_job(job)
-        complete_job(str(job["id"]), result)
-    except Exception as error:
-        fail_job(str(job["id"]), error)
+    _run_claimed(job)
     return True
 
 

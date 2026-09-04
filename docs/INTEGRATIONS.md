@@ -43,3 +43,8 @@ Nessuna chiamata marketplace modificata: si evita l’avvio duplicato dello stes
 ### Blocco 05 — cataloghi atomici
 
 CSV: dopo aver emesso un chunk, un errore interrompe l’import invece di ricominciare dal parser fallback e duplicare righe. XML/Excel conservano il parser originario. Nessuna modifica ai feed remoti.
+
+
+### Blocco 06 — recupero job interrotti
+
+Nessuna ripetizione automatica di creazione spedizioni, cambi prezzo o altre operazioni esterne di esito incerto. Gli import ammessi hanno semantica almeno una volta: non si dichiara esecuzione esattamente una volta né annullamento di effetti esterni.
