@@ -17,3 +17,8 @@
 ## Aggiornamento porting — 4 settembre 2026
 
 Riutilizzare gli helper SKU originali. Adattamento giustificato da due regressioni riprodotte: nei payload {order,line} si cerca solo nella line corrente, per non usare costo/SKU di un prodotto diverso. Definita metrica di avanzamento a 40 blocchi in SAAS_PROGRESS.md.
+
+
+### Blocco 03 — verifica autorizzazioni
+
+Owner/admin/manager/operator possono scrivere nelle aree già autorizzate; viewer e ruoli sconosciuti sono sola lettura. Il ruolo diretto sul cliente prevale sull’accesso Agency. Billing e configurazione piani restano Platform Admin. I limiti legacy sui seller si applicano anche alle letture di un altro tenant autorizzato.

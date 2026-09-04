@@ -35,3 +35,8 @@ Nessun penetration test, prova di restore, scansione storica completa segreti o 
 ## Aggiornamento porting — 4 settembre 2026
 
 ISSUE-01 risolto e integrato con PR #1; CI riuscita anche su GitHub. ISSUE-02 corretto nel ramo SKU, in attesa di integrazione: 13 test specifici superati, inclusi persistenza, override e separazione delle righe. Gli altri problemi restano aperti.
+
+
+### Blocco 03 — verifica autorizzazioni
+
+ISSUE-02 risolto con PR #2 e CI superata. ISSUE-03/04: correzioni sul ramo dedicato; attendono verifica PostgreSQL in CI prima della chiusura. La matrice integrale dei permessi del futuro prodotto resta da completare nei blocchi team/Agency/Platform.

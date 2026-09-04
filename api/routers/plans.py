@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from api.dependencies import ApiUser, CurrentUser, ensure_tenant_access
+from api.dependencies import ApiUser, CurrentUser, TargetTenantUser, ensure_tenant_access
 from api.schemas import (
     EntitlementOverrideRequest,
     PlanResponse,
@@ -58,7 +58,7 @@ def public_plans(user: CurrentUser, include_internal: bool = Query(default=False
 
 
 @router.get("/tenants/{tenant_id}/entitlements", response_model=TenantEntitlementsResponse)
-def entitlements(tenant_id: int, user: CurrentUser) -> TenantEntitlementsResponse:
+def entitlements(tenant_id: int, user: TargetTenantUser) -> TenantEntitlementsResponse:
     ensure_tenant_access(user, tenant_id)
     item = tenant_entitlements(int(tenant_id))
     if not item:
@@ -72,7 +72,7 @@ def _platform_admin(user: ApiUser) -> None:
 
 
 @router.put("/tenants/{tenant_id}/plan", response_model=TenantEntitlementsResponse)
-def update_plan(tenant_id: int, payload: TenantPlanUpdateRequest, user: CurrentUser) -> TenantEntitlementsResponse:
+def update_plan(tenant_id: int, payload: TenantPlanUpdateRequest, user: TargetTenantUser) -> TenantEntitlementsResponse:
     _platform_admin(user)
     ensure_tenant_access(user, tenant_id)
     try:
@@ -87,7 +87,7 @@ def set_override(
     tenant_id: int,
     key: str,
     payload: EntitlementOverrideRequest,
-    user: CurrentUser,
+    user: TargetTenantUser,
 ) -> TenantEntitlementsResponse:
     _platform_admin(user)
     ensure_tenant_access(user, tenant_id)
@@ -105,7 +105,7 @@ def set_override(
 
 
 @router.delete("/tenants/{tenant_id}/entitlements/{kind}/{key}", response_model=TenantEntitlementsResponse)
-def delete_override(tenant_id: int, kind: str, key: str, user: CurrentUser) -> TenantEntitlementsResponse:
+def delete_override(tenant_id: int, kind: str, key: str, user: TargetTenantUser) -> TenantEntitlementsResponse:
     _platform_admin(user)
     ensure_tenant_access(user, tenant_id)
     if kind not in {"feature", "limit"}:
