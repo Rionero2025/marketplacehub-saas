@@ -17,9 +17,16 @@ function Body(){
   const [accounts,setAccounts]=useState<MarketplaceAccount[]>([]); const [ent,setEnt]=useState<Entitlements|null>(null);
   const [catalogs,setCatalogs]=useState<Record<string,unknown>[]>([]); const [jobs,setJobs]=useState<Job[]>([]); const [pulses,setPulses]=useState<AccountPulse[]>([]);
   const [loading,setLoading]=useState(true);
+  const [errors,setErrors]=useState<string[]>([]);
+  const [accountsFailed,setAccountsFailed]=useState(false);
+  const [ordersFailed,setOrdersFailed]=useState(false);
+  const [catalogsFailed,setCatalogsFailed]=useState(false);
   useEffect(()=>{
-    if(!seller||!user)return; let live=true; setLoading(true);
+    setAccounts([]); setEnt(null); setCatalogs([]); setJobs([]); setPulses([]); setErrors([]);
+    if(!seller||!user){setLoading(false);return;} let live=true; setLoading(true);
+    let inFlight=false;
     const load=async()=>{
+      if(inFlight)return; inFlight=true;
       const [a,e,c,j]=await Promise.allSettled([
         api<MarketplaceAccount[]>(`/sellers/${seller.id}/accounts`),
         api<Entitlements>(`/tenants/${user.active_tenant_id}/entitlements`),
@@ -27,15 +34,20 @@ function Body(){
         api<Job[]>(`/jobs?seller_id=${seller.id}&limit=8`),
       ]);
       if(!live)return;
+      const failures=[a,e,c,j].flatMap((result,i)=>result.status==="rejected"?[`${["Marketplace","Piano","Cataloghi","Attività"][i]}: ${result.reason instanceof Error?result.reason.message:"caricamento non riuscito"}`]:[]);
+      setAccountsFailed(a.status==="rejected"); setCatalogsFailed(c.status==="rejected");
       const aa=a.status==="fulfilled"?a.value:[]; setAccounts(aa); if(e.status==="fulfilled")setEnt(e.value); setCatalogs(c.status==="fulfilled"?c.value:[]); setJobs(j.status==="fulfilled"?j.value:[]);
+      let orderError=false;
       const pulse=await Promise.all(aa.map(async ac=>{
         const [orders,status]=await Promise.allSettled([
           api<{total:number}>(`/sellers/${seller.id}/orders?account_id=${ac.id}&marketplace=${ac.marketplace}&limit=1&offset=0`),
           user.is_admin||user.permissions.includes("accounting") ? api<{cache_summary?:Record<string,unknown>;sync_state?:Record<string,unknown>}>(`/sellers/${seller.id}/accounting/status?account_id=${ac.id}&marketplace=${ac.marketplace}`) : Promise.resolve({}),
         ]);
+        if(orders.status==="rejected"){orderError=true;failures.push(`Ordini ${ac.account_name}: ${orders.reason instanceof Error?orders.reason.message:"caricamento non riuscito"}`);}
+        if(status.status==="rejected")failures.push(`Contabilità ${ac.account_name}: ${status.reason instanceof Error?status.reason.message:"caricamento non riuscito"}`);
         const s: {cache_summary?:Record<string,unknown>;sync_state?:Record<string,unknown>} = status.status==="fulfilled" ? status.value : {}; const cache=s.cache_summary||{}; const sync=s.sync_state||{};
         return {...ac,orderTotal:orders.status==="fulfilled"?Number(orders.value.total||0):0,cachedOrders:Number(cache.total_orders||0),lastOrder:String(cache.last_order_created||""),syncState:String(sync.status||sync.last_status||"")};
-      })); if(live){setPulses(pulse);setLoading(false)};
+      })); if(live){setPulses(pulse);setErrors(failures);setOrdersFailed(orderError);setLoading(false)};inFlight=false;
     }; void load(); const timer=setInterval(load,20000); return()=>{live=false;clearInterval(timer)};
   },[seller?.id,user?.active_tenant_id]);
   const totalOrders=useMemo(()=>pulses.reduce((n,x)=>n+x.orderTotal,0),[pulses]); const activeJobs=jobs.filter(j=>["queued","running"].includes(j.status.toLowerCase()));
@@ -46,9 +58,12 @@ function Body(){
     {done:Boolean(ent?.active),label:"Piano attivo",text:ent?.plan_name||ent?.plan_code||"Verifica abbonamento"},
   ];
   const completed=onboarding.filter(x=>x.done).length; const firstName=(user?.display_name||user?.username||"").split(" ")[0];
+  if(!seller)return <><PageHeader title="Dashboard" description="Panoramica del tuo workspace."/><section className="panel"><h2>Il Seller non è disponibile</h2><p>Apri Impostazioni per verificare il negozio interno. Se il caricamento ha restituito un errore, usa il pulsante Riprova caricamento.</p><Link href="/settings" className="primaryButton linkButton">Apri Impostazioni</Link></section></>;
   return <>
     <PageHeader title={firstName?`Buongiorno, ${firstName}`:"Dashboard"} description="Una vista unica su Seller, marketplace e attività operative." action={<div className="headerActions"><Link className="secondaryButton linkButton" href="/jobs"><Icon name="activity" size={16}/>Attività</Link><Link className="primaryButton linkButton" href="/orders">Apri ordini<Icon name="arrow" size={16}/></Link></div>}/>
-    <div className="stats"><StatCard label="Ordini indicizzati" value={loading?"…":totalOrders.toLocaleString("it-IT")} meta={`${accounts.length} marketplace/account`}/><StatCard label="Cataloghi pronti" value={loading?"…":catalogs.length} meta="query server-side"/><StatCard label="Attività in corso" value={activeJobs.length} meta={activeJobs[0]?.message||"Nessun job bloccante"}/><StatCard label="Piano" value={ent?.plan_name||ent?.plan_code||"—"} meta={ent?.active?"Abbonamento operativo":"Da verificare"}/></div>
+    {errors.length>0 && <div className="errorBox" role="alert">{errors.map((error,i)=><p key={i}>{error}</p>)}</div>}
+    {!loading && accounts.length>0 && !ordersFailed && totalOrders===0 && <section className="panel"><h2>Marketplace collegato: scarica i primi ordini</h2><p>Le credenziali sono salvate. Per popolare questa dashboard, apri Ordini e premi Sincronizza ordini.</p><Link href="/orders" className="primaryButton linkButton">Apri Ordini</Link></section>}
+    <div className="stats"><StatCard label="Ordini indicizzati" value={loading?"…":ordersFailed||accountsFailed?"—":totalOrders.toLocaleString("it-IT")} meta={`${accounts.length} marketplace/account`}/><StatCard label="Cataloghi pronti" value={loading?"…":catalogsFailed?"—":catalogs.length} meta="query server-side"/><StatCard label="Attività in corso" value={activeJobs.length} meta={activeJobs[0]?.message||"Nessun job bloccante"}/><StatCard label="Piano" value={ent?.plan_name||ent?.plan_code||"—"} meta={ent?.active?"Abbonamento operativo":"Da verificare"}/></div>
     <div className="dashboardGrid">
       <section className="panel span2"><div className="panelTitle"><div><span className="sectionEyebrow">Operations pulse</span><h2>Marketplace collegati</h2><p>Ordini e cache vengono letti dal backend senza caricare lo storico nel browser.</p></div><span className="pill">{pulses.length} account</span></div>
         {pulses.length?<div className="accountPulseList">{pulses.map(p=><div className="accountPulse" key={p.id}><div className={`marketLogo ${p.marketplace.toLowerCase()}`}>{p.marketplace.slice(0,1).toUpperCase()}</div><div className="accountPulseMain"><div><b>{p.account_name}</b><span className="caps">{p.marketplace}</span></div><small>{p.lastOrder?`Ultimo ordine: ${formatDate(p.lastOrder)}`:"Cache pronta al primo sync"}</small></div><div className="accountMetric"><strong>{p.orderTotal.toLocaleString("it-IT")}</strong><span>ordini/righe</span></div><StatusBadge status={p.syncState||"active"} label={p.syncState||"Connesso"}/></div>)}</div>:<div className="emptyPro"><Icon name="store" size={24}/><div><b>Nessun marketplace collegato</b><p>Collega il primo account per iniziare a sincronizzare ordini e offerte.</p></div><Link href="/settings" className="secondaryButton linkButton">Configura</Link></div>}

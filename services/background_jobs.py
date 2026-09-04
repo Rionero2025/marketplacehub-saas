@@ -566,9 +566,11 @@ def execute_claimed_job(job: dict[str, Any]) -> dict[str, Any]:
     # the job was queued but before a worker claims it.
     from services.entitlements import job_feature, require_tenant_feature
     feature = job_feature(kind)
-    if feature:
-        require_tenant_feature(tenant_id, feature)
     with tenant_database_scope(tenant_id):
+        # Subscription/usage tables are RLS-protected too: check the plan under
+        # the job tenant, before running any marketplace operation.
+        if feature:
+            require_tenant_feature(tenant_id, feature)
         return handler(job)
 
 

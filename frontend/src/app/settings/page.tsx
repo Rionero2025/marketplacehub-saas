@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { WorkspacePage } from "@/components/WorkspacePage";
 import { PageHeader } from "@/components/PageHeader";
 import { useWorkspace } from "@/components/WorkspaceProvider";
@@ -37,7 +38,7 @@ type MarketplaceConnectResult = {
 };
 
 function Body() {
-  const { user, seller: workspaceSeller } = useWorkspace();
+  const { user, seller: workspaceSeller, refresh } = useWorkspace();
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [accounts, setAccounts] = useState<MarketplaceAccount[]>([]);
   const [marketplace, setMarketplace] = useState("kaufland");
@@ -60,6 +61,9 @@ function Body() {
       const next = await api<OnboardingStatus>("/onboarding/status");
       setStatus(next);
       setAccounts(Array.isArray(next.marketplace_accounts) ? next.marketplace_accounts : []);
+      // Onboarding can repair Seller ownership/scope. Reload the shared context
+      // after that operation, rather than leaving the topbar/dashboard stale.
+      await refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Impossibile leggere lo stato del workspace.");
     } finally {
@@ -221,6 +225,7 @@ function Body() {
 
     <section className="panel">
       <div className="panelTitle"><h2>Account collegati</h2></div>
+      {accounts.length > 0 && <p>Il collegamento è attivo. <Link href="/orders">Apri Ordini e avvia la sincronizzazione</Link> per caricare i dati nella dashboard.</p>}
       <div className="table">
         <div className="tr th"><span>Marketplace</span><span>Account</span><span>Stato</span></div>
         {accounts.map(account => <div className="tr" key={account.id}>

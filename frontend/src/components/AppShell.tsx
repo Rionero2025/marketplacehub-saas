@@ -39,13 +39,13 @@ const navGroups: readonly NavGroup[] = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname(); const router = useRouter();
-  const { user, tenants, sellers, seller, loading, setSellerId, switchTenant } = useWorkspace();
+  const { user, tenants, sellers, seller, loading, error, refresh, setSellerId, switchTenant } = useWorkspace();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => { setCollapsed(localStorage.getItem("mh:sidebar:collapsed") === "1"); }, []);
   useEffect(() => { setMobileOpen(false); }, [path]);
   if (loading) return <div className="screenCenter"><div className="spinner"/><span>Preparazione workspace…</span></div>;
-  if (!user) return null;
+  if (!user) return <div className="screenCenter" role="alert"><p>{error || "Sessione non disponibile."}</p><button className="secondaryButton" onClick={() => void refresh()}>Riprova</button></div>;
   const groups = navGroups.map(group => ({ ...group, items: group.items.filter(item => user.is_admin || user.permissions.includes(item.permission)) })).filter(group => group.items.length);
   const current = navGroups.flatMap(group => group.items).find(item => path === item.href || path.startsWith(`${item.href}/`));
   const toggleCollapsed = () => { const next = !collapsed; setCollapsed(next); localStorage.setItem("mh:sidebar:collapsed", next ? "1" : "0"); };
@@ -64,11 +64,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="topbarStart"><button className="mobileMenuButton" onClick={() => setMobileOpen(true)} aria-label="Apri menu"><Icon name="menu"/></button><div className="pageCrumb"><span>Marketplace Hub</span><Icon name="chevron" size={13}/><b>{current?.label || "Workspace"}</b></div></div>
         <div className="contextGroup">
           {tenants.length > 1 && <label className="contextField"><span><Icon name="building" size={14}/>Azienda</span><select value={user.active_tenant_id} onChange={e=>void switchTenant(Number(e.target.value))}>{tenants.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}
-          <label className="contextField"><span><Icon name="store" size={14}/>Seller</span><select value={seller?.id || ""} onChange={e=>setSellerId(Number(e.target.value))}>{sellers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <label className="contextField"><span><Icon name="store" size={14}/>Seller</span><select value={seller?.id || ""} disabled={!sellers.length} onChange={e=>setSellerId(Number(e.target.value))}>{!sellers.length && <option value="">Nessun Seller disponibile</option>}{sellers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
         </div>
         <div className="topbarEnd"><JobPulse sellerId={seller?.id}/><div className="tenantBadge"><b>{user.active_tenant_name}</b><span>{user.active_tenant_type} · {user.tenant_role}</span></div></div>
       </header>
-      <main className="content">{children}</main>
+      <main className="content">{error && <div className="errorBox" role="alert">{error} <button className="secondaryButton" onClick={() => void refresh()}>Riprova caricamento</button></div>}{children}</main>
     </div>
   </div>;
 }

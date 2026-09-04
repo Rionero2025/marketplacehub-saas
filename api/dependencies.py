@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Annotated, Callable, Iterator
+from typing import Annotated, AsyncIterator, Callable
 
 from fastapi import Depends, HTTPException, Request, status
+from starlette.concurrency import run_in_threadpool
 
 from api.session_store import session_user
 
@@ -67,9 +68,9 @@ def request_token(request: Request) -> str:
     return str(request.cookies.get(COOKIE_NAME) or "").strip()
 
 
-def get_current_user(request: Request) -> Iterator[ApiUser]:
+async def get_current_user(request: Request) -> AsyncIterator[ApiUser]:
     token = request_token(request)
-    record = session_user(token)
+    record = await run_in_threadpool(session_user, token)
     if not record:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -78,8 +79,9 @@ def get_current_user(request: Request) -> Iterator[ApiUser]:
         )
     user = ApiUser.from_record(record)
     from services.tenant_db import tenant_database_scope
-    # The DB scope lives for the entire endpoint/dependency execution and is
-    # automatically reset at the end of the request.
+    # Set ContextVars in the request task, so FastAPI copies them into sync
+    # dependencies/endpoints. A sync generator sets them only in a worker-thread
+    # copy, losing the tenant and resetting tokens in a different Context.
     with tenant_database_scope(user.active_tenant_id):
         yield user
 
