@@ -102,3 +102,8 @@ GET /sellers/{seller_id}/dashboard aggrega una lettura contabile e applica i cal
 ### Contabilità operativa Seller
 
 Contabilità Seller: adattatore seller_accounting, API autorizzate per account, righe, edit, scelta listini ed Excel. Proiezione sicura delle colonne e scope Seller/account esplicito. React invalida le richieste quando cambiano Seller e filtri.
+
+
+### Contabilità originale e conteggio per Seller
+
+Confermato: conteggio contabile per singolo Seller anche quando selezionato da Agency/Admin. Filtri multipli server-side per fornitore, raw_status e country_code condivisi tra tabella, riepilogo ed Excel.

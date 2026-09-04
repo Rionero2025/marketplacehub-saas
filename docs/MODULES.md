@@ -103,3 +103,8 @@ Pannello Seller: giorno/settimana/mese/intervallo, filtro account, ordini unici,
 ### Contabilità operativa Seller
 
 Contabilità: tabella paginata, ricerca, periodo, margini mancanti, 16 campi modificabili originali, quote, sync e ricalcolo costi tramite job esistenti. Scelta listini persistente; Excel di tutte le righe filtrate fino a 20.000. Non comprende ancora riconciliazioni, import documenti/PDF e storico export.
+
+
+### Contabilità originale e conteggio per Seller
+
+Filtri multipli Fornitore/Stato/Nazione, colonne Market/Nazione, riepilogo rimborsi e margine lordo, quote globali filtrate e percentuali del Seller. Inventario completo della pagina originale in ACCOUNTING_PARITY.md.

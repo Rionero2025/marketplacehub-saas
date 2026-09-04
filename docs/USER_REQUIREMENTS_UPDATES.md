@@ -48,3 +48,10 @@ L’utente richiede tutta l’area Seller funzionante come il progetto Python or
 Il codice originale va soltanto letto, senza modificarlo. Tutte le modifiche e i
 nuovi adattatori sono nel SaaS. Si parte dalla dashboard economica e si prosegue
 con gli altri moduli; nessuna schermata dimostrativa equivale a parità completata.
+
+## Contabilità originale: requisito di parità
+
+Il riferimento esplicito è https://marketplace-hub-wchg.onrender.com/Contabilita.
+La scelta di Seller multipli appartiene alle aree Admin/Agency; la contabilità
+resta sempre del singolo Seller selezionato. Vedere ACCOUNTING_PARITY.md per
+l’inventario verificato e la separazione tra capacità presenti e mancanti.

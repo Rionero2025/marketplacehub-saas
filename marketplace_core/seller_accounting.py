@@ -2,12 +2,12 @@
 from datetime import date
 
 from services import accounting, dashboard, db
-from services.profit_sharing import seller_profit_settings
+from services.profit_sharing import seller_profit_settings, split_profit
 
 
 SAFE_COLUMNS = tuple(dict.fromkeys((
     'id', *dashboard.DASHBOARD_ACCOUNTING_COLUMNS.split(','),
-    *accounting.ACCOUNTING_INLINE_EDIT_FIELDS, 'sale_original_eur', 'cost_source', 'financial_source',
+    *accounting.ACCOUNTING_INLINE_EDIT_FIELDS, 'sale_original_eur', 'cost_source', 'financial_source', 'country_code',
 )))
 
 
@@ -20,7 +20,7 @@ def account_scope(seller_id: int, account_id: int):
 
 
 def filtered_rows(seller_id: int, account_id: int, date_from: date, date_to: date,
-                  search: str = '', missing_only: bool = False):
+                  search: str = '', missing_only: bool = False, *, suppliers=(), statuses=(), countries=(), facets=None):
     seller, account = account_scope(seller_id, account_id)
     columns = ','.join(SAFE_COLUMNS)
     records = db.rows(f'SELECT {columns} FROM accounting_order_lines WHERE seller_id=? AND marketplace_account_id=? AND marketplace=? ORDER BY order_created DESC,id DESC',
@@ -31,6 +31,20 @@ def filtered_rows(seller_id: int, account_id: int, date_from: date, date_to: dat
     for item in records:
         day = dashboard.order_local_date(item.get('order_created'))
         if day is None or not date_from <= day <= date_to:
+            continue
+        supplier = str(item.get('supplier') or '').strip()
+        raw_status = str(item.get('raw_status') or '').strip()
+        country = str(item.get('country_code') or '').strip()
+        if facets is not None:
+            if supplier: facets.setdefault('suppliers', set()).add(supplier)
+            if country: facets.setdefault('countries', set()).add(country)
+            if raw_status or item.get('status_label'):
+                facets.setdefault('statuses', {})[raw_status] = str(item.get('status_label') or raw_status)
+        if suppliers and supplier not in suppliers:
+            continue
+        if statuses and raw_status not in statuses:
+            continue
+        if countries and country not in countries:
             continue
         if search.strip() and search.strip().casefold() not in ' '.join(str(item.get(k) or '') for k in ('order_id','product_title','ean','composite_sku','supplier','customer_name','tracking','supplier_order_number','note')).casefold():
             continue
@@ -48,10 +62,19 @@ def filtered_rows(seller_id: int, account_id: int, date_from: date, date_to: dat
 
 
 def list_rows(seller_id: int, account_id: int, date_from: date, date_to: date,
-              search: str = '', missing_only: bool = False, offset: int = 0, limit: int = 50):
-    seller, account, records = filtered_rows(seller_id, account_id, date_from, date_to, search, missing_only)
+              search: str = '', missing_only: bool = False, offset: int = 0, limit: int = 50,
+              *, suppliers=(), statuses=(), countries=()):
+    facets = {}
+    seller, account, records = filtered_rows(seller_id, account_id, date_from, date_to, search, missing_only,
+                                            suppliers=suppliers, statuses=statuses, countries=countries, facets=facets)
+    totals = accounting.totals(records)
+    settings = seller_profit_settings(seller)
+    shares = split_profit(totals['net_revenue'], settings['our_pct'], settings['partner_pct'])
     return {'items': records[offset:offset+limit], 'total': len(records), 'offset': offset, 'limit': limit,
-            'totals': accounting.totals(records), 'missing_rows': sum(r['net_revenue_eur'] is None for r in records),
+            'seller': {'id': seller['id'], 'name': seller['name']}, 'profit_split': shares,
+            'filter_options': {'suppliers': sorted(facets.get('suppliers', ())), 'countries': sorted(facets.get('countries', ())),
+                               'statuses': [{'value': value, 'label': label} for value,label in sorted(facets.get('statuses', {}).items(), key=lambda item:item[1].casefold())]},
+            'totals': totals, 'missing_rows': sum(r['net_revenue_eur'] is None for r in records),
             'account': account, 'editable_fields': accounting.ACCOUNTING_INLINE_EDIT_FIELDS}
 
 

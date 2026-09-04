@@ -61,11 +61,15 @@ def accounting_accounts(seller_id: int, user: ApiUser = Depends(require_permissi
 def accounting_rows(seller_id: int, account_id: int, date_from: date, date_to: date,
                     search: str = Query('', max_length=200), missing_only: bool = False,
                     offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=100),
+                    suppliers: list[str] = Query(default=[], max_length=100),
+                    statuses: list[str] = Query(default=[], max_length=100),
+                    countries: list[str] = Query(default=[], max_length=100),
                     user: ApiUser = Depends(require_permission('accounting'))) -> dict:
     ensure_seller_access(user, seller_id)
     valid_period(date_from, date_to)
     try:
-        return seller_accounting.list_rows(seller_id, account_id, date_from, date_to, search, missing_only, offset, limit)
+        return seller_accounting.list_rows(seller_id, account_id, date_from, date_to, search, missing_only, offset, limit,
+                                           suppliers=suppliers, statuses=statuses, countries=countries)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
 
@@ -101,11 +105,15 @@ def save_catalogs(seller_id: int, payload: CatalogSelection,
 @router.get('/export.xlsx')
 def accounting_export(seller_id: int, account_id: int, date_from: date, date_to: date,
                       search: str = Query('', max_length=200), missing_only: bool = False,
+                      suppliers: list[str] = Query(default=[], max_length=100),
+                      statuses: list[str] = Query(default=[], max_length=100),
+                      countries: list[str] = Query(default=[], max_length=100),
                       user: ApiUser = Depends(require_permission('accounting'))):
     ensure_seller_access(user, seller_id)
     valid_period(date_from, date_to)
     try:
-        seller, account, records = seller_accounting.filtered_rows(seller_id, account_id, date_from, date_to, search, missing_only)
+        seller, account, records = seller_accounting.filtered_rows(seller_id, account_id, date_from, date_to, search, missing_only,
+                                                                 suppliers=suppliers, statuses=statuses, countries=countries)
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
     if len(records) > 20000:

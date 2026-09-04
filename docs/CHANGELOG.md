@@ -62,3 +62,8 @@ Dashboard Seller economica con formule legacy, Top 10, dettagli e periodi. Un so
 ### Contabilità operativa Seller
 
 Contabilità Seller al posto del JSON tecnico: righe, importi, quote, editor persistente con conflitto HTTP409, listini, job e Excel. Fix query listini non valida per numero diverso di colonne UNION ALL. Regressioni SQLite/PostgreSQL e concorrenza PostgreSQL; prova interfaccia con dati sintetici.
+
+
+### Contabilità originale e conteggio per Seller
+
+Contabilità: aggiunti filtri multipli fornitore/stato/nazione applicati anche all’Excel, riepilogo completo di rimborsi/margine lordo e quote percentuali del Seller corrente. Identità Seller esplicita nella pagina.

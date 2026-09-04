@@ -67,3 +67,8 @@ Il repository Python originale marketplacehub-1 (HEAD 4c3cda59387068f3dfb0f2bae4
 ### Contabilità operativa Seller
 
 Originale marketplacehub-1 in sola lettura. Solo la copia SaaS del servizio riceve guardie di concorrenza e correzione SQL; nessuna formula economica riscritta. L’export usa i filtri correnti su tutte le pagine e rifiuta oltre 20.000 righe, senza troncamento silenzioso.
+
+
+### Contabilità originale e conteggio per Seller
+
+Il riferimento contabile è la pagina Streamlit fornita dall’utente, non la schermata Ordini allegata. Admin/Agency possono scegliere Seller autorizzati; la contabilità individuale non aggrega mai Seller differenti. Inventario funzionale completo registrato, inclusi i flussi ancora da portare.
