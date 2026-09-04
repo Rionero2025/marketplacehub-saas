@@ -73,3 +73,8 @@ Nessun nuovo provider o addebito. Login seller/agency/admin usa le credenziali e
 ### Porting della dashboard Seller
 
 La lettura dashboard non chiama marketplace. Sincronizza dati economici invia i job accounting.orders.sync già esistenti, uno per account attivo selezionato. Nessun thread globale legacy attivato nella richiesta SaaS. Nessuna credenziale richiesta dal client per gli aggregati.
+
+
+### Contabilità operativa Seller
+
+La lettura contabile non chiama marketplace. Pulsanti avviano accounting.orders.sync e accounting.costs.refresh esistenti per account e periodo. Download Excel usa il generatore legacy, senza creare uno storico file su storage locale del container.

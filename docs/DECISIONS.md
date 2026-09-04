@@ -62,3 +62,8 @@ Priorità utente: funzioni prima della grafica. Solo Seller/Agenzia nel sito pub
 ### Porting della dashboard Seller
 
 Il repository Python originale marketplacehub-1 (HEAD 4c3cda59387068f3dfb0f2bae45b7d03bf307dca) è soltanto letto e resta senza modifiche. Il nuovo adattatore SaaS riusa services.dashboard, accounting, product_stats e profit_sharing. Copiati i test puri dashboard/product stats dalla versione locale come regressioni del motore, senza riscrivere le formule.
+
+
+### Contabilità operativa Seller
+
+Originale marketplacehub-1 in sola lettura. Solo la copia SaaS del servizio riceve guardie di concorrenza e correzione SQL; nessuna formula economica riscritta. L’export usa i filtri correnti su tutte le pagine e rifiuta oltre 20.000 righe, senza troncamento silenzioso.

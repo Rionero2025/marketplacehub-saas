@@ -135,3 +135,8 @@ Tre accessi in verifica per pubblicazione. Build Next riuscita; 162 test locali 
 ### Porting della dashboard Seller
 
 Implementazione dashboard Seller in verifica. 186 test locali superati prima dell’ultimo test permesso/piano; 26 PostgreSQL saltati localmente e affidati alla CI. Build Next passata e prove UI con dati sintetici superate. Richiesto accesso Seller nel browser per prova con dati live, senza condividere password. Totale conservativo ancora 6/40 = 15%.
+
+
+### Contabilità operativa Seller
+
+Dashboard PR11 pubblicata, 213 test CI. Blocco20 contabilità in corso: 193 test locali passati prima dell’ultimo test concorrente PostgreSQL; build Next superata e UI sintetica verificata. Non equivale alla parità completa della Contabilità legacy né alla prova autenticata staging. Baseline6/40=15% invariata.

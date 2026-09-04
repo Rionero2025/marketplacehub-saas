@@ -97,3 +97,8 @@ Sito pubblico sulla radice; pagine /admin, /agency e /dashboard per Seller. I pi
 ### Porting della dashboard Seller
 
 GET /sellers/{seller_id}/dashboard aggrega una lettura contabile e applica i calcoli legacy invariati. Query con seller esplicito e join account/seller; nessun raw_json o segreto caricato. Router verifica sessione, permesso, piano e scope; frontend invalida risposte su Seller, periodo, account e dettaglio.
+
+
+### Contabilità operativa Seller
+
+Contabilità Seller: adattatore seller_accounting, API autorizzate per account, righe, edit, scelta listini ed Excel. Proiezione sicura delle colonne e scope Seller/account esplicito. React invalida le richieste quando cambiano Seller e filtri.
