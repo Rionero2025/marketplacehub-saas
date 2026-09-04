@@ -56,3 +56,8 @@ Nessuna modifica schema o backfill. Le righe attive preesistenti sono confrontat
 ### Blocco 05 — cataloghi atomici
 
 Nessuna migrazione permanente. Tabelle staging con nomi UUID interni, rimosse alla fine o in rollback. Commit per chunk solo nello staging; il contesto PostgreSQL viene riapplicato dopo ogni commit. La transazione finale resta proporzionale alle righe da sostituire; benchmark grandi volumi ancora nel blocco 11.
+
+
+### Blocco 06 — recupero job interrotti
+
+Nessuna migrazione. Il recupero serializza le righe con FOR UPDATE SKIP LOCKED su PostgreSQL e BEGIN IMMEDIATE su SQLite. Le condizioni del claim impediscono a un vecchio worker di modificare stato, risultato, progressi o heartbeat di un nuovo tentativo.

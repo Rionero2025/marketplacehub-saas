@@ -32,3 +32,8 @@ Deduplicare soltanto orders.kaufland.sync e orders.worten.sync. Job terminali co
 ### Blocco 05 — cataloghi atomici
 
 Preservare l’ultima versione completa durante la preparazione. Un file sorgente cambiato durante l’import abortisce la pubblicazione. Catalogo vuoto resta una versione vuota valida, come nella semantica precedente. Gli errori sono riportati dal job, senza marcare corrotta la versione valida.
+
+
+### Blocco 06 — recupero job interrotti
+
+Lease conservativa: heartbeat 30 s, scadenza 300 s, massimo 3 tentativi, batch recupero 100 righe. Il thread Python del vecchio handler non viene terminato forzatamente: la protezione riguarda le scritture di stato del job, gli import devono restare idempotenti. Errori normali del handler non sono riaccodati automaticamente.

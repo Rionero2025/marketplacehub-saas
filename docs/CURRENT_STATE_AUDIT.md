@@ -105,3 +105,8 @@ Baseline storica invariata. Stato corrente: blocchi 01–03 integrati, 7,5%; blo
 ### Blocco 05 — cataloghi atomici
 
 Stato corrente oltre la baseline: blocchi 01–04 integrati, 10%; blocco 05 in verifica. Vedere SAAS_PROGRESS.md.
+
+
+### Blocco 06 — recupero job interrotti
+
+Stato corrente oltre la baseline: blocchi 01–05 integrati, 12,5%; blocco 06 in verifica. Vedere SAAS_PROGRESS.md.

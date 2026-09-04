@@ -27,3 +27,8 @@ Blocco 03 integrato. Blocco 04: deduplica transazionale degli ordini e test conc
 ### Blocco 05 — cataloghi atomici
 
 Blocco 04 integrato. Blocco 05: preparazione cataloghi su staging temporaneo, switch atomico, protezione da cambio sorgente e fallback CSV parziale; test fault injection e concorrenza.
+
+
+### Blocco 06 — recupero job interrotti
+
+Blocco 05 integrato. Blocco 06: heartbeat durante handler silenziosi, riaccodamento conservativo, limite tentativi, errori con verifica richiesta e protezione dai vecchi claim. Test su recupero concorrente, scope del worker, heartbeat e fallimento handler.

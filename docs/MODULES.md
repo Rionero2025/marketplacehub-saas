@@ -68,3 +68,8 @@ Ordini: invii identici possono riutilizzare il job queued/running. Parametri, ma
 ### Blocco 05 — cataloghi atomici
 
 Cataloghi: su errore restano prodotti e metadata precedenti. Import concorrenti preparano separatamente i dati e pubblicano una versione completa per volta. I parser supplier e normalize restano condivisi.
+
+
+### Blocco 06 — recupero job interrotti
+
+Background jobs: retry automatico solo per import ordini Kaufland/Worten e materializzazione cataloghi, fino a tre tentativi. Le altre attività interrotte terminano con richiesta di verifica, evitando ripetizioni automatiche di operazioni esterne.
