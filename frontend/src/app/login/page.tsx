@@ -1,5 +1,10 @@
-"use client";
-import Link from "next/link"; import { FormEvent, useState } from "react"; import { useRouter } from "next/navigation"; import { api } from "@/lib/api"; import { Logo } from "@/components/Logo";
-export default function Login(){const r=useRouter();const [u,setU]=useState("");const[p,setP]=useState("");const[remember,setRemember]=useState(true);const[err,setErr]=useState("");const[busy,setBusy]=useState(false);
-const submit=async(e:FormEvent)=>{e.preventDefault();setBusy(true);setErr("");try{const result=await api<{user:{is_admin:boolean;active_tenant_type:string}}>("/auth/login",{method:"POST",body:JSON.stringify({username:u,password:p,remember})});r.replace(result.user.is_admin?"/admin":result.user.active_tenant_type==="agency"?"/agency":"/dashboard")}catch(x){setErr(x instanceof Error?x.message:"Login non riuscito")}finally{setBusy(false)}};
-return <div className="authPage"><div className="authVisual"><Logo/><div><span className="eyebrow">Marketplace operations, senza attrito</span><h1>Un unico centro operativo per marketplace, cataloghi e margini.</h1><p>Backend veloce, job in background e dati isolati per cliente.</p></div></div><div className="authPanel"><form className="authCard" onSubmit={submit}><h2>Accedi</h2><p>Entra nel tuo workspace Marketplace Hub.</p><label>Username<input value={u} onChange={e=>setU(e.target.value)} autoComplete="username" required/></label><label>Password<input type="password" value={p} onChange={e=>setP(e.target.value)} autoComplete="current-password" required/></label><label className="check"><input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/>Mantieni la sessione su questo browser</label>{err&&<div className="errorBox">{err}</div>}<button className="primaryButton" disabled={busy}>{busy?"Accesso…":"Accedi"}</button><small>Nuovo cliente? <Link href="/signup">Crea un account</Link></small></form></div></div>}
+import Link from "next/link";
+import { Logo } from "@/components/Logo";
+export default function LoginChoice() {
+  return <div className="authPage"><div className="authVisual"><Link href="/"><Logo/></Link><div><span className="eyebrow">Marketplace Hub</span><h1>Accedi al tuo spazio di lavoro.</h1><p>Scegli l’accesso in base al workspace che gestisci.</p></div></div>
+    <div className="authPanel"><section className="authCard"><h1>Come vuoi accedere?</h1>
+      <div className="panel"><h2>Seller</h2><p>Gestisci i tuoi negozi, ordini e marketplace.</p><Link className="primaryButton linkButton" href="/login/seller">Accedi Seller</Link></div>
+      <div className="panel"><h2>Agenzia</h2><p>Coordina i seller e i clienti assegnati alla tua agenzia.</p><Link className="primaryButton linkButton" href="/login/agency">Accedi Agenzia</Link></div>
+      <small>Non hai un account? <Link href="/signup">Crea il workspace</Link></small>
+    </section></div></div>;
+}

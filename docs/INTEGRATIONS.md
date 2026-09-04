@@ -63,3 +63,8 @@ Errore confermato nei log API Render il 4 settembre 2026 alle 15:51:55 Europe/Ro
 ### Prima struttura macroaree e piani Enterprise
 
 Nessuna creazione di prezzi o addebiti Stripe. Trial con provider manual e durata server. Interfaccia Admin utilizza le API billing esistenti; le credenziali marketplace e i parser legacy non cambiano.
+
+
+### Accessi distinti Seller, Agenzia e Admin
+
+Nessun nuovo provider o addebito. Login seller/agency/admin usa le credenziali esistenti e il cookie di sessione già presente. Sessione condivisa nel browser, non tre sessioni simultanee indipendenti.

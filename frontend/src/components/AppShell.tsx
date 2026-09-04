@@ -23,7 +23,7 @@ type NavGroup = {
 
 const navGroups: readonly NavGroup[] = [
   { label: "Aree", items: [
-    { href:"/admin", label:"Admin piattaforma", permission:"platform_admin", icon:"settings" },
+    { href:"/internal/admin", label:"Admin piattaforma", permission:"platform_admin", icon:"settings" },
     { href:"/agency", label:"Agency", permission:"agency_console", icon:"store" },
   ]},
   { label: "Workspace", items: [
@@ -50,7 +50,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => { setMobileOpen(false); }, [path]);
   if (loading) return <div className="screenCenter"><div className="spinner"/><span>Preparazione workspace…</span></div>;
   if (!user) return <div className="screenCenter" role="alert"><p>{error || "Sessione non disponibile."}</p><button className="secondaryButton" onClick={() => void refresh()}>Riprova</button></div>;
-  const groups = navGroups.map(group => ({ ...group, items: group.items.filter(item => user.is_admin || (item.permission === "agency_console" ? user.active_tenant_type === "agency" : item.permission !== "platform_admin" && user.permissions.includes(item.permission))) })).filter(group => group.items.length);
+  const adminArea = path.startsWith("/internal/admin");
+  const agencyArea = path === "/agency";
+  if (adminArea && !user.is_admin) return <div className="screenCenter" role="alert"><p>Accesso riservato all’Admin della piattaforma.</p><Link href="/login">Torna agli accessi</Link></div>;
+  const sourceGroups = adminArea ? [navGroups[0]] : agencyArea ? [navGroups[0]] : navGroups;
+  const groups = sourceGroups.map(group => ({ ...group, items: group.items.filter(item => item.permission === "platform_admin" ? adminArea && user.is_admin : adminArea ? false : item.permission === "agency_console" ? tenants.some(t=>t.tenant_type==="agency") : user.is_admin || user.permissions.includes(item.permission)) })).filter(group => group.items.length);
   const current = navGroups.flatMap(group => group.items).find(item => path === item.href || path.startsWith(`${item.href}/`));
   const toggleCollapsed = () => { const next = !collapsed; setCollapsed(next); localStorage.setItem("mh:sidebar:collapsed", next ? "1" : "0"); };
   return <div className={`appFrame ${collapsed ? "sidebarCollapsed" : ""}`}>
@@ -61,16 +65,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         const active = path === item.href || path.startsWith(`${item.href}/`);
         return <Link key={item.href} href={item.href} className={active ? "navItem active" : "navItem"} title={collapsed ? item.label : undefined}><Icon name={item.icon as IconName}/><span>{item.label}</span>{active && <i className="navActiveMarker"/>}</Link>;
       })}</div>)}</nav>
-      <div className="sidebarFoot"><div className="userMini"><span className="avatar">{(user.display_name || user.username).slice(0,1).toUpperCase()}</span><span className="userMiniText"><b>{user.display_name || user.username}</b><small>{user.tenant_role || "utente"}</small></span></div><button className="logoutButton" onClick={async()=>{await api("/auth/logout",{method:"POST"});router.replace("/login")}}>Esci</button></div>
+      <div className="sidebarFoot"><div className="userMini"><span className="avatar">{(user.display_name || user.username).slice(0,1).toUpperCase()}</span><span className="userMiniText"><b>{user.display_name || user.username}</b><small>{user.tenant_role || "utente"}</small></span></div><button className="logoutButton" onClick={async()=>{await api("/auth/logout",{method:"POST"});router.replace(adminArea?"/internal/admin/login":agencyArea?"/login/agency":"/login/seller")}}>Esci</button></div>
     </aside>
     <div className="mainArea">
       <header className="topbar">
         <div className="topbarStart"><button className="mobileMenuButton" onClick={() => setMobileOpen(true)} aria-label="Apri menu"><Icon name="menu"/></button><div className="pageCrumb"><span>Marketplace Hub</span><Icon name="chevron" size={13}/><b>{current?.label || "Workspace"}</b></div></div>
         <div className="contextGroup">
-          {tenants.length > 1 && <label className="contextField"><span><Icon name="building" size={14}/>Azienda</span><select value={user.active_tenant_id} onChange={e=>void switchTenant(Number(e.target.value))}>{tenants.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}
-          <label className="contextField"><span><Icon name="store" size={14}/>Seller</span><select value={seller?.id || ""} disabled={!sellers.length} onChange={e=>setSellerId(Number(e.target.value))}>{!sellers.length && <option value="">Nessun Seller disponibile</option>}{sellers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          {!adminArea && tenants.length > 1 && <label className="contextField"><span><Icon name="building" size={14}/>Azienda</span><select value={user.active_tenant_id} onChange={e=>void switchTenant(Number(e.target.value))}>{tenants.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>}
+          {!adminArea && !agencyArea && <label className="contextField"><span><Icon name="store" size={14}/>Seller</span><select value={seller?.id || ""} disabled={!sellers.length} onChange={e=>setSellerId(Number(e.target.value))}>{!sellers.length && <option value="">Nessun Seller disponibile</option>}{sellers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>}
         </div>
-        <div className="topbarEnd"><JobPulse sellerId={seller?.id}/><div className="tenantBadge"><b>{user.active_tenant_name}</b><span>{user.active_tenant_type} · {user.tenant_role}</span></div></div>
+        <div className="topbarEnd">{!adminArea && !agencyArea && <JobPulse sellerId={seller?.id}/>}<div className="tenantBadge"><b>{adminArea?"Amministrazione sistema":user.active_tenant_name}</b><span>{adminArea?"Platform Admin":`${user.active_tenant_type} · ${user.tenant_role}`}</span></div></div>
       </header>
       <main className="content">{error && <div className="errorBox" role="alert">{error} <button className="secondaryButton" onClick={() => void refresh()}>Riprova caricamento</button></div>}{children}</main>
     </div>

@@ -70,3 +70,8 @@ HTTP 500 elenco cataloghi: causa identificata SELECT DISTINCT/ORDER BY incompati
 ### Prima struttura macroaree e piani Enterprise
 
 Hotfix cataloghi PR #8 verificato live API su 3238da7. Nuove macroaree parziali: mancano CRUD completo, add-on/Checkout, ruoli/team e tutte le pagine operative previste dal Master Spec. Account esistenti non convertiti alla prova; un Platform Admin può attivarla esplicitamente.
+
+
+### Accessi distinti Seller, Agenzia e Admin
+
+Ingressi distinti non completano le macroaree. CRUD, add-on, pagamenti e parità legacy ancora aperti. Nessun account elevato a Platform Admin. Accesso Admin necessita di un account già autorizzato. Le prove UI locali usano dati sintetici, non credenziali o dati commerciali reali.

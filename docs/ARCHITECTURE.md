@@ -87,3 +87,8 @@ La lettura cataloghi conserva la sottoquery DISTINCT e ordina il risultato nella
 ### Prima struttura macroaree e piani Enterprise
 
 Sito pubblico sulla radice; pagine /admin, /agency e /dashboard per Seller. I piani pubblici provengono dall’API onboarding; login indirizza all’area in base al ruolo globale e al tipo workspace. Ruoli e piani restano separati.
+
+
+### Accessi distinti Seller, Agenzia e Admin
+
+/login offre solo Seller e Agenzia. Form /login/seller e /login/agency; form interno /internal/admin/login, dashboard /internal/admin con noindex. Il vecchio /admin reindirizza al percorso interno. LoginRequest.area controllato sul server prima di creare la sessione: Admin richiede is_admin globale; Seller/Agency selezionano un tenant accessibile del tipo richiesto. Il parametro resta opzionale per i client API preesistenti.

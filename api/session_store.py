@@ -86,7 +86,7 @@ def cleanup_sessions() -> None:
         )
 
 
-def issue_session(user_id: int, *, remember: bool = False) -> ApiSession:
+def issue_session(user_id: int, *, remember: bool = False, tenant_id: int | None = None) -> ApiSession:
     ensure_api_session_schema()
     user_id = int(user_id)
     if user_id <= 0:
@@ -95,7 +95,13 @@ def issue_session(user_id: int, *, remember: bool = False) -> ApiSession:
     if not record:
         raise ValueError("Utente non trovato")
     global_admin = bool(int(record.get("is_admin") or 0))
-    active_tenant_id = default_tenant_id(user_id, global_admin=global_admin)
+    if tenant_id is not None:
+        context = tenant_context_for_user(user_id, int(tenant_id), global_admin=global_admin)
+        if not context:
+            raise ValueError("Workspace non autorizzato.")
+        active_tenant_id = int(context["id"])
+    else:
+        active_tenant_id = default_tenant_id(user_id, global_admin=global_admin)
     if active_tenant_id <= 0:
         raise ValueError("L'utente non è associato ad alcuna azienda/tenant.")
     token = secrets.token_urlsafe(48)

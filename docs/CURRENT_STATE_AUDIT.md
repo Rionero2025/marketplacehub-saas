@@ -125,3 +125,8 @@ Nuova evidenza live: errore cataloghi presente anche con elenco vuoto per incomp
 ### Prima struttura macroaree e piani Enterprise
 
 Consegna macroaree in verifica, totale invariato 15%. Test locali backend e build Next riusciti. Verifica UI locale su desktop/mobile con risposte API simulate dichiaratamente; non equivale a test completo account live.
+
+
+### Accessi distinti Seller, Agenzia e Admin
+
+Tre accessi in verifica per pubblicazione. Build Next riuscita; 162 test locali superati e 25 PostgreSQL rinviati alla CI. UI: tre destinazioni, scelta mobile, protezione Admin, nessuna chiamata Seller/jobs da Admin, ritorno agenzia-cliente e redirect sessione scaduta verificati con API sintetiche.

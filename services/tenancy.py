@@ -326,7 +326,7 @@ def accessible_tenants_for_user(user_id: int, *, global_admin: bool = False) -> 
     if agency_ids:
         placeholders = ",".join("?" for _ in agency_ids)
         clients = rows(
-            f"""SELECT DISTINCT t.id,t.name,t.slug,t.tenant_type,t.status,t.plan_code,ac.agency_tenant_id
+            f"""SELECT t.id,t.name,t.slug,t.tenant_type,t.status,t.plan_code,ac.agency_tenant_id
                 FROM agency_clients ac JOIN tenants t ON t.id=ac.client_tenant_id
                 WHERE ac.agency_tenant_id IN ({placeholders}) AND ac.active=1 AND t.status='active'
                 ORDER BY lower(t.name),t.id""",

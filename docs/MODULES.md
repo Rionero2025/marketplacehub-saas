@@ -88,3 +88,8 @@ Endpoint elenco cataloghi: correzione HTTP 500 sulla dashboard e sulla pagina ca
 ### Prima struttura macroaree e piani Enterprise
 
 Prima base macroaree: prezzi nel sito, signup Seller/Agency con Enterprise trial, Admin prezzi e trial, Agency elenco clienti assegnati. Sono punti di ingresso funzionanti, non il porting completo delle rispettive aree.
+
+
+### Accessi distinti Seller, Agenzia e Admin
+
+Tre ingressi distinti: Seller /dashboard, Agenzia /agency, Admin /internal/admin. Shell Admin senza caricamenti Seller/jobs; shell Agenzia dedicata e ritorno al contesto agenzia dopo apertura cliente. Avvio pannello Seller sulle fonti dati esistenti; nessuna nuova funzione legacy dichiarata completata.
