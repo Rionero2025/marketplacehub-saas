@@ -58,7 +58,7 @@ def public_plan_codes() -> set[str]:
     return {
         str(item.get("code") or "")
         for item in list_plans(public_only=True)
-        if str(item.get("tenant_type") or "merchant") == "merchant"
+        if str(item.get("tenant_type") or "merchant") in {"merchant", "any"}
     }
 
 
@@ -257,7 +257,8 @@ def register_merchant(
     email: str = "",
     seller_name: str = "",
     legal_name: str = "",
-    plan_code: str = "starter",
+    plan_code: str = "enterprise",
+    tenant_type: str = "merchant",
     trial_days: int | None = None,
     invite_code: str = "",
 ) -> dict[str, Any]:
@@ -269,13 +270,17 @@ def register_merchant(
     email = str(email or "").strip().lower()
     # seller_name is the INTERNAL Marketplace Hub store/workspace label.
     seller_name = str(seller_name or display_name or company_name).strip()
-    plan_code = str(plan_code or "starter").strip().lower()
+    plan_code = str(plan_code or "enterprise").strip().lower()
+    if tenant_type not in {"merchant", "agency"}:
+        raise ValueError("Tipo workspace non valido")
     if not company_name:
         raise ValueError("Inserisci il nome dell'azienda.")
     if not username:
         raise ValueError("Inserisci lo username.")
     if plan_code not in public_plan_codes():
         raise ValueError("Piano SaaS non disponibile per la registrazione.")
+    requested_plan_code = plan_code
+    plan_code = "enterprise"
     if find_user(username):
         raise ValueError("Username già utilizzato.")
     if email and row("SELECT id FROM app_users WHERE lower(COALESCE(email,''))=?", (email,)):
@@ -285,7 +290,7 @@ def register_merchant(
     with platform_database_scope():
         ensure_onboarding_schema()
         try:
-            tenant_id = create_tenant(company_name, tenant_type="merchant", plan_code=plan_code)
+            tenant_id = create_tenant(company_name, tenant_type=tenant_type, plan_code=plan_code)
             internal_seller_name = _unique_seller_name(seller_name, tenant_id)
             with tenant_database_scope(tenant_id):
                 seller_id = execute(
@@ -311,7 +316,7 @@ def register_merchant(
             execute(
                 """INSERT INTO onboarding_events(tenant_id,user_id,seller_id,event_type,metadata_json,created_at)
                    VALUES(?,?,?,?,?,?)""",
-                (tenant_id, user_id, seller_id, "signup_completed", json.dumps({"plan_code": plan_code, "trial_days": days}, separators=(",", ":")), now_iso()),
+                (tenant_id, user_id, seller_id, "signup_completed", json.dumps({"plan_code": plan_code, "requested_plan_code": requested_plan_code, "trial_days": days}, separators=(",", ":")), now_iso()),
             )
             with tenant_database_scope(tenant_id):
                 seller = row("SELECT id,name,legal_name,email,active FROM sellers WHERE id=?", (seller_id,)) or {}

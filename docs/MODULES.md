@@ -83,3 +83,8 @@ Viste salvate: oggetti e copie locali immutabili per digest, verifica seller pri
 ### Hotfix — elenco cataloghi HTTP 500
 
 Endpoint elenco cataloghi: correzione HTTP 500 sulla dashboard e sulla pagina cataloghi; invariati i campi restituiti e i criteri di visibilità.
+
+
+### Prima struttura macroaree e piani Enterprise
+
+Prima base macroaree: prezzi nel sito, signup Seller/Agency con Enterprise trial, Admin prezzi e trial, Agency elenco clienti assegnati. Sono punti di ingresso funzionanti, non il porting completo delle rispettive aree.

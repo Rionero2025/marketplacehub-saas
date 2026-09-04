@@ -8,7 +8,7 @@ import type { Seller, Tenant, User } from "@/lib/types";
 type Workspace = {
   user: User | null; tenants: Tenant[]; sellers: Seller[]; seller: Seller | null; loading: boolean;
   error: string;
-  setSellerId: (id: number) => void; switchTenant: (id: number) => Promise<void>; refresh: () => Promise<void>;
+  setSellerId: (id: number) => void; switchTenant: (id: number) => Promise<boolean>; refresh: () => Promise<void>;
 };
 const Ctx = createContext<Workspace | null>(null);
 
@@ -51,8 +51,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     try {
       await api(`/tenants/${id}/activate`, { method: "POST" });
       setSellers([]); setSellerIdState(0);
-      await refresh(); router.refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "Cambio azienda non riuscito."); }
+      await refresh(); router.refresh(); return true;
+    } catch (e) { setError(e instanceof Error ? e.message : "Cambio azienda non riuscito."); return false; }
     finally { setLoading(false); }
   };
   const seller = useMemo(() => sellers.find(x => x.id === sellerId) || null, [sellers, sellerId]);

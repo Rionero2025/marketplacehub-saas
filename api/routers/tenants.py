@@ -78,6 +78,20 @@ def _global_admin(user: ApiUser) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Operazione riservata al Platform Admin.")
 
 
+@router.get("/{tenant_id}/agency-clients", response_model=list[TenantResponse])
+def agency_clients(tenant_id: int, user: TargetTenantUser) -> list[TenantResponse]:
+    ensure_tenant_access(user, tenant_id)
+    tenant = tenant_record(tenant_id) or {}
+    if tenant.get("tenant_type") != "agency":
+        raise HTTPException(status_code=404, detail="Workspace Agency non disponibile.")
+    from services.db import rows
+    assigned = {int(item['client_tenant_id']) for item in rows(
+        "SELECT client_tenant_id FROM agency_clients WHERE agency_tenant_id=? AND active=1", (tenant_id,))}
+    accessible = accessible_tenants_for_user(user.id, global_admin=user.is_admin)
+    return [_tenant_response(item, active_tenant_id=user.active_tenant_id)
+            for item in accessible if int(item['id']) in assigned]
+
+
 @router.post("", response_model=TenantResponse, status_code=201)
 def admin_create_tenant(payload: TenantCreateRequest, user: CurrentUser) -> TenantResponse:
     _global_admin(user)

@@ -47,3 +47,8 @@ Non modificare il backend Render finché il bucket non è disponibile e i file e
 ### Hotfix — elenco cataloghi HTTP 500
 
 Correzione SQL circoscritta, senza nascondere il 500 con un elenco vuoto. Test HTTP reali su query SQLite/PostgreSQL per catalogo vuoto, ordinamento, deduplica, grant e scope seller.
+
+
+### Prima struttura macroaree e piani Enterprise
+
+Enterprise trial per ogni nuova registrazione; interesse commerciale salvato nell’evento onboarding. Sei prezzi come richiesti. Allocazioni specifiche e add-on da definire: nessun limite inventato. Prova Enterprise non abilita i privilegi di amministrazione globale.

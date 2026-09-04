@@ -130,7 +130,7 @@ class TenantCreateRequest(ApiModel):
     name: str = Field(min_length=1, max_length=200)
     slug: str = Field(default="", max_length=100)
     tenant_type: str = Field(default="merchant", pattern="^(merchant|agency)$")
-    plan_code: str = Field(default="starter", max_length=80)
+    plan_code: str = Field(default="enterprise", max_length=80)
     owner_user_id: int | None = Field(default=None, gt=0)
 
 
@@ -271,6 +271,7 @@ class BillingPlanChangeRequest(ApiModel):
     effective_at: datetime | None = None
 
 class OnboardingSignupRequest(ApiModel):
+    tenant_type: str = Field(default="merchant", pattern="^(merchant|agency)$")
     company_name: str = Field(min_length=1, max_length=200)
     username: str = Field(min_length=1, max_length=160)
     password: str = Field(min_length=8, max_length=1024)
@@ -278,7 +279,7 @@ class OnboardingSignupRequest(ApiModel):
     email: str = Field(default="", max_length=320)
     seller_name: str = Field(default="", max_length=200)
     legal_name: str = Field(default="", max_length=240)
-    plan_code: str = Field(default="starter", max_length=80)
+    plan_code: str = Field(default="enterprise", max_length=80)
     trial_days: int | None = Field(default=None, ge=1, le=90)
     remember: bool = True
     invite_code: str = Field(default="", max_length=200)

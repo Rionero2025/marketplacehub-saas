@@ -58,3 +58,8 @@ S3 distingue oggetto assente da accesso negato e riporta errori di cancellazione
 ### Hotfix — elenco cataloghi HTTP 500
 
 Errore confermato nei log API Render il 4 settembre 2026 alle 15:51:55 Europe/Rome: InvalidColumnReference nell’elenco cataloghi. Le API ordini e stato contabilità restituivano 200 nello stesso flusso.
+
+
+### Prima struttura macroaree e piani Enterprise
+
+Nessuna creazione di prezzi o addebiti Stripe. Trial con provider manual e durata server. Interfaccia Admin utilizza le API billing esistenti; le credenziali marketplace e i parser legacy non cambiano.

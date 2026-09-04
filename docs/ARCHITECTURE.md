@@ -82,3 +82,8 @@ Storage: cache verificate tramite SHA-256, download su percorsi contenenti il di
 ### Hotfix — elenco cataloghi HTTP 500
 
 La lettura cataloghi conserva la sottoquery DISTINCT e ordina il risultato nella query esterna, compatibile con PostgreSQL e SQLite.
+
+
+### Prima struttura macroaree e piani Enterprise
+
+Sito pubblico sulla radice; pagine /admin, /agency e /dashboard per Seller. I piani pubblici provengono dall’API onboarding; login indirizza all’area in base al ruolo globale e al tipo workspace. Ruoli e piani restano separati.
