@@ -11,7 +11,7 @@ from services import billing, db, entitlements, onboarding, shared_cache, tenanc
 
 
 def test_v320_onboarding_routes_exist():
-    paths = {r.path for r in app.routes}
+    paths = set(app.openapi()["paths"])
     assert {"/api/v1/onboarding/plans", "/api/v1/onboarding/signup", "/api/v1/onboarding/status", "/api/v1/onboarding/marketplaces"} <= paths
 
 

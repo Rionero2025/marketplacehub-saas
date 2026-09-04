@@ -3,7 +3,7 @@ from api.main import app
 
 
 def test_v315_routes_exist():
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     assert "/api/v1/tenants" in paths
     assert "/api/v1/tenants/{tenant_id}/activate" in paths
     assert "/api/v1/tenants/{tenant_id}/sellers" in paths

@@ -3,7 +3,7 @@ from api.main import app
 
 
 def test_api_routes_expose_core_boundaries():
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     expected = {
         "/health",
         "/ready",

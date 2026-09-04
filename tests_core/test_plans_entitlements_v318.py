@@ -24,7 +24,7 @@ def test_v318_commercial_baseline_is_encoded_without_inventing_unagreed_volume_l
 
 
 def test_v318_entitlement_routes_exist():
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     assert "/api/v1/plans" in paths
     assert "/api/v1/tenants/{tenant_id}/entitlements" in paths
     assert "/api/v1/tenants/{tenant_id}/plan" in paths

@@ -7,7 +7,7 @@ from services.tenant_db import RLS_TABLES
 
 
 def test_v319_billing_routes_exist():
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     expected = {
         "/api/v1/tenants/{tenant_id}/billing",
         "/api/v1/tenants/{tenant_id}/billing/events",
