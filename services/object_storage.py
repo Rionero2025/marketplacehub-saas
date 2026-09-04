@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+import tempfile
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -12,6 +14,30 @@ from services.db import DATA_DIR
 
 class ObjectStorageError(RuntimeError):
     pass
+
+
+def atomic_write(target: Path, data: bytes) -> None:
+    """Each writer owns a temporary file; readers see a complete version."""
+    target = Path(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=target.parent, prefix='.mh-', delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(data)
+        for attempt in range(6):
+            try:
+                temporary.replace(target)
+                break
+            except PermissionError:
+                # Windows denies replacement while another process temporarily
+                # holds the destination. Bound the retry; real errors propagate.
+                if os.name != 'nt' or attempt == 5:
+                    raise
+                time.sleep(0.01 * (2 ** attempt))
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 class ObjectStorageBackend(Protocol):
@@ -83,17 +109,14 @@ class LocalObjectStorage:
             normalized = f"{self.prefix}/{normalized}"
         target = self.root.joinpath(*normalized.split("/"))
         resolved_root = self.root.resolve()
-        resolved_parent = target.parent.resolve()
-        if resolved_root != resolved_parent and resolved_root not in resolved_parent.parents:
+        resolved_target = target.resolve()
+        if resolved_root not in resolved_target.parents:
             raise ObjectStorageError("Percorso object storage locale non valido")
         return target
 
     def put_bytes(self, key: str, data: bytes, *, content_type: str | None = None) -> str:
         target = self._path(key)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        temporary = target.with_suffix(target.suffix + ".tmp")
-        temporary.write_bytes(data)
-        temporary.replace(target)
+        atomic_write(target, data)
         return key
 
     def get_bytes(self, key: str) -> bytes:
@@ -149,17 +172,17 @@ class S3ObjectStorage:
         return response["Body"].read()
 
     def exists(self, key: str) -> bool:
+        from botocore.exceptions import ClientError
         try:
             self.client.head_object(Bucket=self.bucket, Key=self._key(key))
             return True
-        except Exception:
-            return False
+        except ClientError as error:
+            if str(error.response.get("Error", {}).get("Code")) in {"404", "NoSuchKey", "NotFound"}:
+                return False
+            raise
 
     def delete(self, key: str) -> None:
-        try:
-            self.client.delete_object(Bucket=self.bucket, Key=self._key(key))
-        except Exception:
-            pass
+        self.client.delete_object(Bucket=self.bucket, Key=self._key(key))
 
 
 @lru_cache(maxsize=1)

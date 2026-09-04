@@ -37,3 +37,8 @@ Preservare l’ultima versione completa durante la preparazione. Un file sorgent
 ### Blocco 06 — recupero job interrotti
 
 Lease conservativa: heartbeat 30 s, scadenza 300 s, massimo 3 tentativi, batch recupero 100 righe. Il thread Python del vecchio handler non viene terminato forzatamente: la protezione riguarda le scritture di stato del job, gli import devono restare idempotenti. Errori normali del handler non sono riaccodati automaticamente.
+
+
+### Blocco 07 — integrità e storage condiviso
+
+Non modificare il backend Render finché il bucket non è disponibile e i file esistenti non sono inventariati. Conservare oggetti precedenti per lettori/backup; retention e garbage collection da definire. Le funzioni legacy di migrazione saltano le chiavi esistenti e non bastano al passaggio local→S3.
