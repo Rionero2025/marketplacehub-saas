@@ -16,7 +16,12 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-test.txt
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install -r requirements-test.txt
       - name: Compile Python
-        run: python -m compileall -q app.py pages services tools
+        run: python -m compileall -q app.py pages services tools api marketplace_core
+      - name: Run core regression tests
+        run: python -m pytest -q tests_core
