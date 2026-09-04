@@ -37,3 +37,8 @@ Blocco 05 integrato. Blocco 06: heartbeat durante handler silenziosi, riaccodame
 ### Blocco 07 — integrità e storage condiviso
 
 Blocco 06 integrato (153 test CI). Blocco 07 parziale: cache integre, scritture concorrenti atomiche con retry Windows limitato, versioni immutabili e prova ripristino. Nessuna attivazione S3 senza configurazione disponibile.
+
+
+### Hotfix — elenco cataloghi HTTP 500
+
+Hotfix cataloghi: ordinamento nella query esterna dopo DISTINCT; aggiunti test endpoint sui due database. PR #7 integrata, 166 test CI, API e worker Render verificati live su aeb653f.

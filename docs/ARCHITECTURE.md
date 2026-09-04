@@ -77,3 +77,8 @@ Ogni esecuzione del worker aggiorna un heartbeat indipendente ogni 30 secondi, a
 ### Blocco 07 — integrità e storage condiviso
 
 Storage: cache verificate tramite SHA-256, download su percorsi contenenti il digest e scritture con file temporanei privati. Runbook SHARED_STORAGE_RUNBOOK.md per condivisione API/worker. Il backend live condiviso non è ancora configurato/verificato.
+
+
+### Hotfix — elenco cataloghi HTTP 500
+
+La lettura cataloghi conserva la sottoquery DISTINCT e ordina il risultato nella query esterna, compatibile con PostgreSQL e SQLite.

@@ -78,3 +78,8 @@ Background jobs: retry automatico solo per import ordini Kaufland/Worten e mater
 ### Blocco 07 — integrità e storage condiviso
 
 Viste salvate: oggetti e copie locali immutabili per digest, verifica seller prima della scrittura, recupero di cache corrotte. Listini: verifica cache e mantenimento versioni precedenti. Parser e algoritmi dei listini invariati.
+
+
+### Hotfix — elenco cataloghi HTTP 500
+
+Endpoint elenco cataloghi: correzione HTTP 500 sulla dashboard e sulla pagina cataloghi; invariati i campi restituiti e i criteri di visibilità.

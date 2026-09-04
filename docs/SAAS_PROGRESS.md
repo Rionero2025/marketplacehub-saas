@@ -28,7 +28,7 @@ esplicita e documentata, mai per far salire la percentuale.
 | 04 | Deduplica concorrente dei job ordini per tenant/account/parametri | DONE — PR #4, CI 33876276914 superata |
 | 05 | Materializzazione cataloghi atomica e ultima versione valida | DONE — PR #5, 129 test CI superati |
 | 06 | Recupero job orfani, retry controllato e stato attendibile | DONE — PR #6, 153 test CI superati |
-| 07 | Storage condiviso persistente API/worker e verifica restore | IN PROGRESS — codice in verifica; bucket live da configurare |
+| 07 | Storage condiviso persistente API/worker e verifica restore | IN PROGRESS — PR #7 integrata, 166 test CI; bucket live e restore da verificare |
 | 08 | Protezioni autenticazione, sessioni e recupero account previste | TODO |
 | 09 | Sync ordini incrementale/bulk, misure prima/dopo e parità risultati | TODO |
 | 10 | Dashboard con richieste aggregate e invalidazione scope verificata | TODO |
@@ -93,3 +93,6 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - Blocco 06 integrato con PR #6 (12c447e), 153 test GitHub CI superati. Totale 15%.
 - Blocco 07 parziale: integrità cache, versioni immutabili, prova restore e runbook. Nessun incremento prima di configurazione e prova API/worker live.
+
+- Hotfix elenco cataloghi PostgreSQL in verifica. Totale invariato: 15%.
+- Chiarimento utente: sito pubblico con piani Free, Bronze, Silver, Gold, Platinum. Altre due macroaree da precisare; vedere USER_REQUIREMENTS_UPDATES.md.
