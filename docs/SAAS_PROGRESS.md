@@ -18,14 +18,14 @@ parziale vale zero fino alla chiusura. Le suddivisioni interne in PR non cambian
 il denominatore. Nuovi requisiti cambiano la baseline solo con una revisione
 esplicita e documentata, mai per far salire la percentuale.
 
-**Totale attuale: 2/40 = 5%.**
+**Totale attuale: 3/40 = 7,5%.**
 
 | ID | Blocco e risultato richiesto | Stato |
 |---|---|---|
 | 01 | CI esegue i test; registrazione verifica persistenza e collegamenti | DONE — PR #1, CI 33874550242 superata |
 | 02 | Recupero SKU/costi originale e override contabili preservati | DONE — PR #2, CI 33874967176 superata |
-| 03 | Ruoli membership e accessi tenant coerenti, prove PostgreSQL/RLS | IN PROGRESS |
-| 04 | Deduplica concorrente dei job ordini per tenant/account/parametri | TODO |
+| 03 | Ruoli membership e accessi tenant coerenti, prove PostgreSQL/RLS | DONE — PR #3, 108 test CI superati |
+| 04 | Deduplica concorrente dei job ordini per tenant/account/parametri | IN PROGRESS |
 | 05 | Materializzazione cataloghi atomica e ultima versione valida | TODO |
 | 06 | Recupero job orfani, retry controllato e stato attendibile | TODO |
 | 07 | Storage condiviso persistente API/worker e verifica restore | TODO |
@@ -81,3 +81,6 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - Blocco 02 integrato con PR #2, commit de25a150acd2d42713dd404d38e527c9a557ed52; 90 test e CI superati. Totale 5%.
 - Blocco 03: verifiche in corso; non ancora conteggiato.
+
+- Blocco 03 integrato con PR #3 (eeae695), 108 test CI superati comprese due prove PostgreSQL. Totale 7,5%.
+- Blocco 04 in verifica: deduplica atomica ordini, 113 test locali superati e tre prove PostgreSQL affidate alla CI.

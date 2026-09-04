@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import socket
 import threading
@@ -95,19 +96,46 @@ def enqueue_job(request: JobRequest) -> JobReceipt:
     if feature:
         require_tenant_feature(tenant_id, feature)
     monthly_limit = limit_for(tenant_id, "monthly_background_jobs")
-    if monthly_limit is not None:
-        usage = tenant_resource_usage(tenant_id)
-        assert_capacity(tenant_id, "monthly_background_jobs", usage.get("background_jobs", 0), increment=1, label="job mensili")
     job_id = uuid.uuid4().hex
+    kind = str(request.kind or "").strip()
     payload = _json_safe(request.payload)
+    canonical_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    deduplicate = kind in {"orders.kaufland.sync", "orders.worten.sync"}
     with connect() as con:
+        if deduplicate:
+            # Transaction locks work across API processes. No in-memory lock or
+            # schema migration is needed, and existing queued/running jobs count.
+            if database_engine() == "postgresql":
+                key = json.dumps([tenant_id, request.seller_id, kind, canonical_payload])
+                lock_id = int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "big", signed=True)
+                con.execute("SELECT pg_advisory_xact_lock(?)", (lock_id,))
+            else:
+                con.execute("BEGIN IMMEDIATE")
+            active = con.execute(
+                """SELECT id,status,payload_json FROM background_jobs
+                   WHERE tenant_id=? AND kind=? AND (seller_id=? OR (seller_id IS NULL AND CAST(? AS BIGINT) IS NULL))
+                   AND status IN ('queued','running') ORDER BY created_at,id""",
+                (str(tenant_id), kind, request.seller_id, request.seller_id),
+            ).fetchall()
+            for item in active:
+                try:
+                    existing = json.dumps(json.loads(item["payload_json"]), sort_keys=True, separators=(",", ":"))
+                except (TypeError, ValueError):
+                    continue
+                if existing == canonical_payload:
+                    return JobReceipt(job_id=str(item["id"]), status=str(item["status"]))
+        # A reused job must neither consume quota nor be rejected because the
+        # original request already used the last available monthly slot.
+        if monthly_limit is not None:
+            usage = tenant_resource_usage(tenant_id)
+            assert_capacity(tenant_id, "monthly_background_jobs", usage.get("background_jobs", 0), increment=1, label="job mensili")
         con.execute(
             """INSERT INTO background_jobs(
                 id,kind,tenant_id,seller_id,status,payload_json,created_at
             ) VALUES(?,?,?,?,?,?,?)""",
             (
                 job_id,
-                str(request.kind or "").strip(),
+                kind,
                 str(tenant_id),
                 request.seller_id,
                 "queued",
