@@ -47,3 +47,8 @@ Hotfix cataloghi: ordinamento nella query esterna dopo DISTINCT; aggiunti test e
 ### Prima struttura macroaree e piani Enterprise
 
 Prima struttura pubblica/Seller/Agency/Admin, sei piani richiesti, prezzi persistenti e trial Enterprise. Aggiunti test piani, registrazione Agency, controllo Admin e filtro clienti; CI ora include build frontend.
+
+
+### Accessi distinti Seller, Agenzia e Admin
+
+Scelta accesso Seller/Agenzia, login Admin interno, verifica area e tenant prima della sessione, shell distinte, ritorno Agenzia e apertura iniziale pannello Seller. Correzione query clienti Agency PostgreSQL e risultati cambio workspace propagati correttamente.

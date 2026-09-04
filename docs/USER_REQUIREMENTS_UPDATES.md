@@ -33,3 +33,11 @@ Nessuna sottoscrizione esistente è convertita automaticamente o addebitata.
 Questa consegna avanza i blocchi 14, 15, 35 e 36 ma non li chiude. Totale 6/40=15%.
 Il design system completo resta nel blocco 12: queste pagine usano gli attuali
 componenti del frontend. Non dichiarare completata la parità con Streamlit.
+
+## Priorità successiva: tre accessi e pannello Seller
+
+Funzioni prima della grafica. Il pubblico vede solo Accedi Seller e Accedi Agenzia.
+Admin interno senza collegamenti sul sito: /internal/admin/login. Tre dashboard
+con funzioni e autorizzazioni distinte. Conservare il lavoro precedente, senza eliminarlo.
+Conclusi gli ingressi, avviare il pannello Seller sulle funzioni esistenti.
+Gli ingressi non completano gestione Admin/Agency né il porting: totale 6/40 = 15%.

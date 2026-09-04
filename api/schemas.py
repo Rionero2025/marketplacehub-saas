@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,6 +15,7 @@ class LoginRequest(ApiModel):
     username: str = Field(min_length=1, max_length=160)
     password: str = Field(min_length=1, max_length=1024)
     remember: bool = False
+    area: Literal["seller", "agency", "admin"] | None = None
 
 
 class UserResponse(ApiModel):

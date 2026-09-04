@@ -99,3 +99,6 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - PR #8 integrata: 170 test CI; hotfix cataloghi API live su 3238da7.
 - Nuovo requisito precisato: sei piani e tre macroaree app Admin/Seller/Agency; sito pubblico separato. Prima struttura in verifica, nessun incremento percentuale.
+
+- PR #9 integrata e verificata Live su a1e8ed1 (frontend, API e worker), 176 test CI.
+- Accessi distinti Seller/Agenzia/Admin in verifica; avvio pannello Seller. Totale invariato 6/40 = 15%.

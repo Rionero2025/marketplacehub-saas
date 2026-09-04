@@ -76,3 +76,8 @@ Nessuna migrazione: ORDER BY lower(supplier_name),lower(name),id applicato al ri
 ### Prima struttura macroaree e piani Enterprise
 
 Seed saas_plans con ON CONFLICT DO NOTHING: i valori commerciali modificati non vengono riscritti al riavvio. Nascondere i quattro vecchi piani dal catalogo pubblico mantenendo abbonamenti esistenti. Nessuna cancellazione o riconversione automatica di tenant.
+
+
+### Accessi distinti Seller, Agenzia e Admin
+
+issue_session accetta un tenant iniziale opzionale e verifica di nuovo l’accesso. Nessuna migrazione o modifica ruoli esistenti. Query clienti Agency senza DISTINCT non necessario, per evitare errore PostgreSQL sull’ordinamento lower(name); deduplica e ruolo più alto restano nella mappa esistente.

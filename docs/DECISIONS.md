@@ -52,3 +52,8 @@ Correzione SQL circoscritta, senza nascondere il 500 con un elenco vuoto. Test H
 ### Prima struttura macroaree e piani Enterprise
 
 Enterprise trial per ogni nuova registrazione; interesse commerciale salvato nell’evento onboarding. Sei prezzi come richiesti. Allocazioni specifiche e add-on da definire: nessun limite inventato. Prova Enterprise non abilita i privilegi di amministrazione globale.
+
+
+### Accessi distinti Seller, Agenzia e Admin
+
+Priorità utente: funzioni prima della grafica. Solo Seller/Agenzia nel sito pubblico; Admin con percorso interno non pubblicizzato e autorizzazione reale. Un percorso non collegato non è un segreto né un sostituto dei controlli sui ruoli. Conservare tutto il lavoro precedente come base, senza cancellare moduli o dati.
