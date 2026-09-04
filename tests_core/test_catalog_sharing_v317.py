@@ -10,7 +10,7 @@ def test_catalog_sharing_scopes_are_saas_native():
 
 
 def test_v317_catalog_sharing_routes_exist():
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     assert "/api/v1/sellers/{seller_id}/catalogs/{price_list_id}/sharing" in paths
     assert "/api/v1/sellers/{seller_id}/catalogs/suppliers/{supplier_id}/sharing" in paths
 
