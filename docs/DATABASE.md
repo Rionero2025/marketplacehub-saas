@@ -66,3 +66,8 @@ Nessuna migrazione. Il recupero serializza le righe con FOR UPDATE SKIP LOCKED s
 ### Blocco 07 — integrità e storage condiviso
 
 Nessuna migrazione. La chiave oggetto e hash esistenti identificano la versione pubblicata; un errore di aggiornamento metadata lascia leggibile quella precedente. I backup devono conservare riferimenti coerenti agli oggetti.
+
+
+### Hotfix — elenco cataloghi HTTP 500
+
+Nessuna migrazione: ORDER BY lower(supplier_name),lower(name),id applicato al risultato deduplicato. PostgreSQL rifiutava ORDER BY lower(s.name) nella SELECT DISTINCT poiché tale espressione non era selezionata.

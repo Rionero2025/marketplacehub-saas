@@ -53,3 +53,8 @@ Nessuna ripetizione automatica di creazione spedizioni, cambi prezzo o altre ope
 ### Blocco 07 — integrità e storage condiviso
 
 S3 distingue oggetto assente da accesso negato e riporta errori di cancellazione. CLI tools.storage_probe scrive un piccolo oggetto sintetico e lo verifica da un altro processo senza dati cliente; serve una prova live sui due servizi.
+
+
+### Hotfix — elenco cataloghi HTTP 500
+
+Errore confermato nei log API Render il 4 settembre 2026 alle 15:51:55 Europe/Rome: InvalidColumnReference nell’elenco cataloghi. Le API ordini e stato contabilità restituivano 200 nello stesso flusso.

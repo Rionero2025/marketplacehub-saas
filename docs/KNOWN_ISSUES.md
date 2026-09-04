@@ -60,3 +60,8 @@ Materializzazione atomica integrata con PR #5. Recupero orfani in verifica sul b
 ### Blocco 07 — integrità e storage condiviso
 
 Recupero job orfani integrato con PR #6. ISSUE-07 storage condiviso resta aperta: sul worker Render non risultano variabili bucket/endpoint/credenziali né environment group collegati; i valori restano mascherati. Chiesto quale bucket usare. Test locali e Stubber S3 non equivalgono a restore live.
+
+
+### Hotfix — elenco cataloghi HTTP 500
+
+HTTP 500 elenco cataloghi: causa identificata SELECT DISTINCT/ORDER BY incompatibili su PostgreSQL; hotfix in verifica CI. Il blocco storage resta parziale.

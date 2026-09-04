@@ -42,3 +42,8 @@ Lease conservativa: heartbeat 30 s, scadenza 300 s, massimo 3 tentativi, batch r
 ### Blocco 07 — integrità e storage condiviso
 
 Non modificare il backend Render finché il bucket non è disponibile e i file esistenti non sono inventariati. Conservare oggetti precedenti per lettori/backup; retention e garbage collection da definire. Le funzioni legacy di migrazione saltano le chiavi esistenti e non bastano al passaggio local→S3.
+
+
+### Hotfix — elenco cataloghi HTTP 500
+
+Correzione SQL circoscritta, senza nascondere il 500 con un elenco vuoto. Test HTTP reali su query SQLite/PostgreSQL per catalogo vuoto, ordinamento, deduplica, grant e scope seller.

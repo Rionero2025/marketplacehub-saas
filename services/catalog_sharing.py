@@ -425,6 +425,7 @@ def accessible_price_lists(seller_id: int, tenant_id: int | None = None) -> list
 
     return rows(
         """
+        SELECT * FROM (
         SELECT DISTINCT pl.*,s.name supplier_name,own.name owner_name,
                pl.sharing_scope AS catalog_scope,pl.owner_tenant_id AS catalog_owner_tenant_id
         FROM price_lists pl
@@ -444,7 +445,8 @@ def accessible_price_lists(seller_id: int, tenant_id: int | None = None) -> list
                 pl.owner_tenant_id=? OR ac.client_tenant_id IS NOT NULL
             ))
         )
-        ORDER BY lower(s.name),lower(pl.name),pl.id
+        ) AS visible_catalogs
+        ORDER BY lower(supplier_name),lower(name),id
         """,
         (tenant_id, tenant_id, tenant_id, tenant_id),
     )
