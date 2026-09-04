@@ -95,3 +95,8 @@ Questo documento conserva la baseline del primo audit. Stato successivo: PR #1 i
 ### Blocco 03 — verifica autorizzazioni
 
 Stato successivo alla baseline: blocchi 01 e 02 integrati, 5% delle 40 milestone. Il blocco autorizzazioni è ancora in verifica. Vedere SAAS_PROGRESS.md.
+
+
+### Blocco 04 — sincronizzazioni duplicate
+
+Baseline storica invariata. Stato corrente: blocchi 01–03 integrati, 7,5%; blocco 04 in verifica. Worker Render osservato Live al commit de25a15 (blocco 02).

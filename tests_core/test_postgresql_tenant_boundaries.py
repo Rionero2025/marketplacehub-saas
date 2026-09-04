@@ -38,7 +38,7 @@ def postgres_database(monkeypatch):
             # Use the actual application's policy expression, not a test approximation.
             expression = sql.SQL(tenant_db._policy_expression())
             admin.execute(sql.SQL("CREATE POLICY tenant_scope ON {}.scope_probe USING ({}) WITH CHECK ({})").format(sql.Identifier(schema), expression, expression))
-            admin.execute(sql.SQL("GRANT USAGE ON SCHEMA {} TO {}").format(sql.Identifier(schema), sql.Identifier(role)))
+            admin.execute(sql.SQL("GRANT USAGE,CREATE ON SCHEMA {} TO {}").format(sql.Identifier(schema), sql.Identifier(role)))
             admin.execute(sql.SQL("GRANT SELECT,INSERT ON {}.scope_probe TO {}").format(sql.Identifier(schema), sql.Identifier(role)))
 
             @contextmanager
@@ -49,11 +49,8 @@ def postgres_database(monkeypatch):
                     flags = con.execute("SELECT rolsuper,rolbypassrls FROM pg_roles WHERE rolname=current_user").fetchone()
                     assert flags == {"rolsuper": False, "rolbypassrls": False}
 
-                    class Adapter:
-                        def execute(self, query, params):
-                            return con.execute(query.replace("?", "%s"), params)
-
-                    tenant_db.apply_postgresql_connection_context(Adapter())
+                    from services.postgresql_backend import PostgreSQLCompatConnection
+                    tenant_db.apply_postgresql_connection_context(PostgreSQLCompatConnection(con))
                     yield con
             yield connect
         finally:

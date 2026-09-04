@@ -57,3 +57,8 @@ Il porting SKU riusa services/accounting.py condiviso da core/API/Streamlit; nes
 ### Blocco 03 — verifica autorizzazioni
 
 TargetTenantUser autorizza il tenant esplicito e imposta il ContextVar nella task async, prima delle route sync. Le aree operative applicano un limite di scrittura basato sul ruolo.
+
+
+### Blocco 04 — sincronizzazioni duplicate
+
+Deduplica ordini nel servizio condiviso background_jobs: advisory lock transazionale PostgreSQL per richiesta canonica; BEGIN IMMEDIATE per SQLite. Restano invariati core e formato JobReceipt.

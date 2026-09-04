@@ -58,3 +58,8 @@ Contabilità: ripristinati recupero SKU dal raw JSON e persistenza al refresh. L
 ### Blocco 03 — verifica autorizzazioni
 
 Utenti/assegnazioni: il ruolo viewer non può mutare aree operative tramite API; i ruoli Agency sono ereditati dai clienti. UI team e dashboard dedicate restano incomplete.
+
+
+### Blocco 04 — sincronizzazioni duplicate
+
+Ordini: invii identici possono riutilizzare il job queued/running. Parametri, marketplace, account o tenant diversi rimangono separati. La parità completa della pagina Ordini resta aperta.

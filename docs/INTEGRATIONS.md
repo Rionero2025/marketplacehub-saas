@@ -33,3 +33,8 @@ Worten: recupero del costo incorporato nello SKU ripristinato; nessuna chiamata 
 ### Blocco 03 — verifica autorizzazioni
 
 Nessuna chiamata marketplace o integrazione esterna modificata in questo blocco; verifica del solo confine di autorizzazione.
+
+
+### Blocco 04 — sincronizzazioni duplicate
+
+Nessuna chiamata marketplace modificata: si evita l’avvio duplicato dello stesso lavoro. Nessuna nuova importazione live avviata per le prove.

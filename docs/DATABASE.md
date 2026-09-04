@@ -46,3 +46,8 @@ Nessuna migrazione di schema. Lo SKU recuperato viene persistito soltanto durant
 ### Blocco 03 — verifica autorizzazioni
 
 Aggiunte prove CI con PostgreSQL 17 temporaneo, ruolo senza superuser/BYPASSRLS e policy/contesto applicativi. Nessuna migrazione live. Le prove non certificano tutte le tabelle né tutte le migrazioni.
+
+
+### Blocco 04 — sincronizzazioni duplicate
+
+Nessuna modifica schema o backfill. Le righe attive preesistenti sono confrontate dopo decodifica JSON. Il lock PostgreSQL dura fino a commit/rollback; i test usano anche il compatibility wrapper SQL di produzione.

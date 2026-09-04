@@ -17,3 +17,8 @@ PR #1 integrata: CI, test onboarding persistente e controlli OpenAPI. Ramo SKU: 
 ### Blocco 03 — verifica autorizzazioni
 
 Blocco 02 integrato (90 test). Blocco 03 in verifica: ruolo di scrittura, ereditarietà Agency, scope esplicito per billing/piani/tenant e restrizione seller legacy; suite PostgreSQL isolata aggiunta alla CI.
+
+
+### Blocco 04 — sincronizzazioni duplicate
+
+Blocco 03 integrato. Blocco 04: deduplica transazionale degli ordini e test concorrenza SQLite/PostgreSQL; nessuna migrazione dati.

@@ -40,3 +40,8 @@ ISSUE-01 risolto e integrato con PR #1; CI riuscita anche su GitHub. ISSUE-02 co
 ### Blocco 03 — verifica autorizzazioni
 
 ISSUE-02 risolto con PR #2 e CI superata. ISSUE-03/04: correzioni sul ramo dedicato; attendono verifica PostgreSQL in CI prima della chiusura. La matrice integrale dei permessi del futuro prodotto resta da completare nei blocchi team/Agency/Platform.
+
+
+### Blocco 04 — sincronizzazioni duplicate
+
+ISSUE-03/04: confini verificati con 108 test CI, inclusi PostgreSQL; resta la revisione trasversale completa del prodotto. ISSUE-05: deduplica in verifica nel blocco 04; recupero orfani ancora aperto nel blocco 06.
