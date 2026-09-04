@@ -65,3 +65,8 @@ Recupero job orfani integrato con PR #6. ISSUE-07 storage condiviso resta aperta
 ### Hotfix — elenco cataloghi HTTP 500
 
 HTTP 500 elenco cataloghi: causa identificata SELECT DISTINCT/ORDER BY incompatibili su PostgreSQL; hotfix in verifica CI. Il blocco storage resta parziale.
+
+
+### Prima struttura macroaree e piani Enterprise
+
+Hotfix cataloghi PR #8 verificato live API su 3238da7. Nuove macroaree parziali: mancano CRUD completo, add-on/Checkout, ruoli/team e tutte le pagine operative previste dal Master Spec. Account esistenti non convertiti alla prova; un Platform Admin può attivarla esplicitamente.

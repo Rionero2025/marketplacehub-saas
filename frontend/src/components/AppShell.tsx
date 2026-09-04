@@ -22,6 +22,10 @@ type NavGroup = {
 };
 
 const navGroups: readonly NavGroup[] = [
+  { label: "Aree", items: [
+    { href:"/admin", label:"Admin piattaforma", permission:"platform_admin", icon:"settings" },
+    { href:"/agency", label:"Agency", permission:"agency_console", icon:"store" },
+  ]},
   { label: "Workspace", items: [
     { href:"/dashboard", label:"Dashboard", permission:"dashboard", icon:"dashboard" },
     { href:"/orders", label:"Ordini", permission:"marketplace_orders", icon:"orders" },
@@ -46,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => { setMobileOpen(false); }, [path]);
   if (loading) return <div className="screenCenter"><div className="spinner"/><span>Preparazione workspace…</span></div>;
   if (!user) return <div className="screenCenter" role="alert"><p>{error || "Sessione non disponibile."}</p><button className="secondaryButton" onClick={() => void refresh()}>Riprova</button></div>;
-  const groups = navGroups.map(group => ({ ...group, items: group.items.filter(item => user.is_admin || user.permissions.includes(item.permission)) })).filter(group => group.items.length);
+  const groups = navGroups.map(group => ({ ...group, items: group.items.filter(item => user.is_admin || (item.permission === "agency_console" ? user.active_tenant_type === "agency" : item.permission !== "platform_admin" && user.permissions.includes(item.permission))) })).filter(group => group.items.length);
   const current = navGroups.flatMap(group => group.items).find(item => path === item.href || path.startsWith(`${item.href}/`));
   const toggleCollapsed = () => { const next = !collapsed; setCollapsed(next); localStorage.setItem("mh:sidebar:collapsed", next ? "1" : "0"); };
   return <div className={`appFrame ${collapsed ? "sidebarCollapsed" : ""}`}>

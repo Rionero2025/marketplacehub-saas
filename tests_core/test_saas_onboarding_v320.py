@@ -88,7 +88,7 @@ def test_v320_signup_creates_real_multitenant_chain(signup_database):
         result = onboarding.register_merchant(
             company_name=f"Company {suffix}", username=f"owner-{suffix}",
             password="Synthetic-test-password-123", email=f"{suffix}@example.test",
-            seller_name=f"Store {suffix}", plan_code="starter", trial_days=14,
+            seller_name=f"Store {suffix}", plan_code="bronze", trial_days=14,
         )
         tenant_id = result["tenant"]["id"]
         seller_id = result["seller"]["id"]
@@ -100,7 +100,7 @@ def test_v320_signup_creates_real_multitenant_chain(signup_database):
         tenant = db.row("SELECT * FROM tenants WHERE id=?", (tenant_id,))
         assert tenant["name"] == f"Company {suffix}"
         assert tenant["tenant_type"] == "merchant"
-        assert tenant["plan_code"] == "starter"
+        assert tenant["plan_code"] == "enterprise"
         assert result["seller"]["name"] == f"Store {suffix}"
         assert db.rows(
             "SELECT tenant_id,seller_id,active FROM tenant_sellers WHERE seller_id=?",
@@ -120,7 +120,7 @@ def test_v320_signup_creates_real_multitenant_chain(signup_database):
 
         subscription = db.row("SELECT * FROM tenant_subscriptions WHERE tenant_id=?", (tenant_id,))
         assert subscription["status"] == result["billing"]["status"] == "trialing"
-        assert subscription["plan_code"] == "starter"
+        assert subscription["plan_code"] == "enterprise"
         assert datetime.fromisoformat(subscription["trial_end"]) - datetime.fromisoformat(
             subscription["trial_start"]
         ) == timedelta(days=14)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel, Field
 
 from api.dependencies import ApiUser, CurrentUser, TargetTenantUser, ensure_tenant_access
 from api.schemas import (
@@ -15,6 +16,7 @@ from services.entitlements import (
     set_entitlement_override,
     set_tenant_plan,
     tenant_entitlements,
+    update_plan_configuration,
 )
 
 router = APIRouter(tags=["plans"])
@@ -69,6 +71,22 @@ def entitlements(tenant_id: int, user: TargetTenantUser) -> TenantEntitlementsRe
 def _platform_admin(user: ApiUser) -> None:
     if not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Operazione riservata al Platform Admin.")
+
+
+class PlanConfigurationRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    monthly_price_cents: int = Field(ge=0, le=10000000)
+    features: list[str]
+    limits: dict[str, int | None]
+
+
+@router.put("/plans/{code}", response_model=PlanResponse)
+def configure_plan(code: str, payload: PlanConfigurationRequest, user: CurrentUser) -> PlanResponse:
+    _platform_admin(user)
+    try:
+        return _plan_response(update_plan_configuration(code, **payload.model_dump()))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.put("/tenants/{tenant_id}/plan", response_model=TenantEntitlementsResponse)

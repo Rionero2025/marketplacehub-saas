@@ -44,13 +44,18 @@ def _user_response(record: dict) -> UserResponse:
 
 @router.get("/plans")
 def signup_plans() -> dict:
-    return {"plan_codes": sorted(public_plan_codes())}
+    from services.entitlements import list_plans
+    from services.onboarding import _default_trial_days
+    plans = [{key: item[key] for key in ('code','name','monthly_price_cents','currency')}
+             for item in list_plans(public_only=True) if item['code'] in public_plan_codes()]
+    return {"plan_codes": [item['code'] for item in plans], "plans": plans,
+            "trial_plan_code": "enterprise", "trial_days": _default_trial_days()}
 
 
 @router.post("/signup", response_model=OnboardingSignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(payload: OnboardingSignupRequest, response: Response) -> OnboardingSignupResponse:
     try:
-        created = register_merchant(**payload.model_dump(exclude={"remember"}))
+        created = register_merchant(**payload.model_dump(exclude={"remember", "trial_days"}))
     except PermissionError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:

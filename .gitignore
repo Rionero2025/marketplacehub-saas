@@ -46,3 +46,8 @@ Thumbs.db
 !templates/*.csv
 !templates/*.xls
 !templates/*.xlsx
+
+# Frontend dependencies and generated build files
+node_modules/
+.next/
+*.tsbuildinfo

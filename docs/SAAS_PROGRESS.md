@@ -35,8 +35,8 @@ esplicita e documentata, mai per far salire la percentuale.
 | 11 | Cache, import grandi e memoria misurati senza perdere dati/funzioni | TODO |
 | 12 | Design system condiviso React/TS/Tailwind/shadcn e stati UI | TODO |
 | 13 | Gestione Seller, utenti, team, account marketplace e logistica | TODO |
-| 14 | Workspace Agency, clienti, assegnazioni e dashboard dedicata | TODO |
-| 15 | Platform admin, gestione tenant, supporto e dashboard dedicata | TODO |
+| 14 | Workspace Agency, clienti, assegnazioni e dashboard dedicata | IN PROGRESS — prima struttura, completamento ancora aperto |
+| 15 | Platform admin, gestione tenant, supporto e dashboard dedicata | IN PROGRESS — prima struttura, completamento ancora aperto |
 | 16 | Fornitori, feed e listini: configurazione, CRUD, upload e parser originali | TODO |
 | 17 | Lavorazione cataloghi: query, filtri, selezioni, trasformazioni e viste | TODO |
 | 18 | Ordini Kaufland: parità completa filtri, colonne, sync, import/export | TODO |
@@ -56,8 +56,8 @@ esplicita e documentata, mai per far salire la percentuale.
 | 32 | Backup/trasferimento dati e amministrazione database con permessi dedicati | TODO |
 | 33 | Stripe reale: Checkout, Billing, Portal, webhook e ciclo abbonamento | TODO |
 | 34 | Fatture in Cloud secondo Master Spec e casi verificati | TODO |
-| 35 | Marketing pubblico conforme al design system e collegamenti all'app | TODO |
-| 36 | Onboarding SaaS completo, piani, trial, limiti ed entitlement nel prodotto | TODO |
+| 35 | Marketing pubblico conforme al design system e collegamenti all'app | IN PROGRESS — prima struttura, completamento ancora aperto |
+| 36 | Onboarding SaaS completo, piani, trial, limiti ed entitlement nel prodotto | IN PROGRESS — prima struttura, completamento ancora aperto |
 | 37 | Contratti adapter comuni; roadmap canali futuri senza dichiararli operativi | TODO |
 | 38 | Log/correlation ID, monitoraggio, runbook e documentazione aggiornata | TODO |
 | 39 | Verifica trasversale: isolamento, regressioni legacy, carico e sicurezza | TODO |
@@ -96,3 +96,6 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - Hotfix elenco cataloghi PostgreSQL in verifica. Totale invariato: 15%.
 - Chiarimento utente: sito pubblico con piani Free, Bronze, Silver, Gold, Platinum. Altre due macroaree da precisare; vedere USER_REQUIREMENTS_UPDATES.md.
+
+- PR #8 integrata: 170 test CI; hotfix cataloghi API live su 3238da7.
+- Nuovo requisito precisato: sei piani e tre macroaree app Admin/Seller/Agency; sito pubblico separato. Prima struttura in verifica, nessun incremento percentuale.

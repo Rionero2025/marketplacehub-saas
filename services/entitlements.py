@@ -143,6 +143,25 @@ DEFAULT_PLANS: dict[str, dict[str, Any]] = {
     },
 }
 
+# Public catalogue requested on 2026-09-04. Preserve historical subscriptions,
+# but remove their superseded plans from new public signups.
+RETIRED_PUBLIC_PLANS = frozenset({"starter", "growth", "pro", "unlimited"})
+for _code in RETIRED_PUBLIC_PLANS:
+    DEFAULT_PLANS[_code]["public"] = False
+
+PUBLIC_PLAN_PRICES = {"free": 0, "bronze": 2500, "silver": 4900,
+                      "gold": 7900, "platinum": 15000, "enterprise": 25000}
+PLAN_LIMIT_KEYS = tuple(DEFAULT_PLANS["legacy"]["limits"])
+for _code, _price in PUBLIC_PLAN_PRICES.items():
+    DEFAULT_PLANS[_code] = {
+        "name": _code.title(), "tenant_type": "any", "public": True,
+        "monthly_price_cents": _price, "currency": "EUR",
+        # Tier-specific allocations/add-ons will be configured by Platform Admin.
+        "features": sorted(STANDARD_FEATURES | {"agency_console", "catalog_sharing_agency"}),
+        "limits": {key: None for key in PLAN_LIMIT_KEYS},
+    }
+
+
 JOB_FEATURE_PREFIXES: tuple[tuple[str, str], ...] = (
     ("orders.", "marketplace_orders"),
     ("accounting.", "accounting"),
@@ -258,38 +277,19 @@ def ensure_entitlement_schema() -> None:
 
     stamp = now_iso()
     for code, spec in DEFAULT_PLANS.items():
-        existing = row("SELECT code FROM saas_plans WHERE code=?", (code,))
-        values = (
-            str(spec["name"]),
-            str(spec["tenant_type"]),
-            1 if spec.get("public") else 0,
-            int(spec.get("monthly_price_cents") or 0),
-            str(spec.get("currency") or "EUR"),
-            _json(spec.get("features") or []),
-            _json(spec.get("limits") or {}),
-            stamp,
+        # Defaults seed missing rows only. An admin's commercial edits must
+        # survive subsequent API/worker restarts and deployments.
+        execute(
+            """INSERT INTO saas_plans(code,name,tenant_type,public,active,monthly_price_cents,
+               currency,features_json,limits_json,created_at,updated_at)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(code) DO NOTHING""",
+            (code, str(spec["name"]), str(spec["tenant_type"]),
+             1 if spec.get("public") else 0, 1,
+             int(spec.get("monthly_price_cents") or 0), str(spec.get("currency") or "EUR"),
+             _json(spec.get("features") or []), _json(spec.get("limits") or {}), stamp, stamp),
         )
-        if existing:
-            # Keep commercial values centrally editable while ensuring new code
-            # ships with the intended baseline. Custom plans (other codes) are untouched.
-            execute(
-                """UPDATE saas_plans SET name=?,tenant_type=?,public=?,active=1,
-                   monthly_price_cents=?,currency=?,features_json=?,limits_json=?,updated_at=?
-                   WHERE code=?""",
-                values + (code,),
-            )
-        else:
-            execute(
-                """INSERT INTO saas_plans(code,name,tenant_type,public,active,monthly_price_cents,
-                   currency,features_json,limits_json,created_at,updated_at)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
-                (
-                    code, str(spec["name"]), str(spec["tenant_type"]),
-                    1 if spec.get("public") else 0, 1,
-                    int(spec.get("monthly_price_cents") or 0), str(spec.get("currency") or "EUR"),
-                    _json(spec.get("features") or []), _json(spec.get("limits") or {}), stamp, stamp,
-                ),
-            )
+    for code in RETIRED_PUBLIC_PLANS:
+        execute("UPDATE saas_plans SET public=0 WHERE code=? AND public<>0", (code,))
 
     # Existing tenants keep current capabilities. New tenants receive a real plan
     # in services.tenancy.create_tenant (starter for merchants, agency for agencies).
@@ -694,7 +694,7 @@ def validate_plan_for_tenant_type(plan_code: str, tenant_type: str) -> str:
     ensure_entitlement_schema()
     code = str(plan_code or "").strip().lower()
     if not code:
-        code = "agency" if str(tenant_type or "merchant").lower() == "agency" else "starter"
+        code = "enterprise"
     plan = plan_record(code)
     if not plan:
         raise ValueError("Piano SaaS non valido.")
@@ -703,3 +703,22 @@ def validate_plan_for_tenant_type(plan_code: str, tenant_type: str) -> str:
     if expected not in {"any", actual}:
         raise ValueError(f"Il piano {code} non è compatibile con tenant_type={actual}.")
     return code
+
+
+def update_plan_configuration(code: str, *, name: str, monthly_price_cents: int,
+                              features: list[str], limits: dict) -> dict:
+    plan = plan_record(code)
+    if not plan:
+        raise ValueError("Piano non disponibile")
+    known_features = STANDARD_FEATURES | {"agency_console", "catalog_sharing_agency"}
+    if not name.strip() or not 0 <= monthly_price_cents <= 10000000:
+        raise ValueError("Nome o prezzo non valido")
+    if set(features) - known_features or set(limits) - set(PLAN_LIMIT_KEYS):
+        raise ValueError("Funzione o limite non riconosciuto")
+    if any(value is not None and (not isinstance(value, int) or value < 0) for value in limits.values()):
+        raise ValueError("I limiti devono essere interi non negativi oppure null")
+    execute("""UPDATE saas_plans SET name=?,monthly_price_cents=?,features_json=?,limits_json=?,updated_at=?
+               WHERE code=?""", (name.strip(), monthly_price_cents, _json(sorted(set(features))),
+                                 _json(limits), now_iso(), code))
+    cache_invalidate("entitlements")
+    return plan_record(code) or {}

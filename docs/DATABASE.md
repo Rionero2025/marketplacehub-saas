@@ -71,3 +71,8 @@ Nessuna migrazione. La chiave oggetto e hash esistenti identificano la versione 
 ### Hotfix — elenco cataloghi HTTP 500
 
 Nessuna migrazione: ORDER BY lower(supplier_name),lower(name),id applicato al risultato deduplicato. PostgreSQL rifiutava ORDER BY lower(s.name) nella SELECT DISTINCT poiché tale espressione non era selezionata.
+
+
+### Prima struttura macroaree e piani Enterprise
+
+Seed saas_plans con ON CONFLICT DO NOTHING: i valori commerciali modificati non vengono riscritti al riavvio. Nascondere i quattro vecchi piani dal catalogo pubblico mantenendo abbonamenti esistenti. Nessuna cancellazione o riconversione automatica di tenant.

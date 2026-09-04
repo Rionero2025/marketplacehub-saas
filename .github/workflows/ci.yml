@@ -41,3 +41,10 @@ jobs:
         run: python -m compileall -q app.py pages services tools api marketplace_core
       - name: Run core regression tests
         run: python -m pytest -q tests_core
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build frontend
+        working-directory: frontend
+        run: npm install && npm run build

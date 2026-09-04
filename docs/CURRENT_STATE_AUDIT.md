@@ -120,3 +120,8 @@ Stato corrente oltre la baseline: blocchi 01–06 integrati, 15%; blocco 07 parz
 ### Hotfix — elenco cataloghi HTTP 500
 
 Nuova evidenza live: errore cataloghi presente anche con elenco vuoto per incompatibilità SQL PostgreSQL. Hotfix in verifica; avanzamento invariato 6/40=15%, nessun nuovo blocco conteggiato.
+
+
+### Prima struttura macroaree e piani Enterprise
+
+Consegna macroaree in verifica, totale invariato 15%. Test locali backend e build Next riusciti. Verifica UI locale su desktop/mobile con risposte API simulate dichiaratamente; non equivale a test completo account live.
