@@ -293,7 +293,17 @@ def ensure_entitlement_schema() -> None:
 
     # Existing tenants keep current capabilities. New tenants receive a real plan
     # in services.tenancy.create_tenant (starter for merchants, agency for agencies).
-    for tenant in rows("SELECT id,tenant_type,plan_code FROM tenants ORDER BY id"):
+    # tenants is platform metadata, while tenant_subscriptions is RLS-protected.
+    # A fresh request/worker process can initialize here inside one tenant scope:
+    # other subscriptions are invisible, not missing. Only the explicit platform
+    # migration may backfill every tenant on PostgreSQL.
+    from services.tenant_db import database_engine, current_tenant_id, platform_bypass_enabled
+    tenant_sql = "SELECT id,tenant_type,plan_code FROM tenants"
+    tenant_params: tuple = ()
+    if database_engine() == "postgresql" and not platform_bypass_enabled():
+        tenant_sql += " WHERE id=?"
+        tenant_params = (current_tenant_id(),)
+    for tenant in rows(tenant_sql + " ORDER BY id", tenant_params):
         tenant_id = int(tenant["id"])
         configured = str(tenant.get("plan_code") or "").strip().lower()
         if not configured:
