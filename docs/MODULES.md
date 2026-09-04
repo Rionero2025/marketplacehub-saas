@@ -63,3 +63,8 @@ Utenti/assegnazioni: il ruolo viewer non può mutare aree operative tramite API;
 ### Blocco 04 — sincronizzazioni duplicate
 
 Ordini: invii identici possono riutilizzare il job queued/running. Parametri, marketplace, account o tenant diversi rimangono separati. La parità completa della pagina Ordini resta aperta.
+
+
+### Blocco 05 — cataloghi atomici
+
+Cataloghi: su errore restano prodotti e metadata precedenti. Import concorrenti preparano separatamente i dati e pubblicano una versione completa per volta. I parser supplier e normalize restano condivisi.

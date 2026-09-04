@@ -100,3 +100,8 @@ Stato successivo alla baseline: blocchi 01 e 02 integrati, 5% delle 40 milestone
 ### Blocco 04 — sincronizzazioni duplicate
 
 Baseline storica invariata. Stato corrente: blocchi 01–03 integrati, 7,5%; blocco 04 in verifica. Worker Render osservato Live al commit de25a15 (blocco 02).
+
+
+### Blocco 05 — cataloghi atomici
+
+Stato corrente oltre la baseline: blocchi 01–04 integrati, 10%; blocco 05 in verifica. Vedere SAAS_PROGRESS.md.

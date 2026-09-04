@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 import threading
+import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
@@ -189,14 +190,18 @@ class CatalogCore:
         suffix = path.suffix.lower()
         if suffix in {'.csv', '.txt', '.tsv'}:
             sep = self._csv_separator(path)
+            emitted = False
             try:
                 for chunk in pd.read_csv(
                     path, sep=sep, chunksize=max(1000, int(chunk_size)),
                     encoding_errors='replace', low_memory=True,
                 ):
+                    emitted = True
                     yield chunk
                 return
             except Exception:
+                if emitted:
+                    raise
                 pass
         # Supplier-specific XML/Excel/PKL parsers remain authoritative. They are run
         # in the background worker, then the normalized result is persisted once.
@@ -210,7 +215,9 @@ class CatalogCore:
         chunk_size: int = 10000,
         progress: Callable[[int, int, str], None] | None = None,
     ) -> dict[str, Any]:
-        from services.db import connect, execute_many, now_iso
+        from services.db import connect, now_iso
+        from services.database_config import database_engine
+        from services.tenant_db import apply_postgresql_connection_context
         from services.lists import normalize
 
         self.ensure_schema()
@@ -223,70 +230,84 @@ class CatalogCore:
             raise FileNotFoundError(f'Listino non disponibile: {source}')
         fingerprint = self.source_fingerprint(source)
 
+        # A connection-private staging table keeps the published catalog intact
+        # during parsing. Commit staging chunks so progress callbacks can write
+        # jobs on another SQLite connection, without retaining all rows in RAM.
+        staging = "catalog_stage_" + uuid.uuid4().hex
+        columns = ("price_list_id,row_no,ean,sku,name,cost,shipping_cost,"
+                   "cost_pt,cost_it,cost_fr,cost_de,cost_zone3,cost_zone4,cost_zone5,cost_zone6,"
+                   "quantity,weight_kg,data_json")
+        row_no = chunks_done = 0
         with connect() as con:
-            con.execute("DELETE FROM catalog_products WHERE price_list_id=?", (int(price_list_id),))
-            con.execute(
-                """INSERT INTO catalog_materializations(
-                    price_list_id,source_fingerprint,source_path,row_count,status,message,materialized_at,schema_version
-                ) VALUES(?,?,?,?,?,?,?,?)
-                ON CONFLICT(price_list_id) DO UPDATE SET
-                    source_fingerprint=excluded.source_fingerprint,
-                    source_path=excluded.source_path,row_count=0,status='running',
-                    message='',materialized_at=excluded.materialized_at,schema_version=excluded.schema_version""",
-                (int(price_list_id), fingerprint, str(source), 0, 'running', '', now_iso(), 2),
-            )
-
-        row_no = 0
-        chunks_done = 0
-        try:
-            for raw_chunk in self._source_chunks(source, chunk_size):
-                normalized = normalize(raw_chunk)
-                payloads = []
-                for record in normalized.to_dict('records'):
-                    safe = {str(k): self._safe_value(v) for k, v in record.items()}
-                    payloads.append((
-                        int(price_list_id), row_no,
-                        str(safe.get('ean') or ''), str(safe.get('sku') or ''),
-                        str(safe.get('name') or ''), float(safe.get('cost') or 0),
-                        float(safe.get('shipping_cost') or 0),
-                        float(safe.get('cost_pt') or 0), float(safe.get('cost_it') or 0),
-                        float(safe.get('cost_fr') or 0), float(safe.get('cost_de') or 0),
-                        float(safe.get('cost_zone3') or 0), float(safe.get('cost_zone4') or 0),
-                        float(safe.get('cost_zone5') or 0), float(safe.get('cost_zone6') or 0),
-                        float(safe.get('quantity') or 0), float(safe.get('weight_kg') or 0),
-                        json.dumps(safe, ensure_ascii=False, separators=(',', ':')),
-                    ))
-                    row_no += 1
-                execute_many(
-                    """INSERT INTO catalog_products(
-                        price_list_id,row_no,ean,sku,name,cost,shipping_cost,
-                        cost_pt,cost_it,cost_fr,cost_de,cost_zone3,cost_zone4,cost_zone5,cost_zone6,
-                        quantity,weight_kg,data_json
-                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    payloads,
-                )
-                chunks_done += 1
-                if progress:
-                    progress(row_no, 0, f'Catalogo normalizzato: {row_no:,} prodotti')
-
-            with connect() as con:
+            try:
+                con.execute(f"CREATE TEMP TABLE {staging} AS SELECT {columns} FROM catalog_products WHERE 1=0")
+                con.commit()
+                apply_postgresql_connection_context(con)
+                for raw_chunk in self._source_chunks(source, chunk_size):
+                    normalized = normalize(raw_chunk)
+                    payloads = []
+                    for record in normalized.to_dict('records'):
+                        safe = {str(k): self._safe_value(v) for k, v in record.items()}
+                        payloads.append((
+                            int(price_list_id), row_no,
+                            str(safe.get('ean') or ''), str(safe.get('sku') or ''),
+                            str(safe.get('name') or ''), float(safe.get('cost') or 0),
+                            float(safe.get('shipping_cost') or 0),
+                            float(safe.get('cost_pt') or 0), float(safe.get('cost_it') or 0),
+                            float(safe.get('cost_fr') or 0), float(safe.get('cost_de') or 0),
+                            float(safe.get('cost_zone3') or 0), float(safe.get('cost_zone4') or 0),
+                            float(safe.get('cost_zone5') or 0), float(safe.get('cost_zone6') or 0),
+                            float(safe.get('quantity') or 0), float(safe.get('weight_kg') or 0),
+                            json.dumps(safe, ensure_ascii=False, separators=(',', ':')),
+                        ))
+                        row_no += 1
+                    con.executemany(
+                        f"""INSERT INTO {staging}(
+                            price_list_id,row_no,ean,sku,name,cost,shipping_cost,
+                            cost_pt,cost_it,cost_fr,cost_de,cost_zone3,cost_zone4,cost_zone5,cost_zone6,
+                            quantity,weight_kg,data_json
+                        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        payloads,
+                    )
+                    con.commit()
+                    apply_postgresql_connection_context(con)
+                    chunks_done += 1
+                    if progress:
+                        progress(row_no, 0, f'Catalogo normalizzato: {row_no:,} prodotti')
+                if self.source_fingerprint(source) != fingerprint:
+                    raise RuntimeError("Il listino è cambiato durante l'importazione. Riprovare.")
+                # Serialize only the short publication transaction. Concurrent
+                # readers see either the complete old or complete new catalog.
+                if database_engine() == "postgresql":
+                    lock_id = int.from_bytes(hashlib.sha256(f"catalog:{int(price_list_id)}".encode()).digest()[:8], "big", signed=True)
+                    con.execute("SELECT pg_advisory_xact_lock(?)", (lock_id,))
+                else:
+                    con.execute("BEGIN IMMEDIATE")
+                con.execute("DELETE FROM catalog_products WHERE price_list_id=?", (int(price_list_id),))
+                con.execute(f"INSERT INTO catalog_products({columns}) SELECT {columns} FROM {staging}")
                 con.execute(
-                    """UPDATE catalog_materializations SET row_count=?,status='ready',message='',
-                       materialized_at=?,schema_version=2 WHERE price_list_id=?""",
-                    (row_no, now_iso(), int(price_list_id)),
+                    """INSERT INTO catalog_materializations(
+                        price_list_id,source_fingerprint,source_path,row_count,status,message,materialized_at,schema_version
+                    ) VALUES(?,?,?,?,?,?,?,?)
+                    ON CONFLICT(price_list_id) DO UPDATE SET
+                        source_fingerprint=excluded.source_fingerprint,source_path=excluded.source_path,
+                        row_count=excluded.row_count,status='ready',message='',
+                        materialized_at=excluded.materialized_at,schema_version=excluded.schema_version""",
+                    (int(price_list_id), fingerprint, str(source), row_no, 'ready', '', now_iso(), 2),
                 )
-            self.invalidate_memory(price_list_id)
-            return {
-                'price_list_id': int(price_list_id), 'rows': row_no,
-                'chunks': chunks_done, 'fingerprint': fingerprint,
-            }
-        except Exception as exc:
-            with connect() as con:
-                con.execute(
-                    "UPDATE catalog_materializations SET status='error',message=?,materialized_at=? WHERE price_list_id=?",
-                    (str(exc), now_iso(), int(price_list_id)),
-                )
-            raise
+                con.execute(f"DROP TABLE {staging}")
+                con.commit()
+            except Exception:
+                con.rollback()
+                # The name is generated internally, never from uploaded data.
+                con.execute(f"DROP TABLE IF EXISTS {staging}")
+                con.commit()
+                raise
+        self.invalidate_memory(price_list_id)
+        return {
+            'price_list_id': int(price_list_id), 'rows': row_no,
+            'chunks': chunks_done, 'fingerprint': fingerprint,
+        }
 
     def preview(self, price_list_id: int, limit: int = 200) -> CatalogPage:
         return self.query(price_list_id, limit=limit, offset=0)

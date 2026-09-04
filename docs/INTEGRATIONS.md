@@ -38,3 +38,8 @@ Nessuna chiamata marketplace o integrazione esterna modificata in questo blocco;
 ### Blocco 04 — sincronizzazioni duplicate
 
 Nessuna chiamata marketplace modificata: si evita l’avvio duplicato dello stesso lavoro. Nessuna nuova importazione live avviata per le prove.
+
+
+### Blocco 05 — cataloghi atomici
+
+CSV: dopo aver emesso un chunk, un errore interrompe l’import invece di ricominciare dal parser fallback e duplicare righe. XML/Excel conservano il parser originario. Nessuna modifica ai feed remoti.

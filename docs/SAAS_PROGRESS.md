@@ -18,15 +18,15 @@ parziale vale zero fino alla chiusura. Le suddivisioni interne in PR non cambian
 il denominatore. Nuovi requisiti cambiano la baseline solo con una revisione
 esplicita e documentata, mai per far salire la percentuale.
 
-**Totale attuale: 3/40 = 7,5%.**
+**Totale attuale: 4/40 = 10%.**
 
 | ID | Blocco e risultato richiesto | Stato |
 |---|---|---|
 | 01 | CI esegue i test; registrazione verifica persistenza e collegamenti | DONE — PR #1, CI 33874550242 superata |
 | 02 | Recupero SKU/costi originale e override contabili preservati | DONE — PR #2, CI 33874967176 superata |
 | 03 | Ruoli membership e accessi tenant coerenti, prove PostgreSQL/RLS | DONE — PR #3, 108 test CI superati |
-| 04 | Deduplica concorrente dei job ordini per tenant/account/parametri | IN PROGRESS |
-| 05 | Materializzazione cataloghi atomica e ultima versione valida | TODO |
+| 04 | Deduplica concorrente dei job ordini per tenant/account/parametri | DONE — PR #4, CI 33876276914 superata |
+| 05 | Materializzazione cataloghi atomica e ultima versione valida | IN PROGRESS |
 | 06 | Recupero job orfani, retry controllato e stato attendibile | TODO |
 | 07 | Storage condiviso persistente API/worker e verifica restore | TODO |
 | 08 | Protezioni autenticazione, sessioni e recupero account previste | TODO |
@@ -84,3 +84,6 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - Blocco 03 integrato con PR #3 (eeae695), 108 test CI superati comprese due prove PostgreSQL. Totale 7,5%.
 - Blocco 04 in verifica: deduplica atomica ordini, 113 test locali superati e tre prove PostgreSQL affidate alla CI.
+
+- Blocco 04 integrato con PR #4 (8d82773), CI con concorrenza PostgreSQL riuscita. Totale 10%.
+- Blocco 05: staging privato per connessione e pubblicazione atomica, verifiche in corso.

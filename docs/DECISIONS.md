@@ -27,3 +27,8 @@ Owner/admin/manager/operator possono scrivere nelle aree già autorizzate; viewe
 ### Blocco 04 — sincronizzazioni duplicate
 
 Deduplicare soltanto orders.kaufland.sync e orders.worten.sync. Job terminali consentono nuove richieste. Il riuso non consuma quota e non viene rifiutato se la prima richiesta ha esaurito il limite. Recupero job orfani resta blocco separato.
+
+
+### Blocco 05 — cataloghi atomici
+
+Preservare l’ultima versione completa durante la preparazione. Un file sorgente cambiato durante l’import abortisce la pubblicazione. Catalogo vuoto resta una versione vuota valida, come nella semantica precedente. Gli errori sono riportati dal job, senza marcare corrotta la versione valida.

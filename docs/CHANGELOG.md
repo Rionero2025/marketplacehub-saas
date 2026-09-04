@@ -22,3 +22,8 @@ Blocco 02 integrato (90 test). Blocco 03 in verifica: ruolo di scrittura, eredit
 ### Blocco 04 — sincronizzazioni duplicate
 
 Blocco 03 integrato. Blocco 04: deduplica transazionale degli ordini e test concorrenza SQLite/PostgreSQL; nessuna migrazione dati.
+
+
+### Blocco 05 — cataloghi atomici
+
+Blocco 04 integrato. Blocco 05: preparazione cataloghi su staging temporaneo, switch atomico, protezione da cambio sorgente e fallback CSV parziale; test fault injection e concorrenza.
