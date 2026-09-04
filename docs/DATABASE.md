@@ -51,3 +51,8 @@ Aggiunte prove CI con PostgreSQL 17 temporaneo, ruolo senza superuser/BYPASSRLS 
 ### Blocco 04 — sincronizzazioni duplicate
 
 Nessuna modifica schema o backfill. Le righe attive preesistenti sono confrontate dopo decodifica JSON. Il lock PostgreSQL dura fino a commit/rollback; i test usano anche il compatibility wrapper SQL di produzione.
+
+
+### Blocco 05 — cataloghi atomici
+
+Nessuna migrazione permanente. Tabelle staging con nomi UUID interni, rimosse alla fine o in rollback. Commit per chunk solo nello staging; il contesto PostgreSQL viene riapplicato dopo ogni commit. La transazione finale resta proporzionale alle righe da sostituire; benchmark grandi volumi ancora nel blocco 11.

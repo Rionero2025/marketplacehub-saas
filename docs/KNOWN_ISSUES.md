@@ -45,3 +45,8 @@ ISSUE-02 risolto con PR #2 e CI superata. ISSUE-03/04: correzioni sul ramo dedic
 ### Blocco 04 — sincronizzazioni duplicate
 
 ISSUE-03/04: confini verificati con 108 test CI, inclusi PostgreSQL; resta la revisione trasversale completa del prodotto. ISSUE-05: deduplica in verifica nel blocco 04; recupero orfani ancora aperto nel blocco 06.
+
+
+### Blocco 05 — cataloghi atomici
+
+ISSUE-05 deduplica chiusa con PR #4; recupero orfani resta aperto. ISSUE-06: correzione atomica sul ramo dedicato, in verifica SQLite/PostgreSQL. Nessun claim di accelerazione o copertura dei volumi reali.

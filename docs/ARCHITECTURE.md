@@ -62,3 +62,8 @@ TargetTenantUser autorizza il tenant esplicito e imposta il ContextVar nella tas
 ### Blocco 04 — sincronizzazioni duplicate
 
 Deduplica ordini nel servizio condiviso background_jobs: advisory lock transazionale PostgreSQL per richiesta canonica; BEGIN IMMEDIATE per SQLite. Restano invariati core e formato JobReceipt.
+
+
+### Blocco 05 — cataloghi atomici
+
+Il core cataloghi prepara chunk normalizzati in una tabella temporanea privata della connessione. La sostituzione di prodotti e metadata avviene in una sola transazione; PostgreSQL serializza le pubblicazioni dello stesso listino con advisory lock.
