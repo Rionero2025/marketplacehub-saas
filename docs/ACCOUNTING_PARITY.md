@@ -50,3 +50,8 @@ percentuali del Seller, preservando l’arrotondamento residuo.
 Il codice del repository originale marketplacehub-1 resta in sola lettura.
 Questo inventario è un requisito di parità completa, non una dichiarazione che
 le funzionalità ancora mancanti siano già disponibili. Totale verificato15%.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Nuova verifica: nome prodotto, EAN, SKU composito, acquisto, vendita effettiva, commissioni, margini, quote e fonti attraversano il percorso fino alla API Seller; esposti nella tabella o nei dettagli riga. Testano realmente persistenza e risincronizzazione su dati sintetici. Import documenti/Excel, operazioni massive ed export archiviati rimangono nell’inventario da completare.

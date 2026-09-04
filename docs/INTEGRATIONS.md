@@ -83,3 +83,8 @@ La lettura contabile non chiama marketplace. Pulsanti avviano accounting.orders.
 ### Contabilità originale e conteggio per Seller
 
 Verificata in sola lettura la pagina Streamlit online marketplace-hub-wchg.onrender.com/Contabilita. Non avviati job né importazioni nell’originale. Backend SaaS conserva gli adapter marketplace esistenti.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Verificate fixture API Kaufland: importi in centesimi, commissione price meno revenue_gross, spedizione inclusa nel venduto, conversione PLN/EUR. Worten: recupero SKU annidato, quantità multipla e price già totale riga. La pagina Ordini ora usa ts_created_iso/product_name/sold_total_local/commission_local/payout_local per Kaufland e order_created/product_title/composite_sku/normalized_status per Worten. I campi monetari assenti nell’archivio Worten restano da verificare; i conteggi completi sono in Contabilità.

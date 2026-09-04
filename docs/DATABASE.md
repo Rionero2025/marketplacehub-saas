@@ -96,3 +96,8 @@ Nessuna migrazione. Edit persistenti in accounting_manual_overrides; guardia ott
 ### Contabilità originale e conteggio per Seller
 
 Nessuna migrazione. Percentuali da sellers; applicate esclusivamente al margine filtrato del Seller/account. Facet disponibili calcolate nel periodo prima dei filtri, con la stessa lettura sicura già presente.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Nessuna migrazione o modifica di schema. Le prove del percorso dati usano lo schema contabile reale, su SQLite e sul PostgreSQL isolato della CI, incluse risincronizzazione idempotente, override persistenti e separazione degli account Seller.

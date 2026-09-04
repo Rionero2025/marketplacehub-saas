@@ -145,3 +145,8 @@ Dashboard PR11 pubblicata, 213 test CI. Blocco20 contabilità in corso: 193 test
 ### Contabilità originale e conteggio per Seller
 
 Pagina Streamlit di riferimento verificata online in sola lettura. Filtri/quote Seller in verifica. Nessun incremento del totale15%: parità completa e prova autenticata SaaS ancora aperte.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Verificato il percorso risposta marketplace → normalizzazione/costi originali → database → API Seller con fixture Kaufland e Worten, EAN/listino prioritario, fallback SKU, resi/annullamenti, quantità multiple e override dopo risincronizzazione. La UI espone dati e provenienza già presenti nel backend. Questo aggiornamento non certifica tutti i flussi originari né la sincronizzazione di un account reale. Totale milestone invariato: 6/40 = 15%.

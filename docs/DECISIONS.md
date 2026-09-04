@@ -72,3 +72,8 @@ Originale marketplacehub-1 in sola lettura. Solo la copia SaaS del servizio rice
 ### Contabilità originale e conteggio per Seller
 
 Il riferimento contabile è la pagina Streamlit fornita dall’utente, non la schermata Ordini allegata. Admin/Agency possono scegliere Seller autorizzati; la contabilità individuale non aggrega mai Seller differenti. Inventario funzionale completo registrato, inclusi i flussi ancora da portare.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Non confondere l’ultimo prezzo dello SKU (minimo di pubblicazione) con la vendita API effettiva. Le fonti dei costi e degli importi sono consultabili per riga. L’importazione dell’archivio Ordini è distinta dalla sincronizzazione Contabilità che alimenta i margini della dashboard; il testo del comando ora lo esplicita.

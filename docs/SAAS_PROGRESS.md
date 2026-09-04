@@ -108,3 +108,8 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - PR #11 dashboard pubblicata, 213 test CI.
 - Contabilità operativa Seller in verifica; totale invariato 6/40 = 15%.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Consegna del percorso dati: proiezione Ordini corretta, riga contabile completa e prove reali di persistenza/API con dati sintetici. I blocchi funzionali restano parziali fino a parità del flusso e collaudo staging autenticato. Totale invariato: **6/40 = 15%**.

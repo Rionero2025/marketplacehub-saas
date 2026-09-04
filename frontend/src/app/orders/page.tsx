@@ -8,6 +8,12 @@ import { api } from "@/lib/api";
 import type { Job, MarketplaceAccount } from "@/lib/types";
 
 const terminal = (job: Job) => ["done", "error", "cancelled"].includes(job.status);
+const localMoney = (value: unknown, currency: unknown) => {
+  if (value == null || value === "" || !Number.isFinite(Number(value))) return "Da verificare";
+  const code = String(currency || "");
+  if (!/^[A-Z]{3}$/.test(code)) return `${Number(value).toLocaleString("it-IT")} (valuta non disponibile)`;
+  return new Intl.NumberFormat("it-IT", { style: "currency", currency: code }).format(Number(value));
+};
 const dateString = (daysAgo: number) => {
   const date = new Date(); date.setDate(date.getDate() - daysAgo);
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
@@ -132,7 +138,7 @@ function Body() {
       </div>
       {account && <section className="panel">
         <div className="panelTitle"><h2>Sincronizza ordini</h2></div>
-        <p>Il collegamento API salva le credenziali; questo comando importa gli ordini e aggiorna i conteggi della dashboard.</p>
+        <p>Importa lo storico degli ordini dal marketplace. Per associare i listini, calcolare acquisti, margini e quote e aggiornare la dashboard, avvia la sincronizzazione in <Link href="/accounting">Contabilità</Link>.</p>
         <div className="toolbar">
           {account.marketplace === "worten" ? <>
             <label>Dal <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}/></label>
@@ -151,9 +157,16 @@ function Body() {
       <section className="panel">
         <div className="panelTitle"><h2>{account?.account_name || "Ordini"}</h2><span className="pill">{error ? "—" : total.toLocaleString("it-IT")} righe</span></div>
         {loading || accountsLoading ? <div className="empty">Caricamento…</div> : error ? <div className="empty">Dati non disponibili: risolvi l’errore indicato sopra.</div> : items.length ? <div className="dataTable"><table>
-          <thead><tr><th>Ordine</th><th>Data</th><th>Marketplace</th><th>SKU</th><th>EAN</th><th>Stato</th><th>Totale</th></tr></thead>
+          <thead><tr><th>Ordine</th><th>Data</th><th>Marketplace</th><th>Prodotto</th><th>SKU composito</th><th>EAN</th><th>Stato</th><th>Vendita · valuta ordine</th><th>Commissione · valuta ordine</th><th>Da ricevere · valuta ordine</th></tr></thead>
           <tbody>{items.map((item, i) => <tr key={String(item.row_key || item.id_order_unit || i)}>
-            <td>{String(item.order_id || item.id_order || item.order_number || "")}</td><td>{String(item.order_created || item.date_inserted_iso || item.created_at || "")}</td><td>{account?.marketplace}</td><td>{String(item.sku || item.id_offer || "")}</td><td>{String(item.ean || "")}</td><td>{String(item.status || item.order_status || "")}</td><td>{String(item.sale_amount_eur ?? item.total_amount ?? "")}</td>
+            <td>{String(item.order_id || item.id_order || item.order_number || "")}</td>
+            <td>{String(item.ts_created_iso || item.order_created || item.date_inserted_iso || item.created_at || "—")}</td>
+            <td>{account?.marketplace} · {String(item.country_code || "")}</td>
+            <td>{String(item.product_name || item.product_title || "Da verificare")}</td>
+            <td>{String(item.composite_sku || item.sku || item.id_offer || "—")}</td>
+            <td>{String(item.ean || "—")}</td>
+            <td>{String(item.status || item.normalized_status || item.raw_status || item.order_status || "—")}</td>
+            {['sold_total_local', 'commission_local', 'payout_local'].map(field => <td key={field}>{localMoney(item[field], item.currency)}</td>)}
           </tr>)}</tbody>
         </table></div> : <div className="empty">{search ? "Nessun ordine corrisponde alla ricerca." : account ? "Nessun ordine importato. Avvia Sincronizza ordini per scaricarli dal marketplace." : <Link href="/settings">Collega un marketplace in Impostazioni.</Link>}</div>}
         <div className="pager"><button className="secondaryButton" disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - 100))}>Indietro</button><span>{total ? offset + 1 : 0}–{Math.min(offset + 100, total)} di {total}</span><button className="secondaryButton" disabled={offset + 100 >= total || loading} onClick={() => setOffset(offset + 100)}>Avanti</button></div>
