@@ -88,3 +88,8 @@ Verificata in sola lettura la pagina Streamlit online marketplace-hub-wchg.onren
 ### Verifica del percorso dati contabile — 4 settembre 2026
 
 Verificate fixture API Kaufland: importi in centesimi, commissione price meno revenue_gross, spedizione inclusa nel venduto, conversione PLN/EUR. Worten: recupero SKU annidato, quantità multipla e price già totale riga. La pagina Ordini ora usa ts_created_iso/product_name/sold_total_local/commission_local/payout_local per Kaufland e order_created/product_title/composite_sku/normalized_status per Worten. I campi monetari assenti nell’archivio Worten restano da verificare; i conteggi completi sono in Contabilità.
+
+
+### Selezione e modifica multipla contabilità — 4 settembre 2026
+
+La modifica massiva aggiorna solo la contabilità interna e i suoi override. Nessuna chiamata di scrittura al marketplace. Formule di annullamento, margini e quote restano nei servizi originali.

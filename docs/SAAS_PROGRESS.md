@@ -113,3 +113,8 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 ### Verifica del percorso dati contabile — 4 settembre 2026
 
 Consegna del percorso dati: proiezione Ordini corretta, riga contabile completa e prove reali di persistenza/API con dati sintetici. I blocchi funzionali restano parziali fino a parità del flusso e collaudo staging autenticato. Totale invariato: **6/40 = 15%**.
+
+
+### Selezione e modifica multipla contabilità — 4 settembre 2026
+
+Selezione e modifica multipla contabile implementate; parità complessiva e collaudo autenticato ancora aperti. Totale milestone invariato: **6/40 = 15%**.

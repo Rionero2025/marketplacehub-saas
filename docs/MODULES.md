@@ -113,3 +113,8 @@ Filtri multipli Fornitore/Stato/Nazione, colonne Market/Nazione, riepilogo rimbo
 ### Verifica del percorso dati contabile — 4 settembre 2026
 
 Contabilità Seller espone SKU composito, margine lordo, ricavo percentuale su acquisto, ordine fornitore e dettagli con fonti costo/importi, cliente, tracking, pagamento stimato e scontrino. Ordini legge i nomi effettivi dei campi dei due archivi; le finanze Kaufland sono mostrate nella valuta originale.
+
+
+### Selezione e modifica multipla contabilità — 4 settembre 2026
+
+Contabilità: selezione persistente tra pagine, selezione tutte le filtrate, deselezione, intervallo Maiusc nella pagina. Editor multiplo di ordine fornitore, costo extra e scontrino. Salvataggio esplicito e invio dei soli campi cambiati; limite 1.000 righe.

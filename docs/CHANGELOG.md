@@ -72,3 +72,8 @@ Contabilità: aggiunti filtri multipli fornitore/stato/nazione applicati anche a
 ### Verifica del percorso dati contabile — 4 settembre 2026
 
 Corretta proiezione campi archivio Ordini; prezzi in valuta originale esplicita. Completata esposizione dei dati della singola riga contabile. Aggiunti tre casi di integrazione parametrizzati SQLite/PostgreSQL, senza mock di calcoli o persistenza. TypeScript e UI sintetica desktop/mobile verificati; CI e rilascio tracciati nella consegna.
+
+
+### Selezione e modifica multipla contabilità — 4 settembre 2026
+
+Aggiunte selezione contabile filtrata ed API batch dei tre campi manuali. Salvataggio atomico con controllo versione, scope completo e rollback su riga rimossa. UI mantiene bozze in caso di errore, selezione tra pagine e reset sui nuovi filtri/Seller.
