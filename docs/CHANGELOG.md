@@ -52,3 +52,8 @@ Prima struttura pubblica/Seller/Agency/Admin, sei piani richiesti, prezzi persis
 ### Accessi distinti Seller, Agenzia e Admin
 
 Scelta accesso Seller/Agenzia, login Admin interno, verifica area e tenant prima della sessione, shell distinte, ritorno Agenzia e apertura iniziale pannello Seller. Correzione query clienti Agency PostgreSQL e risultati cambio workspace propagati correttamente.
+
+
+### Porting della dashboard Seller
+
+Dashboard Seller economica con formule legacy, Top 10, dettagli e periodi. Un solo endpoint aggregato sostituisce le richieste per-account della vecchia pagina. Nuove regressioni SQLite/PostgreSQL e test UI per filtri, CSV, sync, paginazione e risposta tardiva dopo cambio Seller.

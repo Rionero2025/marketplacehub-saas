@@ -130,3 +130,8 @@ Consegna macroaree in verifica, totale invariato 15%. Test locali backend e buil
 ### Accessi distinti Seller, Agenzia e Admin
 
 Tre accessi in verifica per pubblicazione. Build Next riuscita; 162 test locali superati e 25 PostgreSQL rinviati alla CI. UI: tre destinazioni, scelta mobile, protezione Admin, nessuna chiamata Seller/jobs da Admin, ritorno agenzia-cliente e redirect sessione scaduta verificati con API sintetiche.
+
+
+### Porting della dashboard Seller
+
+Implementazione dashboard Seller in verifica. 186 test locali superati prima dell’ultimo test permesso/piano; 26 PostgreSQL saltati localmente e affidati alla CI. Build Next passata e prove UI con dati sintetici superate. Richiesto accesso Seller nel browser per prova con dati live, senza condividere password. Totale conservativo ancora 6/40 = 15%.

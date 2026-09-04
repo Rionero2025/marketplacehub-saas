@@ -57,3 +57,8 @@ Enterprise trial per ogni nuova registrazione; interesse commerciale salvato nel
 ### Accessi distinti Seller, Agenzia e Admin
 
 Priorità utente: funzioni prima della grafica. Solo Seller/Agenzia nel sito pubblico; Admin con percorso interno non pubblicizzato e autorizzazione reale. Un percorso non collegato non è un segreto né un sostituto dei controlli sui ruoli. Conservare tutto il lavoro precedente come base, senza cancellare moduli o dati.
+
+
+### Porting della dashboard Seller
+
+Il repository Python originale marketplacehub-1 (HEAD 4c3cda59387068f3dfb0f2bae45b7d03bf307dca) è soltanto letto e resta senza modifiche. Il nuovo adattatore SaaS riusa services.dashboard, accounting, product_stats e profit_sharing. Copiati i test puri dashboard/product stats dalla versione locale come regressioni del motore, senza riscrivere le formule.

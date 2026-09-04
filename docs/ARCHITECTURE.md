@@ -92,3 +92,8 @@ Sito pubblico sulla radice; pagine /admin, /agency e /dashboard per Seller. I pi
 ### Accessi distinti Seller, Agenzia e Admin
 
 /login offre solo Seller e Agenzia. Form /login/seller e /login/agency; form interno /internal/admin/login, dashboard /internal/admin con noindex. Il vecchio /admin reindirizza al percorso interno. LoginRequest.area controllato sul server prima di creare la sessione: Admin richiede is_admin globale; Seller/Agency selezionano un tenant accessibile del tipo richiesto. Il parametro resta opzionale per i client API preesistenti.
+
+
+### Porting della dashboard Seller
+
+GET /sellers/{seller_id}/dashboard aggrega una lettura contabile e applica i calcoli legacy invariati. Query con seller esplicito e join account/seller; nessun raw_json o segreto caricato. Router verifica sessione, permesso, piano e scope; frontend invalida risposte su Seller, periodo, account e dettaglio.

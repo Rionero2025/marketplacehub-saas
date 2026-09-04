@@ -41,3 +41,10 @@ Admin interno senza collegamenti sul sito: /internal/admin/login. Tre dashboard
 con funzioni e autorizzazioni distinte. Conservare il lavoro precedente, senza eliminarlo.
 Conclusi gli ingressi, avviare il pannello Seller sulle funzioni esistenti.
 Gli ingressi non completano gestione Admin/Agency né il porting: totale 6/40 = 15%.
+
+## Seller: parità funzionale con Streamlit
+
+L’utente richiede tutta l’area Seller funzionante come il progetto Python originale.
+Il codice originale va soltanto letto, senza modificarlo. Tutte le modifiche e i
+nuovi adattatori sono nel SaaS. Si parte dalla dashboard economica e si prosegue
+con gli altri moduli; nessuna schermata dimostrativa equivale a parità completata.

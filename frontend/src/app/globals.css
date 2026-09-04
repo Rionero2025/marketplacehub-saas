@@ -3,3 +3,5 @@
 .tableWrap{overflow-x:auto}
 
 .authCard a.primaryButton{color:#fff;text-decoration:none}
+
+.sellerMetricGrid{margin-top:20px;grid-template-columns:repeat(3,minmax(0,1fr))}.sellerMetric{text-align:left;cursor:pointer;font:inherit}.sellerMetric:disabled{cursor:default}.sellerMetric>span.statMeta{font-size:11px;color:var(--muted);text-transform:none;letter-spacing:normal}.sellerMetric:focus-visible{outline:3px solid var(--accent)}.sellerSubline{display:block;color:var(--muted);margin-top:4px}.sellerJobRow{display:flex;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.sellerJobRow>span:last-child{overflow-wrap:anywhere;min-width:0}.settingsActions{flex-wrap:wrap}@media(max-width:820px){.sellerMetricGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.sellerMetricGrid{grid-template-columns:1fr}}

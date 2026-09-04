@@ -75,3 +75,8 @@ Hotfix cataloghi PR #8 verificato live API su 3238da7. Nuove macroaree parziali:
 ### Accessi distinti Seller, Agenzia e Admin
 
 Ingressi distinti non completano le macroaree. CRUD, add-on, pagamenti e parità legacy ancora aperti. Nessun account elevato a Platform Admin. Accesso Admin necessita di un account già autorizzato. Le prove UI locali usano dati sintetici, non credenziali o dati commerciali reali.
+
+
+### Porting della dashboard Seller
+
+Consegna Seller parziale: dashboard economica implementata, non tutto il progetto Streamlit. Restano contabilità editabile, ordini completi, fornitori/listini, pubblicazione, Buy Box operativo, logistica, supporto e altri moduli. Questa prima versione legge le colonne leggere dell’intero storico del solo Seller per preservare date legacy: benchmark/memoria e ottimizzazione restano aperti. CSV esporta la sola pagina, dichiarato in UI. Nessun automatico polling API ogni 5 minuti; lettura UI ogni 30 secondi e avvio job esplicito.
