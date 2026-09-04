@@ -90,3 +90,8 @@ Contabilità operativa consegnata in parte: editor, listini e Excel disponibili;
 ### Contabilità originale e conteggio per Seller
 
 La parità della Contabilità non è completata. ACCOUNTING_PARITY.md elenca le differenze residue: griglia diretta/massiva, selezioni, import/documenti, archivio e PDF. Filtri e quote non chiudono da soli il blocco20.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Risolti i campi vuoti di data e importo Kaufland dovuti a nomi diversi tra archivio e UI e lo SKU composito assente dalla tabella contabile. Non equivale alla parità completa: restano import/confronto documenti, selezione e operazioni massive, archivio export, PDF, riepilogo sync e altri flussi elencati in ACCOUNTING_PARITY.md. Collaudo autenticato con dati reali Seller ancora da eseguire. Il test del reso preserva il margine negativo del motore originale; non riproduce il vecchio azzeramento solo grafico della griglia Streamlit.

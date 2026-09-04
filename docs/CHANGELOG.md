@@ -67,3 +67,8 @@ Contabilità Seller al posto del JSON tecnico: righe, importi, quote, editor per
 ### Contabilità originale e conteggio per Seller
 
 Contabilità: aggiunti filtri multipli fornitore/stato/nazione applicati anche all’Excel, riepilogo completo di rimborsi/margine lordo e quote percentuali del Seller corrente. Identità Seller esplicita nella pagina.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Corretta proiezione campi archivio Ordini; prezzi in valuta originale esplicita. Completata esposizione dei dati della singola riga contabile. Aggiunti tre casi di integrazione parametrizzati SQLite/PostgreSQL, senza mock di calcoli o persistenza. TypeScript e UI sintetica desktop/mobile verificati; CI e rilascio tracciati nella consegna.

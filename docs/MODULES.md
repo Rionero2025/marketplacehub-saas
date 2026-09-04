@@ -108,3 +108,8 @@ Contabilità: tabella paginata, ricerca, periodo, margini mancanti, 16 campi mod
 ### Contabilità originale e conteggio per Seller
 
 Filtri multipli Fornitore/Stato/Nazione, colonne Market/Nazione, riepilogo rimborsi e margine lordo, quote globali filtrate e percentuali del Seller. Inventario completo della pagina originale in ACCOUNTING_PARITY.md.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Contabilità Seller espone SKU composito, margine lordo, ricavo percentuale su acquisto, ordine fornitore e dettagli con fonti costo/importi, cliente, tracking, pagamento stimato e scontrino. Ordini legge i nomi effettivi dei campi dei due archivi; le finanze Kaufland sono mostrate nella valuta originale.

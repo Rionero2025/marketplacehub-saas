@@ -55,3 +55,8 @@ Il riferimento esplicito è https://marketplace-hub-wchg.onrender.com/Contabilit
 La scelta di Seller multipli appartiene alle aree Admin/Agency; la contabilità
 resta sempre del singolo Seller selezionato. Vedere ACCOUNTING_PARITY.md per
 l’inventario verificato e la separazione tra capacità presenti e mancanti.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+L’utente ha ribadito che la parità riguarda il concetto e l’algoritmo completo della contabilità originale: nome prodotto, EAN, SKU composito, acquisto, vendita e commissioni. È vietato modificare il progetto Streamlit di riferimento. Le verifiche devono dimostrare la continuità dei dati fino alla riga SaaS, non limitarsi alla presenza dei servizi Python.

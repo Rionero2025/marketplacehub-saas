@@ -107,3 +107,8 @@ Contabilità Seller: adattatore seller_accounting, API autorizzate per account, 
 ### Contabilità originale e conteggio per Seller
 
 Confermato: conteggio contabile per singolo Seller anche quando selezionato da Agency/Admin. Filtri multipli server-side per fornitore, raw_status e country_code condivisi tra tabella, riepilogo ed Excel.
+
+
+### Verifica del percorso dati contabile — 4 settembre 2026
+
+Il test di integrazione attraversa AccountingCore.synchronize, normalizzazione marketplace originale, risoluzione costi, persistenza reale e GET righe contabili. Solo trasporto esterno, caricamento cataloghi e tassi di cambio sono sostituiti da fixture sintetiche. Nessuna nuova formula nel frontend.
