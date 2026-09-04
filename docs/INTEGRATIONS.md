@@ -48,3 +48,8 @@ CSV: dopo aver emesso un chunk, un errore interrompe l’import invece di ricomi
 ### Blocco 06 — recupero job interrotti
 
 Nessuna ripetizione automatica di creazione spedizioni, cambi prezzo o altre operazioni esterne di esito incerto. Gli import ammessi hanno semantica almeno una volta: non si dichiara esecuzione esattamente una volta né annullamento di effetti esterni.
+
+
+### Blocco 07 — integrità e storage condiviso
+
+S3 distingue oggetto assente da accesso negato e riporta errori di cancellazione. CLI tools.storage_probe scrive un piccolo oggetto sintetico e lo verifica da un altro processo senza dati cliente; serve una prova live sui due servizi.

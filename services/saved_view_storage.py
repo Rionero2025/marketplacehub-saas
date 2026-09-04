@@ -8,7 +8,7 @@ import pandas as pd
 
 from services.db import DATA_DIR, connect, execute, now_iso, row, rows
 from services.lists import safe_name
-from services.object_storage import object_store, sha256_bytes, storage_config, storage_status
+from services.object_storage import atomic_write, object_store, sha256_bytes, storage_config, storage_status
 
 
 CACHE_DIR = DATA_DIR / "object_cache" / "saved_views"
@@ -74,23 +74,20 @@ def save_saved_view_frame(
     ensure_saved_view_storage_schema()
     payload = _serialize_frame(frame)
     digest = sha256_bytes(payload)
-    key = _object_key(seller_id, view_id, name)
+    key = _object_key(seller_id, view_id, name).removesuffix('.pkl') + f'_{digest}.pkl'
     current = _view_row(view_id)
-    previous_key = str(current.get("snapshot_storage_key") or "")
+    if int(current.get("seller_id") or 0) != int(seller_id):
+        raise PermissionError("La vista non appartiene al seller richiesto")
 
     store = object_store()
     store.put_bytes(key, payload, content_type="application/octet-stream")
 
-    local_path = LEGACY_DIR / str(int(seller_id)) / f"{int(view_id)}_{safe_name(name)}.pkl"
+    local_path = LEGACY_DIR / str(int(seller_id)) / f"{int(view_id)}_{digest}_{safe_name(name)}.pkl"
     if keep_local_compatibility_copy:
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = local_path.with_suffix(local_path.suffix + ".tmp")
-        temporary.write_bytes(payload)
-        temporary.replace(local_path)
+        atomic_write(local_path, payload)
     else:
         local_path = CACHE_DIR / f"{int(view_id)}_{digest[:12]}.pkl"
-        local_path.parent.mkdir(parents=True, exist_ok=True)
-        local_path.write_bytes(payload)
+        atomic_write(local_path, payload)
 
     execute(
         """UPDATE saved_views SET snapshot_path=?,snapshot_storage_key=?,
@@ -101,11 +98,7 @@ def save_saved_view_frame(
             now_iso(), int(view_id), int(seller_id),
         ),
     )
-    if previous_key and previous_key != key:
-        try:
-            store.delete(previous_key)
-        except Exception:
-            pass
+    # Keep old immutable versions for in-flight readers and backup manifests.
     return {
         "view_id": int(view_id), "path": str(local_path), "storage_key": key,
         "backend": storage_config().backend, "sha256": digest, "size_bytes": len(payload),
@@ -120,11 +113,12 @@ def resolve_saved_view_path(view: int | Mapping[str, Any], *, refresh: bool = Fa
     expected_hash = str(item.get("snapshot_sha256") or "")
 
     if not refresh and local.is_file():
-        return local
+        if not expected_hash or sha256_bytes(local.read_bytes()) == expected_hash.lower():
+            return local
 
     key = str(item.get("snapshot_storage_key") or "").strip()
     if not key:
-        if local.is_file():
+        if local.is_file() and not expected_hash:
             return local
         raise FileNotFoundError(
             f"Vista salvata {view_id} senza file locale e senza copia object storage"
@@ -137,9 +131,7 @@ def resolve_saved_view_path(view: int | Mapping[str, Any], *, refresh: bool = Fa
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     target = CACHE_DIR / f"{view_id}_{actual_hash[:12]}.pkl"
-    temporary = target.with_suffix(target.suffix + ".tmp")
-    temporary.write_bytes(payload)
-    temporary.replace(target)
+    atomic_write(target, payload)
     execute("UPDATE saved_views SET snapshot_path=? WHERE id=?", (str(target), view_id))
     return target
 

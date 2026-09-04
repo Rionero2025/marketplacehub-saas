@@ -47,8 +47,6 @@ def persist_price_list_path(price_list_id: int, path: str | Path) -> Path:
     ensure_price_list_storage_schema()
     source=Path(path)
     payload=source.read_bytes()
-    previous=row("SELECT storage_key FROM price_lists WHERE id=?",(int(price_list_id),)) or {}
-    previous_key=str(previous.get("storage_key") or "").strip()
     stored=put_durable_bytes(
         namespace="price_lists", identity=f"list_{int(price_list_id)}",
         filename=source.name, content=payload,
@@ -60,12 +58,7 @@ def persist_price_list_path(price_list_id: int, path: str | Path) -> Path:
         (str(source),source.suffix.lower().lstrip("."),now_iso(),stored["storage_key"],
          stored["storage_backend"],stored["sha256"],stored["size_bytes"],int(price_list_id)),
     )
-    if previous_key and previous_key != stored["storage_key"]:
-        try:
-            from services.durable_files import delete as delete_durable_file
-            delete_durable_file(previous_key)
-        except Exception:
-            pass
+    # Retain old immutable objects: readers and backup manifests may reference them.
     return source
 
 
@@ -83,7 +76,11 @@ def materialize_price_list(price_list_id: int, preferred_path: str | Path | None
             if not str(item.get("storage_key") or "").strip():
                 try:persist_price_list_path(int(price_list_id),local)
                 except Exception:pass
-            return local
+            return materialize_durable_file(
+                namespace="price_lists", identity=f"list_{int(price_list_id)}", filename=local.name,
+                storage_key=str(item.get("storage_key") or ""),
+                expected_sha256=str(item.get("storage_sha256") or ""), preferred_path=local,
+            )
     key=str(item.get("storage_key") or "").strip()
     if not key:
         return None

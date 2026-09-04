@@ -73,3 +73,8 @@ Cataloghi: su errore restano prodotti e metadata precedenti. Import concorrenti 
 ### Blocco 06 — recupero job interrotti
 
 Background jobs: retry automatico solo per import ordini Kaufland/Worten e materializzazione cataloghi, fino a tre tentativi. Le altre attività interrotte terminano con richiesta di verifica, evitando ripetizioni automatiche di operazioni esterne.
+
+
+### Blocco 07 — integrità e storage condiviso
+
+Viste salvate: oggetti e copie locali immutabili per digest, verifica seller prima della scrittura, recupero di cache corrotte. Listini: verifica cache e mantenimento versioni precedenti. Parser e algoritmi dei listini invariati.

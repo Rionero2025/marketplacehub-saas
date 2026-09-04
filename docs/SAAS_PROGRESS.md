@@ -18,7 +18,7 @@ parziale vale zero fino alla chiusura. Le suddivisioni interne in PR non cambian
 il denominatore. Nuovi requisiti cambiano la baseline solo con una revisione
 esplicita e documentata, mai per far salire la percentuale.
 
-**Totale attuale: 5/40 = 12,5%.**
+**Totale attuale: 6/40 = 15%.**
 
 | ID | Blocco e risultato richiesto | Stato |
 |---|---|---|
@@ -27,8 +27,8 @@ esplicita e documentata, mai per far salire la percentuale.
 | 03 | Ruoli membership e accessi tenant coerenti, prove PostgreSQL/RLS | DONE — PR #3, 108 test CI superati |
 | 04 | Deduplica concorrente dei job ordini per tenant/account/parametri | DONE — PR #4, CI 33876276914 superata |
 | 05 | Materializzazione cataloghi atomica e ultima versione valida | DONE — PR #5, 129 test CI superati |
-| 06 | Recupero job orfani, retry controllato e stato attendibile | IN PROGRESS |
-| 07 | Storage condiviso persistente API/worker e verifica restore | TODO |
+| 06 | Recupero job orfani, retry controllato e stato attendibile | DONE — PR #6, 153 test CI superati |
+| 07 | Storage condiviso persistente API/worker e verifica restore | IN PROGRESS — codice in verifica; bucket live da configurare |
 | 08 | Protezioni autenticazione, sessioni e recupero account previste | TODO |
 | 09 | Sync ordini incrementale/bulk, misure prima/dopo e parità risultati | TODO |
 | 10 | Dashboard con richieste aggregate e invalidazione scope verificata | TODO |
@@ -90,3 +90,6 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - Blocco 05 integrato con PR #5 (5b72c7f), 129 test GitHub CI superati. Totale 12,5%.
 - Blocco 06: heartbeat indipendente, recupero controllato e protezione del claim; 132 test locali superati e 21 PostgreSQL demandati alla CI.
+
+- Blocco 06 integrato con PR #6 (12c447e), 153 test GitHub CI superati. Totale 15%.
+- Blocco 07 parziale: integrità cache, versioni immutabili, prova restore e runbook. Nessun incremento prima di configurazione e prova API/worker live.

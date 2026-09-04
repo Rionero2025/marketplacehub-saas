@@ -72,3 +72,8 @@ Il core cataloghi prepara chunk normalizzati in una tabella temporanea privata d
 ### Blocco 06 — recupero job interrotti
 
 Ogni esecuzione del worker aggiorna un heartbeat indipendente ogni 30 secondi, anche durante chiamate senza progressi. Prima del prossimo claim il worker recupera i job senza heartbeat da almeno 300 secondi. Le scritture di esito/progresso sono condizionate da worker_id, tentativo e stato running.
+
+
+### Blocco 07 — integrità e storage condiviso
+
+Storage: cache verificate tramite SHA-256, download su percorsi contenenti il digest e scritture con file temporanei privati. Runbook SHARED_STORAGE_RUNBOOK.md per condivisione API/worker. Il backend live condiviso non è ancora configurato/verificato.

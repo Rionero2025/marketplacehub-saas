@@ -110,3 +110,8 @@ Stato corrente oltre la baseline: blocchi 01–04 integrati, 10%; blocco 05 in v
 ### Blocco 06 — recupero job interrotti
 
 Stato corrente oltre la baseline: blocchi 01–05 integrati, 12,5%; blocco 06 in verifica. Vedere SAAS_PROGRESS.md.
+
+
+### Blocco 07 — integrità e storage condiviso
+
+Stato corrente oltre la baseline: blocchi 01–06 integrati, 15%; blocco 07 parziale e non conteggiato. Worker Render verificato live sul commit 5b72c7f; deploy 12c447e avviato automaticamente. Vedere SAAS_PROGRESS.md.

@@ -61,3 +61,8 @@ Nessuna migrazione permanente. Tabelle staging con nomi UUID interni, rimosse al
 ### Blocco 06 — recupero job interrotti
 
 Nessuna migrazione. Il recupero serializza le righe con FOR UPDATE SKIP LOCKED su PostgreSQL e BEGIN IMMEDIATE su SQLite. Le condizioni del claim impediscono a un vecchio worker di modificare stato, risultato, progressi o heartbeat di un nuovo tentativo.
+
+
+### Blocco 07 — integrità e storage condiviso
+
+Nessuna migrazione. La chiave oggetto e hash esistenti identificano la versione pubblicata; un errore di aggiornamento metadata lascia leggibile quella precedente. I backup devono conservare riferimenti coerenti agli oggetti.

@@ -55,3 +55,8 @@ ISSUE-05 deduplica chiusa con PR #4; recupero orfani resta aperto. ISSUE-06: cor
 ### Blocco 06 — recupero job interrotti
 
 Materializzazione atomica integrata con PR #5. Recupero orfani in verifica sul blocco 06. Il heartbeat indipendente riduce i falsi orfani; un outage database superiore alla lease resta un caso di esecuzione sovrapposta per gli import ripetibili.
+
+
+### Blocco 07 — integrità e storage condiviso
+
+Recupero job orfani integrato con PR #6. ISSUE-07 storage condiviso resta aperta: sul worker Render non risultano variabili bucket/endpoint/credenziali né environment group collegati; i valori restano mascherati. Chiesto quale bucket usare. Test locali e Stubber S3 non equivalgono a restore live.

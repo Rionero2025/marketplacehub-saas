@@ -32,3 +32,8 @@ Blocco 04 integrato. Blocco 05: preparazione cataloghi su staging temporaneo, sw
 ### Blocco 06 — recupero job interrotti
 
 Blocco 05 integrato. Blocco 06: heartbeat durante handler silenziosi, riaccodamento conservativo, limite tentativi, errori con verifica richiesta e protezione dai vecchi claim. Test su recupero concorrente, scope del worker, heartbeat e fallimento handler.
+
+
+### Blocco 07 — integrità e storage condiviso
+
+Blocco 06 integrato (153 test CI). Blocco 07 parziale: cache integre, scritture concorrenti atomiche con retry Windows limitato, versioni immutabili e prova ripristino. Nessuna attivazione S3 senza configurazione disponibile.
