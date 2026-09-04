@@ -678,7 +678,7 @@ def _catalog_paths(seller_id: int) -> list[dict[str, Any]]:
     """
     return rows(
         """
-        SELECT pl.id AS price_list_id,pl.owner_seller_id AS source_seller_id,
+        SELECT pl.id AS price_list_id,pl.owner_seller_id AS source_seller_id,0 AS saved_view_id,
                pl.local_path AS path,pl.source_url AS source_url,
                COALESCE(pl.last_download_at,pl.created_at) AS updated_at,
                pl.name AS list_name,s.name AS supplier_name,
@@ -1974,8 +1974,12 @@ def _persist_override(
     )
 
 
+class AccountingEditConflict(ValueError):
+    """The accounting row changed after the SaaS editor loaded it."""
+
+
 def save_accounting_inline_edits(
-    changes: Iterable[Mapping[str, Any]],
+    changes: Iterable[Mapping[str, Any]], *, seller_id: int | None = None,
 ) -> dict[str, int]:
     """Persist direct grid edits and keep them authoritative across restarts/syncs."""
     updated_rows = 0
@@ -1989,10 +1993,15 @@ def save_accounting_inline_edits(
             requested = change.get("fields") if isinstance(change.get("fields"), Mapping) else change
             if not account_id or not marketplace or not row_key or not isinstance(requested, Mapping):
                 continue
+            scope_sql = " AND seller_id=?" if seller_id is not None else ""
+            scope_params = (seller_id,) if seller_id is not None else ()
+            # Lock before reading to serialize SaaS edits and marketplace upserts.
+            from services.postgresql_backend import PostgreSQLCompatConnection
+            lock_sql = " FOR UPDATE" if isinstance(con, PostgreSQLCompatConnection) else ""
             db_row = con.execute(
                 """SELECT * FROM accounting_order_lines
-                WHERE marketplace_account_id=? AND marketplace=? AND row_key=?""",
-                (account_id, marketplace, row_key),
+                WHERE marketplace_account_id=? AND marketplace=? AND row_key=?""" + scope_sql + lock_sql,
+                (account_id, marketplace, row_key) + scope_params,
             ).fetchone()
             if db_row is None:
                 continue
@@ -2001,6 +2010,14 @@ def save_accounting_inline_edits(
             for field_name, value in existing_overrides.items():
                 if field_name in ACCOUNTING_INLINE_EDIT_FIELDS or field_name in ACCOUNTING_OVERRIDE_INTERNAL_FIELDS:
                     current[field_name] = value
+
+            expected = change.get("expected")
+            if isinstance(expected, Mapping):
+                for field_name, value in expected.items():
+                    if field_name not in ACCOUNTING_INLINE_EDIT_FIELDS:
+                        raise ValueError("Campo contabile non modificabile.")
+                    if _sanitize_inline_edit(field_name, current.get(field_name)) != _sanitize_inline_edit(field_name, value):
+                        raise AccountingEditConflict("La riga è cambiata. Ricarica i dati prima di salvare.")
 
             accepted: dict[str, Any] = {}
             for field_name, value in requested.items():
@@ -2060,9 +2077,9 @@ def save_accounting_inline_edits(
             assignments = ",".join(f"{field_name}=?" for field_name in actual_columns)
             con.execute(
                 f"UPDATE accounting_order_lines SET {assignments},synced_at=? "
-                "WHERE marketplace_account_id=? AND marketplace=? AND row_key=?",
+                "WHERE marketplace_account_id=? AND marketplace=? AND row_key=?" + scope_sql,
                 tuple(accepted[field_name] for field_name in actual_columns)
-                + (updated_at, account_id, marketplace, row_key),
+                + (updated_at, account_id, marketplace, row_key) + scope_params,
             )
             for field_name in actual_columns:
                 _persist_override(

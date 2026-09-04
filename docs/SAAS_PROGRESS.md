@@ -41,7 +41,7 @@ esplicita e documentata, mai per far salire la percentuale.
 | 17 | Lavorazione cataloghi: query, filtri, selezioni, trasformazioni e viste | TODO |
 | 18 | Ordini Kaufland: parità completa filtri, colonne, sync, import/export | TODO |
 | 19 | Ordini Worten/Mirakl: parità del flusso completo e stati | TODO |
-| 20 | Contabilità operativa, listino corretto, edit persistenti, margini, quote, export | TODO |
+| 20 | Contabilità operativa, listino corretto, edit persistenti, margini, quote, export | IN PROGRESS — editor/listini/Excel in verifica; import, PDF, storico e prova staging aperti |
 | 21 | Pagamenti marketplace/settlement, previsioni, riconciliazioni e rettifiche | TODO |
 | 22 | Buy Box Kaufland/Worten, controllo, filtri margine e azioni prezzo | TODO |
 | 23 | Pubblicazione e cancellazione offerte sui marketplace esistenti | TODO |
@@ -105,3 +105,6 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - PR #10 integrata e frontend/API aggiornati (e8f82ab), 187 test CI.
 - Porting dashboard Seller in verifica: stesso motore economico, periodo e Top 10. Nessun incremento prima della prova completa prevista.
+
+- PR #11 dashboard pubblicata, 213 test CI.
+- Contabilità operativa Seller in verifica; totale invariato 6/40 = 15%.

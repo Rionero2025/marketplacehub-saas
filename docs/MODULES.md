@@ -98,3 +98,8 @@ Tre ingressi distinti: Seller /dashboard, Agenzia /agency, Admin /internal/admin
 ### Porting della dashboard Seller
 
 Pannello Seller: giorno/settimana/mese/intervallo, filtro account, ordini unici, vendite/margini/quote, righe mancanti, dettaglio paginato/ricerca, Top 10 cliccabile, confronto e andamento giornaliero, export CSV della pagina, job contabili e aggiornamento ogni 30 secondi. Fonte economica: cache contabile, distinta dall’archivio ordini.
+
+
+### Contabilità operativa Seller
+
+Contabilità: tabella paginata, ricerca, periodo, margini mancanti, 16 campi modificabili originali, quote, sync e ricalcolo costi tramite job esistenti. Scelta listini persistente; Excel di tutte le righe filtrate fino a 20.000. Non comprende ancora riconciliazioni, import documenti/PDF e storico export.

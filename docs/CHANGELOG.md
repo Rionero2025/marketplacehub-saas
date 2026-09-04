@@ -57,3 +57,8 @@ Scelta accesso Seller/Agenzia, login Admin interno, verifica area e tenant prima
 ### Porting della dashboard Seller
 
 Dashboard Seller economica con formule legacy, Top 10, dettagli e periodi. Un solo endpoint aggregato sostituisce le richieste per-account della vecchia pagina. Nuove regressioni SQLite/PostgreSQL e test UI per filtri, CSV, sync, paginazione e risposta tardiva dopo cambio Seller.
+
+
+### Contabilità operativa Seller
+
+Contabilità Seller al posto del JSON tecnico: righe, importi, quote, editor persistente con conflitto HTTP409, listini, job e Excel. Fix query listini non valida per numero diverso di colonne UNION ALL. Regressioni SQLite/PostgreSQL e concorrenza PostgreSQL; prova interfaccia con dati sintetici.

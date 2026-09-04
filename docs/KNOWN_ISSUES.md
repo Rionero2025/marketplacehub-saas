@@ -80,3 +80,8 @@ Ingressi distinti non completano le macroaree. CRUD, add-on, pagamenti e parità
 ### Porting della dashboard Seller
 
 Consegna Seller parziale: dashboard economica implementata, non tutto il progetto Streamlit. Restano contabilità editabile, ordini completi, fornitori/listini, pubblicazione, Buy Box operativo, logistica, supporto e altri moduli. Questa prima versione legge le colonne leggere dell’intero storico del solo Seller per preservare date legacy: benchmark/memoria e ottimizzazione restano aperti. CSV esporta la sola pagina, dichiarato in UI. Nessun automatico polling API ogni 5 minuti; lettura UI ogni 30 secondi e avvio job esplicito.
+
+
+### Contabilità operativa Seller
+
+Contabilità operativa consegnata in parte: editor, listini e Excel disponibili; restano import/confronto Excel, documenti fornitori, PDF e storico persistente. I filtri visuali usano Europe/Rome come dashboard; i job riusano ancora le finestre temporali legacy. Nessun benchmark di storico grande: lettura in memoria delle colonne sicure per account. Prova staging autenticata ancora aperta.

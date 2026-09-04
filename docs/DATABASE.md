@@ -86,3 +86,8 @@ issue_session accetta un tenant iniziale opzionale e verifica di nuovo l’acces
 ### Porting della dashboard Seller
 
 Nessuna migrazione. accounting_order_lines e accounting_manual_overrides alimentano i calcoli. Lettura singola delle colonne leggere del Seller, con account appartenente allo stesso Seller; quote da sellers. Date legacy italiane e conversione Europe/Rome preservate: le righe vengono filtrate dal motore originale, non con confronto lessicografico SQL.
+
+
+### Contabilità operativa Seller
+
+Nessuna migrazione. Edit persistenti in accounting_manual_overrides; guardia ottimistica sui valori originali dei 16 campi e lock PostgreSQL della riga prima del salvataggio. Query di aggiornamento SaaS con seller_id. Fix UNION ALL listini: saved_view_id presente in entrambi i SELECT.
