@@ -41,3 +41,8 @@ Non sono stati raccolti EXPLAIN ANALYZE, slow-query log o misure p95/p99. Aggiun
 ## Aggiornamento porting — 4 settembre 2026
 
 Nessuna migrazione di schema. Lo SKU recuperato viene persistito soltanto durante il refresh esplicito dei costi; nessun backfill al deploy. Override manuali conservati.
+
+
+### Blocco 03 — verifica autorizzazioni
+
+Aggiunte prove CI con PostgreSQL 17 temporaneo, ruolo senza superuser/BYPASSRLS e policy/contesto applicativi. Nessuna migrazione live. Le prove non certificano tutte le tabelle né tutte le migrazioni.

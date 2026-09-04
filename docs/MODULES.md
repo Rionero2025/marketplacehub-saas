@@ -53,3 +53,8 @@ Le righe locali duplicate sono intenzionali: servono a preservare differenze di 
 ## Aggiornamento porting — 4 settembre 2026
 
 Contabilità: ripristinati recupero SKU dal raw JSON e persistenza al refresh. La UI contabile rimane PARTIAL; questa correzione non chiude il modulo.
+
+
+### Blocco 03 — verifica autorizzazioni
+
+Utenti/assegnazioni: il ruolo viewer non può mutare aree operative tramite API; i ruoli Agency sono ereditati dai clienti. UI team e dashboard dedicate restano incomplete.

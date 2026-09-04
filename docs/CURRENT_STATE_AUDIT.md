@@ -90,3 +90,8 @@ Questo pacchetto è la memoria documentale del lavoro: baseline, differenze, req
 ## Aggiornamento porting — 4 settembre 2026
 
 Questo documento conserva la baseline del primo audit. Stato successivo: PR #1 integrata e CI superata; recupero SKU verificato sul ramo dedicato, in attesa di integrazione. Il conteggio corrente è in SAAS_PROGRESS.md; i numeri della baseline non vengono riscritti retroattivamente.
+
+
+### Blocco 03 — verifica autorizzazioni
+
+Stato successivo alla baseline: blocchi 01 e 02 integrati, 5% delle 40 milestone. Il blocco autorizzazioni è ancora in verifica. Vedere SAAS_PROGRESS.md.

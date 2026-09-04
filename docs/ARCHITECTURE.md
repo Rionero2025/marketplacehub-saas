@@ -52,3 +52,8 @@ Database, log utente, segreti e file binari non sono stati copiati nell'audit.
 ## Aggiornamento porting — 4 settembre 2026
 
 Il porting SKU riusa services/accounting.py condiviso da core/API/Streamlit; nessun nuovo servizio né duplicazione del motore.
+
+
+### Blocco 03 — verifica autorizzazioni
+
+TargetTenantUser autorizza il tenant esplicito e imposta il ContextVar nella task async, prima delle route sync. Le aree operative applicano un limite di scrittura basato sul ruolo.

@@ -314,12 +314,14 @@ def accessible_tenants_for_user(user_id: int, *, global_admin: bool = False) -> 
     )
     by_id: dict[int, dict] = {}
     agency_ids: list[int] = []
+    agency_roles: dict[int, str] = {}
     for item in direct:
         tid = int(item["id"])
         item["access_mode"] = "direct"
         by_id[tid] = item
         if str(item.get("tenant_type")) == "agency":
             agency_ids.append(tid)
+            agency_roles[tid] = str(item.get("role") or "viewer")
 
     if agency_ids:
         placeholders = ",".join("?" for _ in agency_ids)
@@ -330,12 +332,18 @@ def accessible_tenants_for_user(user_id: int, *, global_admin: bool = False) -> 
                 ORDER BY lower(t.name),t.id""",
             tuple(agency_ids),
         )
+        role_rank = {"viewer": 0, "operator": 1, "manager": 2, "admin": 3, "owner": 4}
         for item in clients:
             tid = int(item["id"])
+            role = agency_roles.get(int(item["agency_tenant_id"]), "viewer")
             if tid in by_id:
+                # A direct membership is authoritative. Multiple authorized
+                # agencies may contribute access; retain the highest such role.
+                if by_id[tid].get("access_mode") == "agency" and role_rank.get(role, 0) > role_rank.get(by_id[tid].get("role"), 0):
+                    by_id[tid]["role"] = role
                 continue
             item["access_mode"] = "agency"
-            item["role"] = "agency"
+            item["role"] = role
             by_id[tid] = item
     return list(by_id.values())
 

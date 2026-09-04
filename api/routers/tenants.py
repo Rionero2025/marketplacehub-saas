@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from api.dependencies import ApiUser, CurrentUser, ensure_tenant_access, request_token
+from api.dependencies import ApiUser, CurrentUser, TargetTenantUser, ensure_tenant_access, request_token
 from api.schemas import (
     AgencyClientLinkRequest,
     TenantActivateResponse,
@@ -61,12 +61,15 @@ def activate_tenant(tenant_id: int, request: Request, user: CurrentUser) -> Tena
 
 
 @router.get("/{tenant_id}/sellers")
-def tenant_sellers(tenant_id: int, user: CurrentUser) -> dict:
+def tenant_sellers(tenant_id: int, user: TargetTenantUser) -> dict:
     ensure_tenant_access(user, tenant_id)
     # The API switches context explicitly; this endpoint is informational only.
     ids = tenant_seller_ids(int(tenant_id))
-    if not user.is_admin and int(tenant_id) == int(user.active_tenant_id):
-        ids = [seller_id for seller_id in ids if user.can_access_seller(seller_id)]
+    if not user.is_admin:
+        if int(tenant_id) == int(user.active_tenant_id):
+            ids = [seller_id for seller_id in ids if user.can_access_seller(seller_id)]
+        elif user.legacy_seller_ids is not None:
+            ids = [seller_id for seller_id in ids if seller_id in user.legacy_seller_ids]
     return {"tenant_id": int(tenant_id), "seller_ids": ids}
 
 
@@ -78,27 +81,31 @@ def _global_admin(user: ApiUser) -> None:
 @router.post("", response_model=TenantResponse, status_code=201)
 def admin_create_tenant(payload: TenantCreateRequest, user: CurrentUser) -> TenantResponse:
     _global_admin(user)
-    tenant_id = create_tenant(
-        payload.name,
-        slug=payload.slug,
-        tenant_type=payload.tenant_type,
-        plan_code=payload.plan_code,
-        owner_user_id=payload.owner_user_id,
-    )
-    item = tenant_record(tenant_id) or {}
+    from services.tenant_db import platform_database_scope
+    # The new tenant cannot yet be an active session target. Only the explicit
+    # platform-admin operation may bootstrap it outside the caller's RLS scope.
+    with platform_database_scope():
+        tenant_id = create_tenant(
+            payload.name,
+            slug=payload.slug,
+            tenant_type=payload.tenant_type,
+            plan_code=payload.plan_code,
+            owner_user_id=payload.owner_user_id,
+        )
+        item = tenant_record(tenant_id) or {}
     item.update({"access_mode": "global_admin", "role": "platform_admin"})
     return _tenant_response(item, active_tenant_id=user.active_tenant_id)
 
 
 @router.post("/{tenant_id}/members/{user_id}", status_code=204)
-def admin_membership(tenant_id: int, user_id: int, payload: TenantMembershipRequest, user: CurrentUser):
+def admin_membership(tenant_id: int, user_id: int, payload: TenantMembershipRequest, user: TargetTenantUser):
     _global_admin(user)
     add_membership(int(tenant_id), int(user_id), role=payload.role, active=payload.active)
     return None
 
 
 @router.post("/{tenant_id}/sellers/{seller_id}", status_code=204)
-def admin_attach_seller(tenant_id: int, seller_id: int, payload: TenantSellerAttachRequest, user: CurrentUser):
+def admin_attach_seller(tenant_id: int, seller_id: int, payload: TenantSellerAttachRequest, user: TargetTenantUser):
     _global_admin(user)
     attach_seller(int(tenant_id), int(seller_id), transfer=payload.transfer)
     return None

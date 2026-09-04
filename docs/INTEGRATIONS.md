@@ -28,3 +28,8 @@ Kaufland, stesso job/parametri dell'utente: 1000 unità lette e salvate, zero er
 ## Aggiornamento porting — 4 settembre 2026
 
 Worten: recupero del costo incorporato nello SKU ripristinato; nessuna chiamata marketplace live necessaria o eseguita nei test del porting.
+
+
+### Blocco 03 — verifica autorizzazioni
+
+Nessuna chiamata marketplace o integrazione esterna modificata in questo blocco; verifica del solo confine di autorizzazione.

@@ -226,6 +226,7 @@ def session_user(token: str) -> dict[str, Any] | None:
         "is_admin": global_admin,
         "permissions": permissions_from_record(record),
         "seller_ids": seller_ids,
+        "legacy_seller_ids": legacy_scope,
         "expires_at": int(session.get("expires_at_epoch") or 0),
         "tenant_ids": tenant_ids,
         "active_tenant_id": active_tenant_id,

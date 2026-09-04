@@ -12,3 +12,8 @@
 ## Aggiornamento porting — 4 settembre 2026
 
 PR #1 integrata: CI, test onboarding persistente e controlli OpenAPI. Ramo SKU: helper originali ripristinati con isolamento riga, nessuna modifica ai dati live; suite locale 90 test superati.
+
+
+### Blocco 03 — verifica autorizzazioni
+
+Blocco 02 integrato (90 test). Blocco 03 in verifica: ruolo di scrittura, ereditarietà Agency, scope esplicito per billing/piani/tenant e restrizione seller legacy; suite PostgreSQL isolata aggiunta alla CI.

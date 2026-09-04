@@ -25,6 +25,7 @@ class ApiUser:
     active_tenant_name: str = ""
     active_tenant_type: str = ""
     tenant_role: str = ""
+    legacy_seller_ids: frozenset[int] | None = None
 
     @classmethod
     def from_record(cls, record: dict) -> "ApiUser":
@@ -43,10 +44,14 @@ class ApiUser:
             active_tenant_name=str(record.get("active_tenant_name") or ""),
             active_tenant_type=str(record.get("active_tenant_type") or ""),
             tenant_role=str(record.get("tenant_role") or ""),
+            legacy_seller_ids=None if record.get("legacy_seller_ids") is None else frozenset(int(v) for v in record["legacy_seller_ids"]),
         )
 
     def can(self, permission: str) -> bool:
         return self.is_admin or str(permission) in self.permissions
+
+    def can_write(self) -> bool:
+        return self.is_admin or self.tenant_role in {"owner", "admin", "manager", "operator"}
 
     def can_access_tenant(self, tenant_id: int) -> bool:
         return int(tenant_id) in self.tenant_ids
@@ -89,13 +94,26 @@ async def get_current_user(request: Request) -> AsyncIterator[ApiUser]:
 CurrentUser = Annotated[ApiUser, Depends(get_current_user)]
 
 
-def require_permission(permission: str) -> Callable[[ApiUser], ApiUser]:
-    def dependency(user: CurrentUser) -> ApiUser:
+async def get_target_tenant_user(tenant_id: int, user: CurrentUser) -> AsyncIterator[ApiUser]:
+    """Authorize an explicit tenant before binding its database transaction scope."""
+    from services.tenant_db import tenant_database_scope
+    ensure_tenant_access(user, tenant_id)
+    with tenant_database_scope(tenant_id):
+        yield user
+
+
+TargetTenantUser = Annotated[ApiUser, Depends(get_target_tenant_user)]
+
+
+def require_permission(permission: str) -> Callable[..., ApiUser]:
+    def dependency(request: Request, user: CurrentUser) -> ApiUser:
         if not user.can(permission):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Area non autorizzata: {permission}",
             )
+        if request.method not in {"GET", "HEAD", "OPTIONS"} and not user.can_write():
+            raise HTTPException(status_code=403, detail="Il ruolo nel workspace consente solo la lettura.")
         # v318: UI permissions and SaaS-plan entitlements are separate layers.
         # Platform Admin can support any active tenant, but ordinary tenant users
         # cannot call an API area disabled by their subscription.

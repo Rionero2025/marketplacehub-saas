@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from api.dependencies import ApiUser, CurrentUser, ensure_tenant_access
+from api.dependencies import ApiUser, CurrentUser, TargetTenantUser, ensure_tenant_access
 from api.schemas import (
     BillingActivateRequest,
     BillingCancelRequest,
@@ -47,19 +47,19 @@ def _response(item: dict) -> BillingSnapshotResponse:
 
 
 @router.get("/tenants/{tenant_id}/billing", response_model=BillingSnapshotResponse)
-def get_billing(tenant_id: int, user: CurrentUser) -> BillingSnapshotResponse:
+def get_billing(tenant_id: int, user: TargetTenantUser) -> BillingSnapshotResponse:
     ensure_tenant_access(user, tenant_id)
     return _response(billing_snapshot(int(tenant_id)))
 
 
 @router.get("/tenants/{tenant_id}/billing/events")
-def get_billing_events(tenant_id: int, user: CurrentUser, limit: int = Query(default=100, ge=1, le=500)):
+def get_billing_events(tenant_id: int, user: TargetTenantUser, limit: int = Query(default=100, ge=1, le=500)):
     ensure_tenant_access(user, tenant_id)
     return billing_events(int(tenant_id), limit=limit)
 
 
 @router.post("/tenants/{tenant_id}/billing/trial", response_model=BillingSnapshotResponse)
-def trial(tenant_id: int, payload: BillingTrialRequest, user: CurrentUser) -> BillingSnapshotResponse:
+def trial(tenant_id: int, payload: BillingTrialRequest, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     try:
         return _response(start_trial(int(tenant_id), payload.plan_code, days=payload.days))
@@ -68,7 +68,7 @@ def trial(tenant_id: int, payload: BillingTrialRequest, user: CurrentUser) -> Bi
 
 
 @router.post("/tenants/{tenant_id}/billing/activate", response_model=BillingSnapshotResponse)
-def activate(tenant_id: int, payload: BillingActivateRequest, user: CurrentUser) -> BillingSnapshotResponse:
+def activate(tenant_id: int, payload: BillingActivateRequest, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     try:
         return _response(activate_subscription(
@@ -82,7 +82,7 @@ def activate(tenant_id: int, payload: BillingActivateRequest, user: CurrentUser)
 
 
 @router.post("/tenants/{tenant_id}/billing/payment-success", response_model=BillingSnapshotResponse)
-def payment_success(tenant_id: int, payload: BillingPaymentSuccessRequest, user: CurrentUser) -> BillingSnapshotResponse:
+def payment_success(tenant_id: int, payload: BillingPaymentSuccessRequest, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     try:
         return _response(record_payment_success(
@@ -95,7 +95,7 @@ def payment_success(tenant_id: int, payload: BillingPaymentSuccessRequest, user:
 
 
 @router.post("/tenants/{tenant_id}/billing/payment-failed", response_model=BillingSnapshotResponse)
-def payment_failed(tenant_id: int, payload: BillingPaymentFailedRequest, user: CurrentUser) -> BillingSnapshotResponse:
+def payment_failed(tenant_id: int, payload: BillingPaymentFailedRequest, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     try:
         return _response(record_payment_failed(
@@ -107,13 +107,13 @@ def payment_failed(tenant_id: int, payload: BillingPaymentFailedRequest, user: C
 
 
 @router.post("/tenants/{tenant_id}/billing/suspend", response_model=BillingSnapshotResponse)
-def suspend(tenant_id: int, payload: BillingSuspendRequest, user: CurrentUser) -> BillingSnapshotResponse:
+def suspend(tenant_id: int, payload: BillingSuspendRequest, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     return _response(suspend_subscription(int(tenant_id), reason=payload.reason))
 
 
 @router.post("/tenants/{tenant_id}/billing/resume", response_model=BillingSnapshotResponse)
-def resume(tenant_id: int, payload: BillingResumeRequest, user: CurrentUser) -> BillingSnapshotResponse:
+def resume(tenant_id: int, payload: BillingResumeRequest, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     try:
         return _response(resume_subscription(int(tenant_id), reason=payload.reason))
@@ -122,7 +122,7 @@ def resume(tenant_id: int, payload: BillingResumeRequest, user: CurrentUser) -> 
 
 
 @router.post("/tenants/{tenant_id}/billing/cancel", response_model=BillingSnapshotResponse)
-def cancel(tenant_id: int, payload: BillingCancelRequest, user: CurrentUser) -> BillingSnapshotResponse:
+def cancel(tenant_id: int, payload: BillingCancelRequest, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     try:
         return _response(cancel_subscription(int(tenant_id), at_period_end=payload.at_period_end, reason=payload.reason))
@@ -131,7 +131,7 @@ def cancel(tenant_id: int, payload: BillingCancelRequest, user: CurrentUser) -> 
 
 
 @router.post("/tenants/{tenant_id}/billing/plan-change", response_model=BillingSnapshotResponse)
-def plan_change(tenant_id: int, payload: BillingPlanChangeRequest, user: CurrentUser) -> BillingSnapshotResponse:
+def plan_change(tenant_id: int, payload: BillingPlanChangeRequest, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     try:
         return _response(schedule_plan_change(
@@ -142,6 +142,6 @@ def plan_change(tenant_id: int, payload: BillingPlanChangeRequest, user: Current
 
 
 @router.post("/tenants/{tenant_id}/billing/refresh", response_model=BillingSnapshotResponse)
-def refresh(tenant_id: int, user: CurrentUser) -> BillingSnapshotResponse:
+def refresh(tenant_id: int, user: TargetTenantUser) -> BillingSnapshotResponse:
     _platform_admin(user); ensure_tenant_access(user, tenant_id)
     return _response(refresh_subscription_state(int(tenant_id)))
