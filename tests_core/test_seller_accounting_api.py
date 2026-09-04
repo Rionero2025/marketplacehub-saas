@@ -102,6 +102,39 @@ def test_accounting_filters_zero_missing_and_safe_payload(client):
     assert read(http,account_id=12)['total']==1
 
 
+def test_multi_filters_totals_shares_and_export_stay_on_single_seller(client,operational_db):
+    http,record=client
+    with operational_db() as con:
+        con.execute("UPDATE accounting_order_lines SET supplier='Innpro',country_code='DE' WHERE id IN (1,2)")
+        con.execute("UPDATE accounting_order_lines SET supplier='Cecotec',country_code='IT' WHERE id IN (3,4)")
+        con.execute("UPDATE accounting_order_lines SET supplier='PrivateSupplier',country_code='FR' WHERE id=8")
+    result=read(http,suppliers=['Innpro'],countries=['DE'],statuses=['Spedito'],limit=1)
+    assert result['total']==2 and len(result['items'])==1
+    assert result['totals']['sale']==150 and result['totals']['net_revenue']==50
+    assert result['seller']=={'id':1,'name':'Seller A'}
+    assert result['profit_split']['our_pct']==35 and result['profit_split']['partner_pct']==65
+    assert result['profit_split']['our_amount']==17.5 and result['profit_split']['partner_amount']==32.5
+    assert result['filter_options']['suppliers']==['Cecotec','Innpro']
+    assert result['filter_options']['countries']==['DE','IT']
+    assert 'PrivateSupplier' not in str(result)
+    assert read(http,suppliers=['Innpro','Cecotec'])['total']==4
+    assert read(http,suppliers=['Innpro'],countries=['IT'])['total']==0
+    response=http.get(PATH+'/export.xlsx',params={**PARAMS,'suppliers':['Innpro'],'countries':['DE'],'statuses':['Spedito']})
+    assert response.status_code==200
+    book=load_workbook(BytesIO(response.content),data_only=True)
+    assert sum(row[2].value=='A' for row in book.active)==2
+    assert not any(row[2].value in {'CANCEL','MISSING','PRIVATE'} for row in book.active)
+    book.close()
+    # An authorized agency can switch clients; totals/percentages never combine them.
+    record['seller_ids']=[1,2]
+    record['active_tenant_type']='agency'
+    second=http.get('/sellers/2/accounting/rows',params={**PARAMS,'account_id':21}).json()
+    assert second['total']==1 and second['totals']['sale']==1000
+    assert second['seller']=={'id':2,'name':'Seller B'}
+    assert second['profit_split']['our_pct']==0 and second['profit_split']['partner_pct']==100
+    assert read(http)['totals']['sale']==230
+
+
 def test_edit_persists_recomputes_conflicts_and_cannot_cross_scope(client,operational_db):
     http,_=client
     item=next(r for r in read(http)['items'] if r['id']==2)

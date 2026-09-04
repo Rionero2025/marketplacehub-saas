@@ -10,3 +10,5 @@
 .accountingCatalog{display:flex;align-items:center;gap:10px;margin:12px 0}
 
 .accountingTable table{min-width:1600px}.accountingTable td{vertical-align:top}.accountingTable small{display:block;margin-top:4px}.settingsForm .accountingCheck{display:flex;flex-direction:row;align-items:center;gap:8px}.settingsForm .accountingCheck input{width:auto}
+
+.settingsForm select[multiple]{height:auto;min-height:92px;padding:6px}.settingsForm select[multiple] option{padding:4px 8px}

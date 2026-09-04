@@ -85,3 +85,8 @@ Consegna Seller parziale: dashboard economica implementata, non tutto il progett
 ### Contabilità operativa Seller
 
 Contabilità operativa consegnata in parte: editor, listini e Excel disponibili; restano import/confronto Excel, documenti fornitori, PDF e storico persistente. I filtri visuali usano Europe/Rome come dashboard; i job riusano ancora le finestre temporali legacy. Nessun benchmark di storico grande: lettura in memoria delle colonne sicure per account. Prova staging autenticata ancora aperta.
+
+
+### Contabilità originale e conteggio per Seller
+
+La parità della Contabilità non è completata. ACCOUNTING_PARITY.md elenca le differenze residue: griglia diretta/massiva, selezioni, import/documenti, archivio e PDF. Filtri e quote non chiudono da soli il blocco20.

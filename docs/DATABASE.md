@@ -91,3 +91,8 @@ Nessuna migrazione. accounting_order_lines e accounting_manual_overrides aliment
 ### Contabilità operativa Seller
 
 Nessuna migrazione. Edit persistenti in accounting_manual_overrides; guardia ottimistica sui valori originali dei 16 campi e lock PostgreSQL della riga prima del salvataggio. Query di aggiornamento SaaS con seller_id. Fix UNION ALL listini: saved_view_id presente in entrambi i SELECT.
+
+
+### Contabilità originale e conteggio per Seller
+
+Nessuna migrazione. Percentuali da sellers; applicate esclusivamente al margine filtrato del Seller/account. Facet disponibili calcolate nel periodo prima dei filtri, con la stessa lettura sicura già presente.

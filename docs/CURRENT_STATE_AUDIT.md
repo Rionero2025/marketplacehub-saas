@@ -140,3 +140,8 @@ Implementazione dashboard Seller in verifica. 186 test locali superati prima del
 ### Contabilità operativa Seller
 
 Dashboard PR11 pubblicata, 213 test CI. Blocco20 contabilità in corso: 193 test locali passati prima dell’ultimo test concorrente PostgreSQL; build Next superata e UI sintetica verificata. Non equivale alla parità completa della Contabilità legacy né alla prova autenticata staging. Baseline6/40=15% invariata.
+
+
+### Contabilità originale e conteggio per Seller
+
+Pagina Streamlit di riferimento verificata online in sola lettura. Filtri/quote Seller in verifica. Nessun incremento del totale15%: parità completa e prova autenticata SaaS ancora aperte.

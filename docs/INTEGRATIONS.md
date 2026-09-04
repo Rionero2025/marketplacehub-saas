@@ -78,3 +78,8 @@ La lettura dashboard non chiama marketplace. Sincronizza dati economici invia i 
 ### Contabilità operativa Seller
 
 La lettura contabile non chiama marketplace. Pulsanti avviano accounting.orders.sync e accounting.costs.refresh esistenti per account e periodo. Download Excel usa il generatore legacy, senza creare uno storico file su storage locale del container.
+
+
+### Contabilità originale e conteggio per Seller
+
+Verificata in sola lettura la pagina Streamlit online marketplace-hub-wchg.onrender.com/Contabilita. Non avviati job né importazioni nell’originale. Backend SaaS conserva gli adapter marketplace esistenti.
