@@ -81,3 +81,8 @@ Seed saas_plans con ON CONFLICT DO NOTHING: i valori commerciali modificati non 
 ### Accessi distinti Seller, Agenzia e Admin
 
 issue_session accetta un tenant iniziale opzionale e verifica di nuovo l’accesso. Nessuna migrazione o modifica ruoli esistenti. Query clienti Agency senza DISTINCT non necessario, per evitare errore PostgreSQL sull’ordinamento lower(name); deduplica e ruolo più alto restano nella mappa esistente.
+
+
+### Porting della dashboard Seller
+
+Nessuna migrazione. accounting_order_lines e accounting_manual_overrides alimentano i calcoli. Lettura singola delle colonne leggere del Seller, con account appartenente allo stesso Seller; quote da sellers. Date legacy italiane e conversione Europe/Rome preservate: le righe vengono filtrate dal motore originale, non con confronto lessicografico SQL.

@@ -31,7 +31,7 @@ esplicita e documentata, mai per far salire la percentuale.
 | 07 | Storage condiviso persistente API/worker e verifica restore | IN PROGRESS — PR #7 integrata, 166 test CI; bucket live e restore da verificare |
 | 08 | Protezioni autenticazione, sessioni e recupero account previste | TODO |
 | 09 | Sync ordini incrementale/bulk, misure prima/dopo e parità risultati | TODO |
-| 10 | Dashboard con richieste aggregate e invalidazione scope verificata | TODO |
+| 10 | Dashboard con richieste aggregate e invalidazione scope verificata | IN PROGRESS — implementazione Seller in verifica, prova dati staging e parità restante aperte |
 | 11 | Cache, import grandi e memoria misurati senza perdere dati/funzioni | TODO |
 | 12 | Design system condiviso React/TS/Tailwind/shadcn e stati UI | TODO |
 | 13 | Gestione Seller, utenti, team, account marketplace e logistica | TODO |
@@ -51,7 +51,7 @@ esplicita e documentata, mai per far salire la percentuale.
 | 27 | Tracking, documenti, archivi e aggiornamento marketplace | TODO |
 | 28 | Ordini fornitori Cecotec/Innpro, template e storico download/dedup | TODO |
 | 29 | Ticket/messaggi marketplace, lettura, risposte, filtri e ordine associato | TODO |
-| 30 | Dashboard Seller, Top 10, vendite, alert e card operative cliccabili | TODO |
+| 30 | Dashboard Seller, Top 10, vendite, alert e card operative cliccabili | IN PROGRESS — implementazione Seller in verifica, prova dati staging e parità restante aperte |
 | 31 | Storico operativo e Attività con progressi/errori comprensibili | TODO |
 | 32 | Backup/trasferimento dati e amministrazione database con permessi dedicati | TODO |
 | 33 | Stripe reale: Checkout, Billing, Portal, webhook e ciclo abbonamento | TODO |
@@ -102,3 +102,6 @@ sezione 44 del documento prescrive una roadmap, non tutte le integrazioni insiem
 
 - PR #9 integrata e verificata Live su a1e8ed1 (frontend, API e worker), 176 test CI.
 - Accessi distinti Seller/Agenzia/Admin in verifica; avvio pannello Seller. Totale invariato 6/40 = 15%.
+
+- PR #10 integrata e frontend/API aggiornati (e8f82ab), 187 test CI.
+- Porting dashboard Seller in verifica: stesso motore economico, periodo e Top 10. Nessun incremento prima della prova completa prevista.

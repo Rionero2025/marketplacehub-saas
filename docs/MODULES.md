@@ -93,3 +93,8 @@ Prima base macroaree: prezzi nel sito, signup Seller/Agency con Enterprise trial
 ### Accessi distinti Seller, Agenzia e Admin
 
 Tre ingressi distinti: Seller /dashboard, Agenzia /agency, Admin /internal/admin. Shell Admin senza caricamenti Seller/jobs; shell Agenzia dedicata e ritorno al contesto agenzia dopo apertura cliente. Avvio pannello Seller sulle fonti dati esistenti; nessuna nuova funzione legacy dichiarata completata.
+
+
+### Porting della dashboard Seller
+
+Pannello Seller: giorno/settimana/mese/intervallo, filtro account, ordini unici, vendite/margini/quote, righe mancanti, dettaglio paginato/ricerca, Top 10 cliccabile, confronto e andamento giornaliero, export CSV della pagina, job contabili e aggiornamento ogni 30 secondi. Fonte economica: cache contabile, distinta dall’archivio ordini.

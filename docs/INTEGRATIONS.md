@@ -68,3 +68,8 @@ Nessuna creazione di prezzi o addebiti Stripe. Trial con provider manual e durat
 ### Accessi distinti Seller, Agenzia e Admin
 
 Nessun nuovo provider o addebito. Login seller/agency/admin usa le credenziali esistenti e il cookie di sessione già presente. Sessione condivisa nel browser, non tre sessioni simultanee indipendenti.
+
+
+### Porting della dashboard Seller
+
+La lettura dashboard non chiama marketplace. Sincronizza dati economici invia i job accounting.orders.sync già esistenti, uno per account attivo selezionato. Nessun thread globale legacy attivato nella richiesta SaaS. Nessuna credenziale richiesta dal client per gli aggregati.

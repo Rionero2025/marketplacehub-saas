@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api import API_VERSION
-from api.routers import accounting, auth, billing, buybox, catalogs, health, jobs, onboarding, orders, plans, sellers, tenants
+from api.routers import accounting, auth, billing, buybox, catalogs, dashboard, health, jobs, onboarding, orders, plans, sellers, tenants
 from api.session_store import ensure_api_session_schema
 from services.db import init_db
 from services.performance_indexes import ensure_performance_indexes
@@ -72,6 +72,7 @@ for router in (
     plans.router,
     billing.router,
     sellers.router,
+    dashboard.router,
     orders.router,
     accounting.router,
     buybox.router,
