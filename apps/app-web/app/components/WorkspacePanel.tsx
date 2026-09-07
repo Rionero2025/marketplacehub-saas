@@ -14,8 +14,8 @@ const titles = {
 };
 const kindLabels = { SELLER: "Seller", AGENCY: "Agenzia", PLATFORM: "Piattaforma" };
 
-export function WorkspacePanel({ result, realm, loginPath }: {
-  result: WorkspaceResult; realm: Workspace["realm"]; loginPath: string;
+export function WorkspacePanel({ result, realm, loginPath, view = "overview" }: {
+  result: WorkspaceResult; realm: Workspace["realm"]; loginPath: string; view?: "overview" | "store" | "organizations" | "permissions";
 }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
@@ -27,7 +27,13 @@ export function WorkspacePanel({ result, realm, loginPath }: {
   const activeSeller = workspace?.active_seller;
   const selectedId = selection ?? activeSeller?.id ?? "";
   const pending = saving || refreshing;
-  const title = titles[realm];
+  const title = view === "overview" ? titles[realm] : {
+    eyebrow: "IMPOSTAZIONI",
+    title: { store: "Negozio", organizations: "Organizzazioni", permissions: "Autorizzazioni" }[view],
+    description: { store: "Seleziona il negozio e gestisci la sua anagrafica.", organizations: "Le organizzazioni di cui fai parte e il tuo ruolo.", permissions: "I tuoi ambiti di accesso al negozio attivo." }[view],
+  };
+  const sectionHref = (section: "store" | "organizations" | "permissions") => realm === "seller"
+    ? `/seller/settings/${section}` : `#workspace-${section === "store" ? "seller" : section}`;
 
   function refresh() {
     setError("");
@@ -74,13 +80,13 @@ export function WorkspacePanel({ result, realm, loginPath }: {
     <p role="status" className="visually-hidden">{announcement}</p>
     {result.error && <section className="workspace-section workspace-empty" aria-label="Area non disponibile"><h2>Dati momentaneamente non disponibili</h2><p role="alert">{result.error}</p><button type="button" onClick={refresh} disabled={pending}>Riprova</button></section>}
     {workspace && <>
-      <div className="workspace-summary" aria-label="Riepilogo del tuo spazio di lavoro">
-        <div className="workspace-stat"><span className="workspace-stat-icon"><DashboardIcon name="building" size={21} /></span><div><span>Organizzazioni</span><strong>{workspace.organizations.length}</strong></div><a href="#workspace-organizations" aria-label="Vai alle organizzazioni"><DashboardIcon name="arrow" size={17} /></a></div>
-        <div className="workspace-stat"><span className="workspace-stat-icon stat-green"><DashboardIcon name="store" size={21} /></span><div><span>Negozi disponibili</span><strong>{workspace.sellers.length}</strong></div><a href="#workspace-seller" aria-label="Vai al negozio attivo"><DashboardIcon name="arrow" size={17} /></a></div>
-        <div className="workspace-stat"><span className="workspace-stat-icon stat-violet"><DashboardIcon name="shield" size={21} /></span><div><span>Ambiti autorizzati</span><strong>{activeSeller ? activeSeller.permissions.length : "—"}</strong></div><a href="#workspace-permissions" aria-label="Vai alle autorizzazioni"><DashboardIcon name="arrow" size={17} /></a></div>
-      </div>
-      <div className="workspace-columns">
-        <section className="workspace-section workspace-store" id="workspace-seller" aria-labelledby="seller-title">
+      {view === "overview" && <div className="workspace-summary" aria-label="Riepilogo del tuo spazio di lavoro">
+        <div className="workspace-stat"><span className="workspace-stat-icon"><DashboardIcon name="building" size={21} /></span><div><span>Organizzazioni</span><strong>{workspace.organizations.length}</strong></div><a href={sectionHref("organizations")} aria-label="Vai alle organizzazioni"><DashboardIcon name="arrow" size={17} /></a></div>
+        <div className="workspace-stat"><span className="workspace-stat-icon stat-green"><DashboardIcon name="store" size={21} /></span><div><span>Negozi disponibili</span><strong>{workspace.sellers.length}</strong></div><a href={sectionHref("store")} aria-label="Vai al negozio attivo"><DashboardIcon name="arrow" size={17} /></a></div>
+        <div className="workspace-stat"><span className="workspace-stat-icon stat-violet"><DashboardIcon name="shield" size={21} /></span><div><span>Ambiti autorizzati</span><strong>{activeSeller ? activeSeller.permissions.length : "—"}</strong></div><a href={sectionHref("permissions")} aria-label="Vai alle autorizzazioni"><DashboardIcon name="arrow" size={17} /></a></div>
+      </div>}
+      {(view === "overview" || view === "store" || view === "organizations") && <div className={`workspace-columns${view !== "overview" ? " workspace-single-section" : ""}`}>
+        {(view === "overview" || view === "store") && <section className="workspace-section workspace-store" id="workspace-seller" aria-labelledby="seller-title">
           <div className="workspace-section-heading"><h2 id="seller-title"><DashboardIcon name="store" />Negozio attivo</h2>{activeSeller && <span className="workspace-status"><span />Accesso verificato</span>}</div>
           {workspace.sellers.length > 0 ? <>
             <div className="workspace-section-body">
@@ -97,11 +103,12 @@ export function WorkspacePanel({ result, realm, loginPath }: {
                 <div className="seller-profile-heading"><span className="store-mark" aria-hidden="true">{activeSeller.name.slice(0, 1).toUpperCase()}</span><div><h3>{activeSeller.name}</h3><p>{activeSeller.organization_name}</p></div></div>
                 <dl className="seller-details"><div><dt>Ruolo nel negozio</dt><dd><span className="role-badge">{activeSeller.role_label}</span></dd></div><div><dt>Ragione sociale</dt><dd>{activeSeller.legal_name || "Non indicata"}</dd></div><div className="seller-email"><dt>Email del negozio</dt><dd>{activeSeller.email || "Non indicata"}</dd></div></dl>
               </div> : <p className="workspace-muted">Seleziona un negozio per consultarne i dati e le autorizzazioni.</p>}
-              {activeSeller && <SellerSettingsPanel key={activeSeller.id} sellerId={activeSeller.id} loginPath={loginPath} marketplacePath={realm === "seller" ? "/seller/marketplaces" : undefined} onSaved={() => startRefresh(() => router.refresh())} />}
+              {activeSeller && (realm !== "seller" || view === "store") && <SellerSettingsPanel key={activeSeller.id} sellerId={activeSeller.id} loginPath={loginPath} initiallyExpanded={view === "store"} marketplacePath={realm === "seller" ? "/seller/marketplaces" : undefined} onSaved={() => startRefresh(() => router.refresh())} />}
+              {activeSeller && realm === "seller" && view === "overview" && <a className="workspace-refresh" href={sectionHref("store")}><DashboardIcon name="settings" size={16} />Gestisci negozio</a>}
             </div>
           </> : <div className="workspace-section-body workspace-empty"><span className="store-mark"><DashboardIcon name="store" size={24} /></span><h3>Nessun negozio assegnato</h3><p>Il tuo account è attivo. Contatta l’amministratore della tua organizzazione per l’assegnazione di un negozio.</p></div>}
-        </section>
-        <section className="workspace-section workspace-organizations" id="workspace-organizations" aria-labelledby="organizations-title">
+        </section>}
+        {(view === "overview" || view === "organizations") && <section className="workspace-section workspace-organizations" id="workspace-organizations" aria-labelledby="organizations-title">
           <div className="workspace-section-heading"><h2 id="organizations-title"><DashboardIcon name="building" />{workspace.organizations.length === 1 ? "La tua organizzazione" : "Organizzazioni"}</h2><span className="count-badge">{workspace.organizations.length}</span></div>
           <div className="workspace-section-body">
             {workspace.organizations.length ? <ul className="organization-list">{workspace.organizations.map((organization) => <li key={organization.id}>
@@ -110,13 +117,13 @@ export function WorkspacePanel({ result, realm, loginPath }: {
             </li>)}</ul> : <p className="workspace-muted">Nessuna organizzazione assegnata. Contatta l’amministratore per ricevere l’accesso.</p>}
           </div>
           <div className="workspace-section-foot"><DashboardIcon name="shield" size={15} /><span>Visualizzi le organizzazioni autorizzate per il tuo account.</span></div>
-        </section>
-      </div>
-      <section className="workspace-section workspace-permissions" id="workspace-permissions" aria-labelledby="permissions-title">
+        </section>}
+      </div>}
+      {(realm !== "seller" || view === "permissions") && <section className="workspace-section workspace-permissions" id="workspace-permissions" aria-labelledby="permissions-title">
         <div className="workspace-section-heading"><h2 id="permissions-title"><DashboardIcon name="shield" />Autorizzazioni del tuo account</h2>{activeSeller && <span className="workspace-current-store"><DashboardIcon name="store" size={14} />{activeSeller.name}</span>}</div>
         <p className="permission-intro">Livelli di accesso assegnati al negozio selezionato.</p>
         {activeSeller?.permissions.length ? <div className="permission-table-wrap"><table className="permission-table"><thead><tr><th scope="col">Ambito</th><th scope="col">Livello di accesso</th></tr></thead><tbody>{activeSeller.permissions.map((permission) => <tr key={permission}><td>{workspace.permission_labels[permission] ?? permission}</td><td><span className={`permission-mode ${activeSeller.write_permissions.includes(permission) ? "permission-edit" : ""}`}><DashboardIcon name={activeSeller.write_permissions.includes(permission) ? "check" : "shield"} size={13} />{activeSeller.write_permissions.includes(permission) ? "Modifica" : "Consultazione"}</span></td></tr>)}</tbody></table></div> : <p className="workspace-section-body workspace-muted">{activeSeller ? "Nessuna autorizzazione operativa assegnata. Contatta l’amministratore della tua organizzazione." : "Seleziona un negozio per consultare le autorizzazioni."}</p>}
-      </section>
+      </section>}
     </>}
   </div>;
 }

@@ -10,11 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 87,
+    "verified": 110,
     "baseline_total": 2017,
     "excluded": 6,
     "total": 2011,
-    "percent": 4.33
+    "percent": 5.47
   },
   "criteria": [
     {
@@ -2396,77 +2396,99 @@
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:153",
       "requirement": "test_api_pagination_reads_requested_units",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0338",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:168",
       "requirement": "test_order_status_filters_match_the_current_kaufland_enum",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0339",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:186",
       "requirement": "test_normalization_calculates_sale_commission_and_payout",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0340",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:214",
       "requirement": "test_composed_sku_reads_third_value_as_purchase_cost",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0341",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:230",
       "requirement": "test_composed_sku_parser_works_from_the_right",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0342",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:240",
       "requirement": "test_mismatched_order_ean_does_not_hide_sku_cost",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0343",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:255",
       "requirement": "test_original_sku_does_not_invent_a_cost",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0344",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:263",
       "requirement": "test_ab_online_row_uses_cost_despite_order_ean_difference",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0345",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:274",
       "requirement": "test_composed_sku_accepts_non_ean_product_code",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0346",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:286",
       "requirement": "test_composed_sku_reads_fixed_values_from_the_right",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0347",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:297",
       "requirement": "test_old_sku_is_explicitly_not_calculable",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0348",
@@ -2557,7 +2579,9 @@
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:576",
       "requirement": "test_explicit_api_commission_has_priority",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0361",
@@ -2571,14 +2595,18 @@
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:610",
       "requirement": "test_tracking_accepts_list_and_carrier",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0363",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:620",
       "requirement": "test_tracking_accepts_nested_shipments",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0364",
@@ -2606,21 +2634,27 @@
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:712",
       "requirement": "test_find_order_unit_inside_order_detail",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0368",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:726",
       "requirement": "test_currency_conversion_uses_eur_reference_rate",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0369",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:731",
       "requirement": "test_every_order_amount_is_converted_to_eur",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0370",
@@ -2669,14 +2703,18 @@
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:890",
       "requirement": "test_sync_saves_rows_and_enriches_sent_tracking",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0377",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:905",
       "requirement": "test_sync_falls_back_to_order_detail_for_tracking",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0378",
@@ -6756,14 +6794,18 @@
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:100",
       "requirement": "selectbox: \"Account Kaufland\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0253",
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:106",
       "requirement": "checkbox: \"Playground (test)\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0254",
@@ -6819,7 +6861,9 @@
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:676",
       "requirement": "text_input: \"Cerca\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0262",
@@ -6840,7 +6884,9 @@
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Marketplace.py:41",
       "requirement": "selectbox: \"Marketplace degli ordini\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.1/B21.1",
+      "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0265",

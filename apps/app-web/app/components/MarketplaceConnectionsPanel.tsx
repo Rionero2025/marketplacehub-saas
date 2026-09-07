@@ -12,20 +12,20 @@ function MarketplaceLogo({ code, name }: { code: string; name: string }) {
   return <span className="marketplace-logo">{failed ? <strong>{name}</strong> : <img src={`/marketplaces/${code}.svg`} alt={name} width={144} height={44} onError={() => setFailed(true)} />}</span>;
 }
 
-export function MarketplaceConnectionsPage({ result }: { result: WorkspaceResult }) {
+export function MarketplaceConnectionsPage({ result, view = "directory" }: { result: WorkspaceResult; view?: "directory" | "accounts" }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const seller = result.workspace?.active_seller;
   return <div className="marketplace-page">
-    <div className="workspace-heading"><div><p className="eyebrow">I TUOI CANALI DI VENDITA</p><h1>Collega marketplace</h1><p>Scegli il marketplace e collega il tuo account al negozio.</p></div></div>
+    <div className="workspace-heading"><div><p className="eyebrow">I TUOI CANALI DI VENDITA</p><h1>{view === "accounts" ? "Account collegati" : "Collega marketplace"}</h1><p>{view === "accounts" ? "Gestisci gli account e verifica lo stato delle connessioni API." : "Scegli il marketplace e collega il tuo account al negozio."}</p></div>{view === "accounts" && <a className="workspace-refresh" href="/seller/marketplaces"><DashboardIcon name="plug" size={16} />Collega marketplace</a>}</div>
     {result.error ? <section className="workspace-section workspace-empty"><h2>Dati momentaneamente non disponibili</h2><p className="form-error" role="alert">{result.error}</p><button type="button" className="workspace-refresh" disabled={refreshing} onClick={() => startRefresh(() => router.refresh())}>Riprova</button></section>
-      : seller ? <><div className="marketplace-shop"><span><DashboardIcon name="store" size={18} /><strong>{seller.name}</strong><span>{seller.organization_name}</span></span><a href="/seller#workspace-seller">Cambia negozio<DashboardIcon name="chevron" size={14} /></a></div><MarketplaceConnectionsPanel key={seller.id} sellerId={seller.id} sellerName={seller.name} /></>
-        : <section className="workspace-section workspace-empty"><DashboardIcon name="store" size={26} /><h2>Seleziona un negozio</h2><p>Per collegare un marketplace serve un negozio assegnato al tuo account.</p><a className="workspace-refresh" href="/seller#workspace-seller">Vai ai tuoi negozi</a></section>}
+      : seller ? <><div className="marketplace-shop"><span><DashboardIcon name="store" size={18} /><strong>{seller.name}</strong><span>{seller.organization_name}</span></span><a href="/seller/settings/store">Cambia negozio<DashboardIcon name="chevron" size={14} /></a></div><MarketplaceConnectionsPanel key={`${seller.id}-${view}`} sellerId={seller.id} sellerName={seller.name} view={view} /></>
+        : <section className="workspace-section workspace-empty"><DashboardIcon name="store" size={26} /><h2>Seleziona un negozio</h2><p>Per collegare un marketplace serve un negozio assegnato al tuo account.</p><a className="workspace-refresh" href="/seller/settings/store">Vai ai tuoi negozi</a></section>}
   </div>;
 }
 
 /** A Seller change unmounts this component, clearing credentials and invalidating in-flight requests. */
-export function MarketplaceConnectionsPanel({ sellerId, sellerName }: { sellerId: string; sellerName: string }) {
+export function MarketplaceConnectionsPanel({ sellerId, sellerName, view = "directory" }: { sellerId: string; sellerName: string; view?: "directory" | "accounts" }) {
   const router = useRouter();
   const [connections, setConnections] = useState<MarketplaceConnections | null>(null);
   const [query, setQuery] = useState("");
@@ -151,7 +151,8 @@ export function MarketplaceConnectionsPanel({ sellerId, sellerName }: { sellerId
         {error && <p className="form-error" role="alert">{error}</p>}
         {success && <p className="settings-success" role="status">{success}</p>}
         {connections && !connections.can_manage && <p className="settings-notice">Accesso in sola lettura. Per collegare o modificare un account serve l’autorizzazione alla gestione del negozio.</p>}
-        {connections?.accounts.length ? <ul className="marketplace-account-list">{connections.accounts.map((account) => {
+        {view === "directory" && connections && <p className="marketplace-connection-summary">{connections.accounts.length ? `${connections.accounts.length} account presenti per questo negozio.` : "Nessun account collegato. Scegli un marketplace per iniziare."} <a href="/seller/marketplaces/accounts">Gestisci gli account collegati <span aria-hidden="true">→</span></a></p>}
+        {view === "accounts" && (connections?.accounts.length ? <ul className="marketplace-account-list">{connections.accounts.map((account) => {
           const entry = marketplaceCatalog.find((item) => item.code === account.marketplace);
           const canVerify = Boolean(entry?.connector) && account.active;
           const status = account.connection_status === "connected" ? "Collegato" : account.connection_status === "error" ? "Verifica non riuscita" : "Da verificare";
@@ -166,7 +167,7 @@ export function MarketplaceConnectionsPanel({ sellerId, sellerName }: { sellerId
           </div>{connections.can_manage && <div className="marketplace-account-actions"><button className="workspace-refresh" type="button" disabled={!canManage || !canVerify} onClick={() => { if (canManage && canVerify) void request("verify", undefined, account.id); }}>{pending === `verify-${account.id}` ? "Verifica in corso…" : "Verifica connessione"}</button><button type="button" className="settings-delete" disabled={!canManage} onClick={() => { if (canManage) { setDeleteId(account.id); setConfirmation(""); } }}>Elimina</button></div>}</div>
             {deleteId === account.id && connections.can_manage && <div className="settings-delete-confirm"><p>Eliminare il collegamento «{account.account_name}» da {sellerName}?</p><label htmlFor={`${domId}-delete`}>Scrivi ELIMINA per confermare</label><input id={`${domId}-delete`} autoComplete="off" disabled={!canManage} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /><div className="settings-actions"><button type="button" className="settings-delete" disabled={!canManage || confirmation !== "ELIMINA"} onClick={() => { if (canManage && confirmation === "ELIMINA") void request("delete", { confirmation }, account.id); }}>{pending === "delete" ? "Eliminazione…" : "Elimina definitivamente"}</button><button type="button" className="workspace-refresh" disabled={Boolean(pending)} onClick={() => { setDeleteId(null); setConfirmation(""); }}>Annulla</button></div></div>}
           </li>;
-        })}</ul> : connections && <div className="marketplace-no-accounts"><span className="marketplace-empty-icon"><DashboardIcon name="plug" size={24} /></span><div><strong>Collega il tuo primo marketplace</strong><p>Scegli un’integrazione disponibile nella griglia per iniziare.</p></div></div>}
+        })}</ul> : connections && <div className="marketplace-no-accounts"><span className="marketplace-empty-icon"><DashboardIcon name="plug" size={24} /></span><div><strong>Collega il tuo primo marketplace</strong><p><a href="/seller/marketplaces">Scegli un’integrazione disponibile per iniziare.</a></p></div></div>)}
       </div>
     </section>
 
@@ -179,12 +180,12 @@ export function MarketplaceConnectionsPanel({ sellerId, sellerName }: { sellerId
         </div><p className="settings-hint">Le chiavi sono salvate cifrate e non vengono mostrate dopo il collegamento.</p><div className="settings-actions"><button type="submit" className="settings-primary" disabled={!canManage || !formValid}>{pending === "connect" ? "Verifica in corso…" : "Verifica e collega"}</button><button type="button" className="workspace-refresh" disabled={Boolean(pending)} onClick={resetForm}>Annulla</button></div></fieldset></form></div>
     </section>}
 
-    <section className="marketplace-directory" aria-labelledby={`${domId}-catalog-title`}>
+    {view === "directory" && <section className="marketplace-directory" aria-labelledby={`${domId}-catalog-title`}>
       <div className="marketplace-directory-heading"><div><h2 id={`${domId}-catalog-title`}>Scegli il marketplace</h2><p>{availableCount} integrazioni disponibili per il collegamento API. Le altre integrazioni sono da sviluppare.</p></div><span className="count-badge">{marketplaceCatalog.length} marketplace</span></div>
       <div className="marketplace-toolbar"><div className="marketplace-search"><DashboardIcon name="search" size={18} /><label className="visually-hidden" htmlFor={`${domId}-search`}>Cerca marketplace</label><input id={`${domId}-search`} type="search" placeholder="Cerca marketplace…" value={query} onChange={(event) => setQuery(event.target.value)} /></div><div><label className="visually-hidden" htmlFor={`${domId}-category`}>Categoria marketplace</label><select id={`${domId}-category`} value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">Tutte le categorie</option>{[...new Set(marketplaceCatalog.map((entry) => entry.category))].map((value) => <option key={value} value={value}>{value}</option>)}</select></div></div>
       <div className="marketplace-filters" aria-label="Disponibilità delle integrazioni">{[["all", "Tutti", marketplaceCatalog.length], ["available", "Disponibili", availableCount], ["planned", "Da sviluppare", marketplaceCatalog.length - availableCount]].map(([value, label, count]) => <button type="button" key={value} aria-pressed={availability === value} className={availability === value ? "is-active" : ""} onClick={() => setAvailability(String(value))}>{label}<span>{count}</span></button>)}</div>
       <p className="visually-hidden" role="status">{visible.length} marketplace visualizzati.</p>
       {visible.length ? <div className="marketplace-grid">{visible.map((entry) => <article className={`marketplace-card${entry.connector ? " marketplace-available" : ""}`} key={entry.code}><div className="marketplace-card-logo"><MarketplaceLogo code={entry.code} name={entry.name} /></div><h3>{entry.name}</h3><p>{entry.category}</p><span className={`marketplace-availability${entry.connector ? " available" : ""}`}><span />{entry.connector ? "Collegamento API disponibile" : "Integrazione da sviluppare"}</span><button type="button" disabled={!entry.connector || !canManage} className="marketplace-card-button" onClick={() => choose(entry)} aria-label={entry.connector ? `Collega ${entry.name}` : `${entry.name}: integrazione da sviluppare`}>{entry.connector ? "Collega" : "Da sviluppare"}{entry.connector && <DashboardIcon name="arrow" size={15} />}</button></article>)}</div> : <div className="workspace-section workspace-empty"><h3>Nessun marketplace trovato</h3><p>Prova un altro nome o modifica i filtri.</p><button type="button" className="workspace-refresh" onClick={() => { setQuery(""); setCategory("all"); setAvailability("all"); }}>Azzera filtri</button></div>}
-    </section>
+    </section>}
   </div>;
 }

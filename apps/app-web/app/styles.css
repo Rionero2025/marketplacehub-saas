@@ -34,13 +34,20 @@ button:disabled { cursor: wait; opacity: .65; }
 .hub-sidebar { position: fixed; inset: 0 auto 0 0; width: 248px; z-index: 40; display: grid; grid-template-columns: 64px 184px; }
 .hub-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #2d373c; padding: 12px 8px; }
 .hub-rail-brand { display: grid; place-items: center; width: 38px; height: 35px; margin-bottom: 26px; border-radius: 5px; color: white; background: #0077b8; font-size: 12px; font-weight: 800; text-decoration: none; }
-.hub-rail-link { width: 42px; height: 40px; display: grid; place-items: center; border-radius: 5px; color: #b7c3ca; text-decoration: none; transition: background .15s, color .15s; }
+.hub-rail-link { position: relative; width: 42px; height: 40px; display: grid; place-items: center; border-radius: 5px; color: #b7c3ca; text-decoration: none; transition: background .15s, color .15s; }
 .hub-rail-link:hover { background: #3d474d; color: white; }
 .hub-rail-link.is-active { color: white; background: #0077b8; }
 .hub-sidebar-panel { display: flex; flex-direction: column; min-width: 0; padding: 18px 12px; background: #eef1f4; border-right: 1px solid #dce1e6; }
 .hub-brand { margin-bottom: 30px; padding-left: 5px; display: flex; flex-direction: column; gap: 3px; text-decoration: none; }
 .hub-brand-name, .hub-brand-caption { display: block; }
-.hub-rail nav { display: grid; gap: 8px; }
+.hub-rail nav { display: flex; flex: 1; flex-direction: column; gap: 8px; }
+.hub-rail-settings { margin-top: auto; }
+.hub-rail-tooltip { position: absolute; left: calc(100% + 9px); top: 50%; transform: translateY(-50%); z-index: 45; width: max-content; padding: 7px 10px; border-radius: 4px; background: #18272f; color: white; font-size: 12px; pointer-events: none; opacity: 0; visibility: hidden; }
+.hub-rail-link:hover .hub-rail-tooltip, .hub-rail-link:focus-visible .hub-rail-tooltip { opacity: 1; visibility: visible; }
+.hub-rail-link:focus-visible, .hub-nav-link:focus-visible { outline: 2px solid #009bdc; outline-offset: 3px; }
+.hub-sidebar-panel { overflow-y: auto; }
+.workspace-columns.workspace-single-section { grid-template-columns: minmax(0, 1fr); }
+.marketplace-connection-summary { margin: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
 .hub-brand-name { font-size: 14px; font-weight: 750; letter-spacing: -.3px; color: #253443; }
 .hub-brand-caption { color: #607284; font-size: 11px; }
 .hub-nav-label { padding: 0 9px; margin: 0 0 8px; color: #607284; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
@@ -175,9 +182,8 @@ button:disabled { cursor: wait; opacity: .65; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #008ada; outline-offset: 3px; }
 @media (max-width: 1200px) { .seller-details { grid-template-columns: repeat(2, minmax(0, 1fr)); } .seller-email { grid-column: 1 / -1; } }
-@media (max-width: 1100px) { .hub-shell { grid-template-columns: 64px minmax(0, 1fr); } .hub-sidebar { width: 64px; grid-template-columns: 64px; } .hub-sidebar-panel { display: none; } }
 @media (max-width: 850px) { .workspace-columns { grid-template-columns: 1fr; } .workspace-stat { padding: 13px; gap: 10px; } .workspace-stat-icon { width: 34px; height: 37px; } }
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   .hub-shell { grid-template-columns: minmax(0, 1fr); }
   .hub-main { grid-column: 1; }
   .hub-sidebar { width: 248px; grid-template-columns: 64px 184px; transform: translateX(-100%); visibility: hidden; transition: transform .2s, visibility .2s; }

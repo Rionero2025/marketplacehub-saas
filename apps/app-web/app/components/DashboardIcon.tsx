@@ -1,7 +1,9 @@
-export type DashboardIconName = "home" | "store" | "building" | "shield" | "menu" | "close" | "exit" | "chevron" | "refresh" | "check" | "users" | "arrow" | "plug" | "search";
+export type DashboardIconName = "home" | "store" | "building" | "shield" | "menu" | "close" | "exit" | "chevron" | "refresh" | "check" | "users" | "arrow" | "plug" | "search" | "orders" | "settings";
 
 export function DashboardIcon({ name, size = 18 }: { name: DashboardIconName; size?: number }) {
   const paths: Record<DashboardIconName, ReactNode> = {
+    settings: <><path d="m9 3-.7 2.4-2.2 1L3.7 6 2 9l1.8 1.8v2.4L2 15l1.7 3 2.4-.4 2.2 1L9 21h6l.7-2.4 2.2-1 2.4.4 1.7-3-1.8-1.8v-2.4L22 9l-1.7-3-2.4.4-2.2-1L15 3Z" /><circle cx="12" cy="12" r="3" /></>,
+    orders: <><path d="M6 3h12l3 5v13H3V8Zm-3 5h18M8 12h8M8 16h5" /></>,
     plug: <><path d="M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-12 0Zm6 9v4" /></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></>,
     home: <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z" /></>,

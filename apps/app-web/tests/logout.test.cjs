@@ -12,6 +12,7 @@ function load(relativePath, context) {
   vm.runInNewContext(compiled, { exports, AbortSignal, ...context });
   return exports;
 }
+const navigation = load("../app/lib/seller-navigation.ts", {});
 
 function component(fetchImpl) {
   const state = [];
@@ -31,6 +32,8 @@ function component(fetchImpl) {
       };
       if (name === "react/jsx-runtime") return { jsx: element, jsxs: element };
       if (name === "next/navigation") return { useRouter: () => ({ replace: (target) => navigations.push(target), refresh: () => { refreshCount += 1; } }) };
+      if (name === "next/link") return { default: "a" };
+      if (name === "../lib/seller-navigation") return navigation;
       if (name === "./DashboardIcon") return { DashboardIcon: () => null };
       throw new Error(`Unexpected dependency ${name}`);
     },
@@ -91,7 +94,7 @@ function mobileMenu() {
     return node;
   };
   const { PortalShell } = load("../app/components/PortalShell.tsx", {
-    document, window: { matchMedia: () => viewport },
+    document, window: { location: { hash: "" }, addEventListener() {}, removeEventListener() {}, matchMedia: (query) => { assert.equal(query, "(max-width: 900px)"); return viewport; } },
     require(name) {
       if (name === "react") return {
         useState(initial) { const index = stateIndex++; if (!(index in state)) state[index] = initial; return [state[index], (value) => { state[index] = value; }]; },
@@ -105,6 +108,8 @@ function mobileMenu() {
       };
       if (name === "react/jsx-runtime") return { jsx: element, jsxs: element };
       if (name === "next/navigation") return { useRouter: () => ({ replace() {}, refresh() {} }) };
+      if (name === "next/link") return { default: "a" };
+      if (name === "../lib/seller-navigation") return navigation;
       if (name === "./DashboardIcon") return { DashboardIcon: () => null };
       throw new Error(`Unexpected dependency ${name}`);
     },

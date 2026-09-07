@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-07 — B20.1/B21.1: archivio ordini e navigazione Seller
+
+- aggiunta macroarea Ordini con importazione Kaufland/Worten dall'account collegato al Seller;
+- coda e worker separati, stato durevole, controlli di scope/permessi e archivio senza duplicati;
+- trasferiti SKU composto, nome/EAN, quantità, costi, vendita, commissioni, netto e utile;
+- conservate differenze monetarie tra Kaufland e Worten, provenienza e valori mancanti espliciti;
+- disponibili ricerca, filtri data/stato/paese, dettagli e ambienti Kaufland Live/Playground;
+- barra scura con macroaree e menu chiaro con sottosezioni dedicate, secondo D-016;
+- verificati 266 test Python (85 Ordini), 80 test frontend, build e browser desktop/responsive;
+- 23 criteri verificati aggiunti: 110/2.011 = 5,47%; nessun incremento per il solo restyling;
+- pubblicazione da confermare nella scheda B20.1; importazione reale staging non attestata;
+- restano pendenti parità completa dei listini, pagamenti/ticket, tracking manuale e CSV.
+
+## 2026-09-07 — B03: accesso durante il risveglio del backend
+
+- readiness prima dell'unico invio delle credenziali e messaggi specifici per l'indisponibilità;
+- timeout, annullamento e controllo della sessione restituita dal backend;
+- nessuna modifica delle password, del piano Render o della percentuale del progetto;
+- diagnosi e verifiche in `docs/blocks/B03_LOGIN_COLD_START.md`.
+
 ## 2026-09-07 — B10.2: Collega marketplace nel Seller Enterprise
 
 - nuova sezione dedicata con griglia grafica di 28 marketplace, ricerca e filtri;

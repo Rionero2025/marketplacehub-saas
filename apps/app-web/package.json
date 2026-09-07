@@ -6,7 +6,7 @@
     "build": "next build",
     "dev": "next dev --port 3000",
     "start": "next start --port ${PORT:-3000}",
-    "test": "tsc --noEmit && node --test tests/session.test.cjs tests/logout.test.cjs tests/seller-settings.test.cjs tests/marketplace-connections.test.cjs tests/login.test.cjs",
+    "test": "tsc --noEmit && node --test tests/session.test.cjs tests/logout.test.cjs tests/seller-settings.test.cjs tests/marketplace-connections.test.cjs tests/login.test.cjs tests/orders.test.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

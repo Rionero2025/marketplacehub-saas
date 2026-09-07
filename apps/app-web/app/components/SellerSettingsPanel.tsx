@@ -10,9 +10,9 @@ const emptyDraft: ProfileDraft = { name: "", legal_name: "", email: "" };
 const toDraft = (value: SellerSettings): ProfileDraft => ({ name: value.name, legal_name: value.legal_name ?? "", email: value.email ?? "" });
 
 /** Mounted with the Seller id as React key, so switching shops destroys drafts and credential inputs. */
-export function SellerSettingsPanel({ sellerId, loginPath, onSaved, marketplacePath }: { sellerId: string; loginPath: string; onSaved: () => void; marketplacePath?: string }) {
+export function SellerSettingsPanel({ sellerId, loginPath, onSaved, marketplacePath, initiallyExpanded = false }: { sellerId: string; loginPath: string; onSaved: () => void; marketplacePath?: string; initiallyExpanded?: boolean }) {
   const router = useRouter();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(initiallyExpanded);
   const [settings, setSettings] = useState<SellerSettings | null>(null);
   const [draft, setDraft] = useState<ProfileDraft>(emptyDraft);
   const [pending, setPending] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export function SellerSettingsPanel({ sellerId, loginPath, onSaved, marketplaceP
 
   useEffect(() => {
     active.current = true;
-    return () => { active.current = false; requestVersion.current += 1; controller.current?.abort(); };
+    return () => { active.current = false; requestVersion.current += 1; controller.current?.abort(); operationActive.current = false; };
   }, []);
 
   useEffect(() => {
@@ -106,9 +106,9 @@ export function SellerSettingsPanel({ sellerId, loginPath, onSaved, marketplaceP
   }
 
   return <div className="seller-settings">
-    <button type="button" className="workspace-refresh settings-toggle" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} aria-controls={domId} disabled={Boolean(pending)}>
+    {!initiallyExpanded && <button type="button" className="workspace-refresh settings-toggle" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} aria-controls={domId} disabled={Boolean(pending)}>
       <DashboardIcon name="store" size={15} />{expanded ? "Chiudi impostazioni" : "Gestisci negozio"}
-    </button>
+    </button>}
     {expanded && <div id={domId} className="settings-content" aria-busy={Boolean(pending)}>
       <div className="settings-heading"><h3>Impostazioni del negozio</h3><button type="button" className="workspace-refresh" onClick={load} disabled={Boolean(pending)}><DashboardIcon name="refresh" size={14} />Aggiorna dati</button></div>
       {pending === "read" && <p className="workspace-muted" role="status">Caricamento delle impostazioni…</p>}

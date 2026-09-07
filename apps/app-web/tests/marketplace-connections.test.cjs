@@ -107,7 +107,7 @@ test("Next routes resolve asynchronous params and route connect, read, verify an
   }
 });
 
-function component(fetchImpl) {
+function component(fetchImpl, view = "directory") {
   const states = [], refs = [], effects = [], requests = [], navigations = [];
   let stateIndex, refIndex, effectIndex, pendingEffects, tree;
   const elements = (node) => !node || typeof node !== "object" ? [] : Array.isArray(node) ? node.flatMap(elements) : [node, ...elements(node.props?.children)];
@@ -126,7 +126,7 @@ function component(fetchImpl) {
     if (name === "./DashboardIcon") return { DashboardIcon: () => null };
     throw new Error(name);
   } });
-  function render() { stateIndex = refIndex = effectIndex = 0; pendingEffects = []; tree = module.MarketplaceConnectionsPanel({ sellerId, sellerName: "Negozio demo" }); pendingEffects.forEach((effect) => effect()); }
+  function render() { stateIndex = refIndex = effectIndex = 0; pendingEffects = []; tree = module.MarketplaceConnectionsPanel({ sellerId, sellerName: "Negozio demo", view }); pendingEffects.forEach((effect) => effect()); }
   const nodes = () => elements(tree);
   const byId = (suffix) => nodes().find((node) => node.props?.id === `marketplace-${sellerId}-${suffix}`);
   const button = (label) => nodes().find((node) => node.type === "button" && text(node) === label);
@@ -151,11 +151,22 @@ test("grid allows only implemented connectors, enforces required keys and resets
 });
 
 test("Kaufland connect sends both credentials, clears them after confirmed verification and shows metadata", async () => {
-  const panel = component(async (_url, options) => Response.json(options.method === "GET" ? fixture([]) : fixture([{ ...entry(), connection_status: "connected", public_name: "Seller API", storefronts: ["de"], last_checked_at: "2026-09-07T12:00:00Z" }])));
+  let saved = fixture([]);
+  const fetchImpl = async (_url, options) => {
+    if (options.method !== "GET") saved = fixture([{ ...entry(), connection_status: "connected", public_name: "Seller API", storefronts: ["de"], last_checked_at: "2026-09-07T12:00:00Z" }]);
+    return Response.json(saved);
+  };
+  const panel = component(fetchImpl);
   await panel.settle(); panel.choose("Kaufland"); panel.change("client", " client-test "); panel.change("secret", " secret-test "); await panel.submit();
   assert.deepEqual(JSON.parse(panel.requests.at(-1)[1].body), input()); assert.equal(panel.byId("client"), undefined);
-  assert.match(panel.text(), /Marketplace collegato/); assert.match(panel.text(), /Seller API/); assert.match(panel.text(), /Storefront registrati: de/);
+  assert.match(panel.text(), /Marketplace collegato/); assert.match(panel.text(), /1 account presenti/);
+  assert.ok(panel.nodes().some((node) => node.type === "a" && node.props.href === "/seller/marketplaces/accounts"));
   panel.choose("Kaufland"); assert.equal(panel.byId("secret").props.value, ""); panel.unmount();
+  const accounts = component(fetchImpl, "accounts"); await accounts.settle();
+  assert.match(accounts.text(), /Seller API/); assert.match(accounts.text(), /Storefront registrati: de/);
+  assert.ok(accounts.button("Verifica connessione")); assert.ok(accounts.button("Elimina"));
+  assert.equal(accounts.nodes().some((node) => node.props?.["aria-label"] === "Collega Kaufland"), false);
+  accounts.unmount();
 });
 
 test("Worten uses its own API key and shop id rather than Kaufland credentials", async () => {
@@ -186,14 +197,14 @@ test("uncertain writes clear keys, prevent retries and require a fresh read", as
 });
 
 test("reverification uses only the selected saved account and shows returned failure status", async () => {
-  const panel = component(async (_url, options) => Response.json(options.method === "GET" ? fixture() : fixture([{ ...entry(), connection_status: "error", error_code: "invalid_credentials" }])));
+  const panel = component(async (_url, options) => Response.json(options.method === "GET" ? fixture() : fixture([{ ...entry(), connection_status: "error", error_code: "invalid_credentials" }])), "accounts");
   await panel.settle(); panel.button("Verifica connessione").props.onClick(); await panel.settle();
   assert.equal(panel.requests.at(-1)[0], `/api/sellers/${sellerId}/marketplace-connections/${accountId}/verify`); assert.equal(panel.requests.at(-1)[1].body, undefined);
   assert.match(panel.text(), /Verifica non riuscita/); assert.equal(panel.text().includes("Connessione verificata."), false); panel.unmount();
 });
 
 test("deletion needs exact ELIMINA and cannot affect a different account", async () => {
-  const panel = component(async (_url, options) => Response.json(options.method === "DELETE" ? fixture([]) : fixture())); await panel.settle(); panel.button("Elimina").props.onClick(); panel.render();
+  const panel = component(async (_url, options) => Response.json(options.method === "DELETE" ? fixture([]) : fixture()), "accounts"); await panel.settle(); panel.button("Elimina").props.onClick(); panel.render();
   panel.change("delete", "elimina"); assert.equal(panel.button("Elimina definitivamente").props.disabled, true);
   panel.change("delete", "ELIMINA"); panel.button("Elimina definitivamente").props.onClick(); await panel.settle();
   assert.equal(panel.requests.at(-1)[0], `/api/sellers/${sellerId}/marketplace-connections/${accountId}`); assert.deepEqual(JSON.parse(panel.requests.at(-1)[1].body), { confirmation: "ELIMINA" }); assert.match(panel.text(), /Collegamento eliminato/); panel.unmount();

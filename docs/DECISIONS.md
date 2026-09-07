@@ -54,7 +54,7 @@ questi componenti. Sono presenti solo collegamenti a sezioni disponibili e conte
 dal workspace; non vengono introdotte metriche commerciali simulate.
 
 Riferimenti visivi pubblici: [lista ordini](https://www.base.com/en-EN/help/knowledgebase/order-list-how-to-use/)
-e [accesso rapido](https://base.com/en-EN/blog/quick-access-to-your-favorite-features-in-baselinker/).
+e [accesso rapido](https://base.com/en-EN/help/knowledgebase/quick-access/).
 Le immagini pubblicate tra 2020 e 2024 sono riferimenti di impaginazione, non una verifica della
 dashboard privata corrente di Base.com. Il cambio grafico non modifica API, scope, formule o
 la fonte originale Streamlit e non incrementa da solo la copertura funzionale del progetto.
@@ -117,3 +117,28 @@ Metadata mostrati soltanto se restituiti dalle API: Kaufland espone storefront r
 non necessariamente attivi, e non un nome negozio pubblico nel contratto consultato.
 Worten può restituire Shop ID e nome pubblico tramite A01. Credenziali già importate sono
 da verificare; una risposta 401 non viene arbitrariamente interpretata come scadenza.
+
+## D-016 — Macroaree e sottosezioni distinte nel Seller
+
+Il 7 settembre 2026 l'utente ha chiarito che la barra scura deve essere il menu delle
+macroaree e il menu chiaro deve aprire le relative sottosezioni, senza ripetere le stesse
+destinazioni. Ha confermato la struttura e chiesto di procedere guardando Base.com.
+
+La navigazione Seller comprende Panoramica, Ordini, Marketplace e Impostazioni. Il menu
+chiaro cambia con la macroarea; ogni sottosezione disponibile ha un percorso autonomo,
+contenuto pertinente e indicazione della posizione attiva. Marketplace separa collegamento
+e gestione account; Impostazioni separa negozio, organizzazioni e autorizzazioni. Sono
+presenti soltanto destinazioni implementate. La navigazione delle aree Agency/Platform
+rimane operativa, senza introdurre i moduli rinviati da D-014.
+
+Riferimento consultato: pagina pubblica e immagini
+[accesso rapido Base.com](https://base.com/en-EN/help/knowledgebase/quick-access/).
+Non è stato effettuato un accesso alla dashboard privata Base.com; non si dichiara di
+riprodurre esattamente la sua versione privata corrente. Questa decisione precisa D-011
+e non cambia formule, scope, permessi o fonte originale Streamlit.
+
+Il rilascio applica questa navigazione al primo blocco Ordini B20.1/B21.1, già autorizzato:
+account integrato a monte, importazione in background e dati economici per il singolo
+Seller. Il perimetro conserva tutte le funzioni ancora pendenti nel contratto sorgente;
+la navigazione nuova non vale come trasferimento delle funzioni mancanti. Si conteggiano
+soltanto i 23 criteri verificati elencati nella scheda di rilascio B20.1.

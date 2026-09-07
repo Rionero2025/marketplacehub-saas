@@ -27,16 +27,30 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B04 — Organizzazioni e negozio attivo | completato | 21 | **3,47%** |
 | B10.1 — Anagrafica e account Kaufland | completato; B10 resta parziale | 9 | **3,93%** |
 | B10.2 — Collega marketplace, Seller Enterprise | completato nel perimetro Kaufland/Worten; altri connettori pendenti | 8 | **4,33%** |
+| B20.1 / B21.1 — Archivio ordini Kaufland/Worten e navigazione Seller | collaudato; pubblicazione da verificare; moduli Ordini ancora parziali | 23 | **5,47%** |
 
-Calcolo corrente: `87 / 2.011 = 4,326%`, mostrato con due decimali. I totali B01–B04 nella
+Calcolo corrente: `110 / 2.011 = 5,470%`, mostrato con due decimali. I totali B01–B04 nella
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
 
+B20.1/B21.1 aggiunge 23 criteri di parità verificati: importazione multicanale in background,
+paginazione e stati Kaufland, archivio isolato e aggiornamento senza duplicati, dati prodotto,
+SKU/costo, commissioni, quantità Worten, cambi, tracking letto dalle API, ricerca e scelta
+account/ambiente. Verificati 266 test Python (85 Ordini), 80 test frontend e browser desktop
+e responsive; build produzione completata. La pubblicazione è da confermare nella scheda di rilascio.
+La navigazione a macroaree/sottosezioni richiesta dall'utente non incrementa il ledger.
+Vedere `docs/blocks/B20_1_ORDERS_RELEASE.md`, contratto sorgente B20.1 e D-016.
+
+La copertura locale verificata è distinta dal rilascio online e dall'importazione di dati
+reali: lo staging non è ancora attestato per questo blocco. Listini e fallback costi,
+scadenziario, ticket, import/modifica tracking, selezioni contabili, CSV, filtri avanzati
+e connettori ulteriori restano pendenti. Il modulo Ordini non è dichiarato completo.
+
 B10.2 aggiunge 8 criteri effettivamente verificati: form/verifica Worten, account salvato,
 parser storefront originale, test connessione e metadata veri. La griglia di 28 marketplace
 non equivale a 28 connettori implementati: Kaufland/Worten sono disponibili per collegamento,
-26 sono esplicitamente da sviluppare. Nessuna sincronizzazione ordini conteggiata.
+26 sono esplicitamente da sviluppare. In B10.2 nessuna sincronizzazione ordini era conteggiata.
 Verifiche: 181 test Python, 52 test frontend, typecheck, build e browser desktop/mobile.
 Vedere `docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md`, D-014 e D-015. Le nuove funzioni si
 concentrano sul Seller Enterprise senza limitazioni commerciali; Agency e Platform rinviate.
