@@ -9,7 +9,6 @@ import hashlib
 import json
 from pathlib import Path
 
-
 WIDGETS = {
     "button",
     "checkbox",
@@ -61,7 +60,7 @@ def inspect_python(path: Path, root: Path) -> dict:
     tests = []
 
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
             item = {"name": node.name, "line": node.lineno}
             if node.name.startswith("test_"):
                 tests.append(item)

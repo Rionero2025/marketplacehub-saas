@@ -1,0 +1,66 @@
+services:
+  - type: keyvalue
+    name: marketplacehub-v2-cache-staging
+    plan: free
+    ipAllowList: []
+
+  - type: web
+    name: marketplacehub-v2-api-staging
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    healthCheckPath: /health/ready
+    preDeployCommand: alembic upgrade head
+    envVars:
+      - key: MH_ENVIRONMENT
+        value: staging
+      - key: MH_DATABASE_URL
+        fromDatabase:
+          name: marketplacehub-v2-db-staging
+          property: connectionString
+      - key: MH_REDIS_URL
+        fromService:
+          name: marketplacehub-v2-cache-staging
+          type: keyvalue
+          property: connectionString
+
+  - type: worker
+    name: marketplacehub-v2-worker-staging
+    runtime: docker
+    dockerfilePath: ./Dockerfile.worker
+    envVars:
+      - key: MH_ENVIRONMENT
+        value: staging
+      - key: MH_DATABASE_URL
+        fromDatabase:
+          name: marketplacehub-v2-db-staging
+          property: connectionString
+      - key: MH_REDIS_URL
+        fromService:
+          name: marketplacehub-v2-cache-staging
+          type: keyvalue
+          property: connectionString
+
+  - type: web
+    name: marketplacehub-v2-app-staging
+    runtime: docker
+    dockerfilePath: ./Dockerfile.app-web
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  - type: web
+    name: marketplacehub-v2-marketing-staging
+    runtime: docker
+    dockerfilePath: ./Dockerfile.marketing-web
+    dockerContext: .
+    healthCheckPath: /health
+
+databases:
+  - name: marketplacehub-v2-db-staging
+    plan: free
+    postgresMajorVersion: "17"
+    databaseName: marketplacehub_v2_staging
+    user: marketplacehub_v2
+    ipAllowList: []

@@ -45,6 +45,10 @@ Vincoli:
 - API e job idempotenti quando una ripetizione può creare duplicati;
 - osservabilità con correlation ID, audit trail ed errori utilizzabili dall'operatore.
 
+## Fondazione implementata
+
+Il Blocco B02 rende eseguibile questa separazione: `marketing-web`, `app-web`, API FastAPI, worker RQ, core Python, PostgreSQL, Redis e Alembic hanno processi e configurazioni distinti. Il modello di dominio, l'autenticazione e le integrazioni verranno aggiunti nei blocchi dedicati.
+
 ## Sequenza di migrazione
 
 Il ramo parte vuoto. Ogni modulo viene portato soltanto dopo aver scritto la matrice input → trasformazione → persistenza → output e i casi di confronto con la versione 271. Il SaaS precedente resta congelato e online finché il sostituto non supera lo staging.

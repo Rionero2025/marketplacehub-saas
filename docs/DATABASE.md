@@ -39,3 +39,7 @@ L'elenco esatto e i file che dichiarano ogni tabella sono ricavabili dal manifes
 - job, webhook, import ed export devono avere chiavi di idempotenza;
 - le credenziali restano cifrate e non vengono restituite al frontend;
 - cache e file rigenerabili devono poter essere eliminati senza perdita di dati contabili o operativi.
+
+## Stato della nuova base dati
+
+Il Blocco B02 ha introdotto PostgreSQL, pool configurabile e la catena Alembic `20260907_0001`. La migrazione iniziale non crea entità di dominio: stabilisce un punto di upgrade/downgrade prima del modello multi-tenant.

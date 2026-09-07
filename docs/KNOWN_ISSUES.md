@@ -4,7 +4,7 @@
 
 1. Il modello originale seleziona un Seller in sessione, ma non implementa la gerarchia Platform/Agency/Seller né un controllo tenant uniforme nel backend.
 2. La versione locale 271 e il repository cloud non coincidono: il cloud contiene moduli di autenticazione e deployment che non sono presenti nella stessa forma nella cartella locale.
-3. Il ramo di ricostruzione è intenzionalmente privo di runtime: nessuna funzione del vecchio SaaS viene conteggiata come equivalente senza nuova verifica.
+3. Il ramo di ricostruzione contiene la sola fondazione tecnica: nessuna funzione operativa del vecchio SaaS viene conteggiata come equivalente senza nuova verifica.
 4. Non esistono ancora billing, entitlement, onboarding self-service e pannelli separati per Agency e Platform nel motore originale.
 
 ## Colli di bottiglia
@@ -29,6 +29,7 @@
 - Import da URL richiedono protezioni SSRF e limiti di dimensione; il modulo contabile contiene già controlli da preservare.
 - Webhook e job devono essere idempotenti e riprendibili.
 - Manca una prova completa di restore e disaster recovery.
+- Le immagini Docker non sono state eseguite sull'host locale perché Docker non è disponibile; il collaudo avverrà nello staging dedicato.
 
 ## Dipendenze
 

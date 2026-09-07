@@ -10,9 +10,9 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 26,
+    "verified": 34,
     "total": 2017,
-    "percent": 1.29
+    "percent": 1.69
   },
   "criteria": [
     {
@@ -12692,8 +12692,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1140",
       "section": "30. DEPLOYMENT SU RENDER > 30.1 Requisiti deployment",
       "requirement": "health check;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "services/api/src/marketplace_hub_api/main.py",
+      "block": "B02"
     },
     {
       "id": "MASTER-0559",
@@ -12701,8 +12702,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1141",
       "section": "30. DEPLOYMENT SU RENDER > 30.1 Requisiti deployment",
       "requirement": "migrations automatiche controllate;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "migrations/versions/20260907_0001_foundation.py",
+      "block": "B02"
     },
     {
       "id": "MASTER-0560",
@@ -12710,8 +12712,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1142",
       "section": "30. DEPLOYMENT SU RENDER > 30.1 Requisiti deployment",
       "requirement": "rollback possibile;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B02_FOUNDATION.md",
+      "block": "B02"
     },
     {
       "id": "MASTER-0561",
@@ -12719,8 +12722,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1143",
       "section": "30. DEPLOYMENT SU RENDER > 30.1 Requisiti deployment",
       "requirement": "env vars separate;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": ".env.example",
+      "block": "B02"
     },
     {
       "id": "MASTER-0562",
@@ -12728,8 +12732,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1144",
       "section": "30. DEPLOYMENT SU RENDER > 30.1 Requisiti deployment",
       "requirement": "database connection pooling;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "packages/core/src/marketplace_hub_core/database.py",
+      "block": "B02"
     },
     {
       "id": "MASTER-0563",
@@ -12737,8 +12742,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1145",
       "section": "30. DEPLOYMENT SU RENDER > 30.1 Requisiti deployment",
       "requirement": "worker separato dal web process;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "Dockerfile.worker",
+      "block": "B02"
     },
     {
       "id": "MASTER-0564",
@@ -12746,8 +12752,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1146",
       "section": "30. DEPLOYMENT SU RENDER > 30.1 Requisiti deployment",
       "requirement": "build riproducibili;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "pnpm-lock.yaml and requirements.lock",
+      "block": "B02"
     },
     {
       "id": "MASTER-0565",
@@ -12755,8 +12762,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1147",
       "section": "30. DEPLOYMENT SU RENDER > 30.1 Requisiti deployment",
       "requirement": "niente credenziali committate.",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "tests/test_foundation_repository.py",
+      "block": "B02"
     },
     {
       "id": "MASTER-0566",
@@ -13368,7 +13376,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "mappa repository;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/CURRENT_STATE_AUDIT.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0634",
@@ -13377,7 +13386,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "stack reale;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/CURRENT_STATE_AUDIT.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0635",
@@ -13386,7 +13396,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "entrypoint;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/CURRENT_STATE_AUDIT.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0636",
@@ -13395,7 +13406,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "DB reale;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/DATABASE.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0637",
@@ -13404,7 +13416,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "moduli;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/MODULES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0638",
@@ -13413,7 +13426,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "integrazioni;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/INTEGRATIONS.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0639",
@@ -13422,7 +13436,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "env vars;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/CURRENT_STATE_AUDIT.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0640",
@@ -13431,7 +13446,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "deployment Render;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/CURRENT_STATE_AUDIT.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0641",
@@ -13440,7 +13456,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "rischi;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/KNOWN_ISSUES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0642",
@@ -13449,7 +13466,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "colli di bottiglia;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/KNOWN_ISSUES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0643",
@@ -13458,7 +13476,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "codice duplicato;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/KNOWN_ISSUES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0644",
@@ -13467,7 +13486,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "dipendenze obsolete;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/KNOWN_ISSUES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0645",
@@ -13476,7 +13496,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "elenco test esistenti;",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/reference/streamlit-v271-manifest.json",
+      "block": "B01"
     },
     {
       "id": "MASTER-0646",
@@ -13485,7 +13506,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "elenco aree senza test.",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/CURRENT_STATE_AUDIT.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0647",
@@ -13494,7 +13516,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "`docs/ARCHITECTURE.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/ARCHITECTURE.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0648",
@@ -13503,7 +13526,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "`docs/MODULES.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/MODULES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0649",
@@ -13512,7 +13536,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "`docs/INTEGRATIONS.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/INTEGRATIONS.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0650",
@@ -13521,7 +13546,8 @@
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 0 — AUDIT DEL REPOSITORY",
       "requirement": "`docs/KNOWN_ISSUES.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/KNOWN_ISSUES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0651",
@@ -15915,7 +15941,8 @@
       "section": "45. DOCUMENTI CHE CODEX DEVE MANTENERE AGGIORNATI",
       "requirement": "`docs/ARCHITECTURE.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/ARCHITECTURE.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0917",
@@ -15924,7 +15951,8 @@
       "section": "45. DOCUMENTI CHE CODEX DEVE MANTENERE AGGIORNATI",
       "requirement": "`docs/MODULES.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/MODULES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0918",
@@ -15933,7 +15961,8 @@
       "section": "45. DOCUMENTI CHE CODEX DEVE MANTENERE AGGIORNATI",
       "requirement": "`docs/DATABASE.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/DATABASE.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0919",
@@ -15942,7 +15971,8 @@
       "section": "45. DOCUMENTI CHE CODEX DEVE MANTENERE AGGIORNATI",
       "requirement": "`docs/INTEGRATIONS.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/INTEGRATIONS.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0920",
@@ -15951,7 +15981,8 @@
       "section": "45. DOCUMENTI CHE CODEX DEVE MANTENERE AGGIORNATI",
       "requirement": "`docs/DECISIONS.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/DECISIONS.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0921",
@@ -15960,7 +15991,8 @@
       "section": "45. DOCUMENTI CHE CODEX DEVE MANTENERE AGGIORNATI",
       "requirement": "`docs/KNOWN_ISSUES.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/KNOWN_ISSUES.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0922",
@@ -15969,7 +16001,8 @@
       "section": "45. DOCUMENTI CHE CODEX DEVE MANTENERE AGGIORNATI",
       "requirement": "`docs/CHANGELOG.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/CHANGELOG.md",
+      "block": "B01"
     },
     {
       "id": "MASTER-0923",
@@ -15978,7 +16011,8 @@
       "section": "45. DOCUMENTI CHE CODEX DEVE MANTENERE AGGIORNATI",
       "requirement": "`docs/CURRENT_STATE_AUDIT.md`",
       "status": "verified",
-      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+      "evidence": "docs/CURRENT_STATE_AUDIT.md",
+      "block": "B01"
     }
   ]
 }

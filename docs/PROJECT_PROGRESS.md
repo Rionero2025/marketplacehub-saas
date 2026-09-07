@@ -17,7 +17,8 @@ Questa percentuale misura la copertura verificata del prodotto finale. Non è un
 | Blocco | Stato | Criteri verificati nel blocco | Progetto totale |
 |---|---|---:|---:|
 | B01 — Audit e inventario | completato | 26 | **1,29%** |
+| B02 — Fondazione tecnica | completato | 8 | **1,69%** |
 
-Calcolo: `26 / 2.017 = 1,289%`, mostrato con due decimali.
+Calcolo corrente: `34 / 2.017 = 1,685%`, mostrato con due decimali.
 
-I 26 criteri soddisfatti sono i 18 output obbligatori della Fase 0 e gli 8 documenti permanenti richiesti dal Master Spec. I criteri di parità applicativa restano pendenti perché il ramo nuovo non contiene ancora il runtime.
+I primi 26 criteri soddisfatti sono gli output della Fase 0 e i documenti permanenti. B02 aggiunge health check, migrazioni controllate e reversibili, ambienti configurabili, pool PostgreSQL, worker separato, build bloccate e controllo dei segreti. Le funzioni operative Streamlit restano pendenti.

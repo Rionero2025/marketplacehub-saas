@@ -76,4 +76,4 @@ Aree prive di una verifica completa end-to-end: autenticazione Seller/Agency/Pla
 
 ## Esito
 
-Il motore originale è ampio e già contiene logiche operative mature. La nuova applicazione non deve ricostruirle per somiglianza: ogni blocco deve portare nel core SaaS gli stessi input, trasformazioni, persistenza, output e casi di errore. Il ramo nuovo non contiene ancora runtime applicativo; questo evita che componenti del SaaS precedente vengano erroneamente considerati equivalenti.
+Il motore originale è ampio e già contiene logiche operative mature. La nuova applicazione non deve ricostruirle per somiglianza: ogni blocco deve portare nel core SaaS gli stessi input, trasformazioni, persistenza, output e casi di errore. Dopo l'audit, B02 ha aggiunto soltanto la fondazione eseguibile; nessuna funzione operativa è ancora considerata equivalente.

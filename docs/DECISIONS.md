@@ -27,3 +27,7 @@ Tenant scope, permessi, formule, entitlement e idempotenza vengono applicati dal
 ## D-007 — Un solo design system
 
 Seller, Agency e Platform condividono componenti e token; cambiano navigazione, densità e contenuti autorizzati.
+
+## D-008 — Fondazione separata per processo
+
+La fondazione usa Next.js/TypeScript per le superfici web e Python/FastAPI per conservare la portabilità delle logiche originali. API e worker sono processi diversi; PostgreSQL conserva i dati durevoli e Redis supporta coda, lock e stato temporaneo.

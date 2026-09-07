@@ -45,3 +45,11 @@ Le tre pagine router Marketplace aggiungono la scelta del canale e inoltrano all
 ## Regola di completamento
 
 Un modulo SaaS è equivalente soltanto quando il flusso completo replica il comportamento originale. La presenza di un endpoint o di una tabella con lo stesso nome non basta.
+
+## Moduli della nuova fondazione
+
+- `apps/marketing-web` e `apps/app-web`: superfici Next.js separate con pacchetti UI e tipi condivisi;
+- `services/api`: API FastAPI e controlli di salute;
+- `services/worker`: processo RQ indipendente;
+- `packages/core`: settings, connessione PostgreSQL e readiness;
+- `migrations`: cronologia Alembic versionata.

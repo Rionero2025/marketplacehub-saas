@@ -8,7 +8,6 @@ import json
 import re
 from pathlib import Path
 
-
 ITEM_RE = re.compile(r"^\s*(?:-\s+|\d+\.\s+)(.+?)\s*$")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 
@@ -19,6 +18,7 @@ def main() -> None:
     parser.add_argument("master_spec", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--audit-complete", action="store_true")
+    parser.add_argument("--verified-criteria", type=Path)
     args = parser.parse_args()
 
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
@@ -87,6 +87,23 @@ def main() -> None:
                 "evidence": "docs/CURRENT_STATE_AUDIT.md" if accepted else "",
             }
         )
+
+    verified_by_id: dict[str, dict] = {}
+    if args.verified_criteria:
+        ledger = json.loads(args.verified_criteria.read_text(encoding="utf-8"))
+        verified_by_id = {item["id"]: item for item in ledger["criteria"]}
+
+    known_ids = {item["id"] for item in criteria}
+    unknown_ids = sorted(set(verified_by_id) - known_ids)
+    if unknown_ids:
+        raise SystemExit(f"Unknown acceptance criteria: {', '.join(unknown_ids)}")
+
+    for item in criteria:
+        verified_item = verified_by_id.get(item["id"])
+        if verified_item:
+            item["status"] = "verified"
+            item["block"] = verified_item["block"]
+            item["evidence"] = verified_item["evidence"]
 
     verified = sum(item["status"] == "verified" for item in criteria)
     output = {

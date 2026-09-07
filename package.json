@@ -1,0 +1,14 @@
+{
+  "name": "marketplace-hub-saas",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm --filter @marketplace-hub/marketing-web build && pnpm --filter @marketplace-hub/app-web build",
+    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "test": "pnpm --filter @marketplace-hub/types test && pnpm --filter @marketplace-hub/ui test && pnpm --filter @marketplace-hub/marketing-web test && pnpm --filter @marketplace-hub/app-web test",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
