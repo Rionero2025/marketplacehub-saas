@@ -29,6 +29,10 @@ class Settings(BaseSettings):
         default=SecretStr("redis://localhost:6379/0"),
         validation_alias=AliasChoices("MH_REDIS_URL", "MARKETPLACE_HUB_REDIS_URL"),
     )
+    master_key: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices("MH_MASTER_KEY", "MARKETPLACE_HUB_MASTER_KEY"),
+    )
     db_pool_size: int = 5
     db_max_overflow: int = 10
     readiness_timeout_seconds: float = 2.0

@@ -10,9 +10,9 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 70,
+    "verified": 80,
     "total": 2017,
-    "percent": 3.47
+    "percent": 3.97
   },
   "criteria": [
     {
@@ -4206,7 +4206,9 @@
       "kind": "legacy_regression",
       "source": "tests/test_profit_sharing.py:36",
       "requirement": "test_invalid_legacy_split_is_safely_completed_to_100_percent",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
     },
     {
       "id": "LEGACY-TEST-0600",
@@ -5011,21 +5013,27 @@
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:99",
       "requirement": "text_input: \"Nome account\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
     },
     {
       "id": "LEGACY-UI-0012",
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:102",
       "requirement": "text_input: \"Client Key\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
     },
     {
       "id": "LEGACY-UI-0013",
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:103",
       "requirement": "text_input: \"Secret Key\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
     },
     {
       "id": "LEGACY-UI-0014",
@@ -5102,7 +5110,9 @@
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:223",
       "requirement": "text_input: \"Digita ELIMINA per confermare\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
     },
     {
       "id": "LEGACY-UI-0025",
@@ -12165,8 +12175,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1023",
       "section": "26. SICUREZZA",
       "requirement": "API key marketplace cifrate a riposo;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md",
+      "block": "B10.1"
     },
     {
       "id": "MASTER-0499",
@@ -12347,8 +12358,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1051",
       "section": "27. CREDENZIALI MARKETPLACE",
       "requirement": "appartenere a una specifica organization/seller;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md",
+      "block": "B10.1"
     },
     {
       "id": "MASTER-0518",
@@ -12356,8 +12368,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1052",
       "section": "27. CREDENZIALI MARKETPLACE",
       "requirement": "essere cifrate;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md",
+      "block": "B10.1"
     },
     {
       "id": "MASTER-0519",
@@ -12365,8 +12378,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1053",
       "section": "27. CREDENZIALI MARKETPLACE",
       "requirement": "non essere mostrate in chiaro nel frontend;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md",
+      "block": "B10.1"
     },
     {
       "id": "MASTER-0520",
@@ -14408,8 +14422,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1451",
       "section": "37. COSA NON FARE",
       "requirement": "Non mettere credenziali marketplace nel browser.",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md",
+      "block": "B10.1"
     },
     {
       "id": "MASTER-0743",

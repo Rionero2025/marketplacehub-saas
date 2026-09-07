@@ -349,6 +349,56 @@
       "id": "MASTER-0761",
       "block": "B04",
       "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "LEGACY-UI-0011",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "LEGACY-UI-0012",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "LEGACY-UI-0013",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "LEGACY-UI-0024",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "LEGACY-TEST-0599",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "MASTER-0498",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "MASTER-0517",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "MASTER-0518",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "MASTER-0519",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "MASTER-0742",
+      "block": "B10.1",
+      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
     }
   ]
 }

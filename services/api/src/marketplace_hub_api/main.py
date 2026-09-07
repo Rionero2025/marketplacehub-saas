@@ -14,12 +14,15 @@ from marketplace_hub_core.auth.rate_limit import RedisLoginRateLimiter
 from marketplace_hub_core.auth.sql_repository import SqlAuthRepository
 from marketplace_hub_core.database import create_database_engine
 from marketplace_hub_core.readiness import Check, check_database, check_redis, run_checks
+from marketplace_hub_core.seller_settings.repository import SqlSellerSettingsRepository
+from marketplace_hub_core.seller_settings.service import SellerSettingsService
 from marketplace_hub_core.settings import Settings, get_settings
 from marketplace_hub_core.tenancy.repository import SqlWorkspaceRepository
 from marketplace_hub_core.tenancy.service import WorkspaceService
 from redis import Redis
 
 from marketplace_hub_api.auth import create_auth_router
+from marketplace_hub_api.seller_settings import create_seller_settings_router
 from marketplace_hub_api.workspace import create_workspace_router
 
 
@@ -29,6 +32,7 @@ def create_app(
     readiness_checks: Mapping[str, Check] | None = None,
     auth_service: AuthService | None = None,
     workspace_service: WorkspaceService | None = None,
+    seller_settings_service: SellerSettingsService | None = None,
 ) -> FastAPI:
     app_settings = settings or get_settings()
     checks = readiness_checks or {
@@ -56,6 +60,13 @@ def create_app(
             engine = create_database_engine(app_settings)
         workspace_service = WorkspaceService(SqlWorkspaceRepository(engine))
 
+    if seller_settings_service is None:
+        seller_settings_service = SellerSettingsService(
+            SqlSellerSettingsRepository(workspace_service.repository.engine),
+            workspace_service,
+            app_settings.master_key,
+        )
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         try:
@@ -75,11 +86,14 @@ def create_app(
         CORSMiddleware,
         allow_origins=app_settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["content-type", "x-request-id"],
     )
     app.include_router(create_auth_router(auth_service, app_settings))
     app.include_router(create_workspace_router(workspace_service, auth_service, app_settings))
+    app.include_router(create_seller_settings_router(
+        seller_settings_service, auth_service, app_settings,
+    ))
 
     @app.middleware("http")
     async def request_context(request: Request, call_next: Any) -> Response:

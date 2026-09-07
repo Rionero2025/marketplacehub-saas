@@ -20,8 +20,14 @@ Questa percentuale misura la copertura verificata del prodotto finale. Non è un
 | B02 — Fondazione tecnica | completato | 8 | **1,69%** |
 | B03 — Autenticazione e accessi | completato | 15 | **2,43%** |
 | B04 — Organizzazioni e negozio attivo | completato | 21 | **3,47%** |
+| B10.1 — Anagrafica, ripartizione e account Kaufland | completato; B10 resta parziale | 10 | **3,97%** |
 
-Calcolo corrente: `70 / 2.017 = 3,471%`, mostrato con due decimali.
+Calcolo corrente: `80 / 2.017 = 3,966%`, mostrato con due decimali.
+
+B10.1 è stato anticipato su richiesta dell'utente per dare operatività al Seller. Sito/piani,
+billing e onboarding B05–B07 restano pendenti. Il blocco trasferisce configurazione e
+salvataggio credenziali Kaufland; connessione API e sincronizzazione ordini non sono incluse.
+I 10 ID sono elencati nel ledger con evidenza `docs/blocks/B10_1_SELLER_SETTINGS.md`.
 
 Rifinitura grafica B04 del 7 settembre 2026: dashboard ispirata a Base.com, con navigazione
 compatta, pannelli e tabella autorizzazioni responsive. Nessun criterio operativo aggiuntivo:
@@ -35,4 +41,4 @@ il totale resta 49/2.017. Le funzioni operative del Seller restano da ricostruir
 I primi 26 criteri soddisfatti sono gli output della Fase 0 e i documenti permanenti. B02 aggiunge
 la fondazione eseguibile. B03 aggiunge autenticazione e sessioni. B04 aggiunge organizzazioni,
 membership, autorizzazione backend e selezione del negozio con i dati precedenti. Gestione completa
-di utenti/Seller, abbonamenti e funzioni operative Streamlit restano pendenti.
+di utenti/Seller, abbonamenti e altri moduli operativi Streamlit restano pendenti.

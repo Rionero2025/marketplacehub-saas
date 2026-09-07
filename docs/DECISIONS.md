@@ -58,3 +58,12 @@ e [accesso rapido](https://base.com/en-EN/blog/quick-access-to-your-favorite-fea
 Le immagini pubblicate tra 2020 e 2024 sono riferimenti di impaginazione, non una verifica della
 dashboard privata corrente di Base.com. Il cambio grafico non modifica API, scope, formule o
 la fonte originale Streamlit e non incrementa da solo la copertura funzionale del progetto.
+
+## D-012 — Primo blocco operativo Seller anticipato
+
+Dopo B04 l'utente ha scelto di proseguire con anagrafica, percentuali e account Kaufland.
+B10.1 viene quindi anticipato rispetto a B05 (sito e pacchetti), che rimane pendente.
+L'edit di nome/ragione sociale/email è l'estensione SaaS concordata; regole delle percentuali,
+cifratura e gestione Kaufland seguono l'originale. Il salvataggio credenziali non viene
+presentato come verifica della connessione. La sincronizzazione ordini sarà il passo operativo
+successivo, senza dichiararla completata da questa configurazione.
