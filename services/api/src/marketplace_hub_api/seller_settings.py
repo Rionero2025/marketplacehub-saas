@@ -48,8 +48,6 @@ class SellerSettingsUpdate(BaseModel):
     name: str
     legal_name: str
     email: str
-    our_profit_pct: float
-    partner_profit_pct: float
 
 
 class KauflandAccountCreate(BaseModel):

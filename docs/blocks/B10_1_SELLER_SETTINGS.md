@@ -1,9 +1,11 @@
-# B10.1 — Anagrafica, ripartizione e account Kaufland
+# B10.1 — Anagrafica e account Kaufland
 
 ## Perimetro concordato
 
 Primo passo operativo della sezione Negozio: modifica anagrafica del Seller autorizzato,
-percentuali di ripartizione del margine utile, aggiunta/elenco/eliminazione account Kaufland.
+aggiunta/elenco/eliminazione account Kaufland. La ripartizione degli utili, presente nel primo
+rilascio, è stata esclusa per richiesta esplicita dell'utente (D-013). Il form e le API non
+espongono né salvano percentuali nostro/partner; non servono per salvare l'anagrafica.
 Il blocco B10 completo (creazione/attivazione/eliminazione Seller, collaboratori e altri
 marketplace) resta parziale. Ordini e calcoli contabili appartengono ai blocchi successivi.
 
@@ -16,8 +18,7 @@ La migrazione dati usa le tabelle del SaaS congelato `93cab535e89f36d8149c5298f7
 | Input/operazione | Regola originale e risultato nel SaaS |
 |---|---|
 | Seller attivo | Scelta del negozio autorizzato; letture e scritture circoscritte a Seller e organizzazione. |
-| Percentuali lette | Fallback 0/100; clamp 0–100, arrotondamento a 4 decimali; somma fuori tolleranza corretta assegnando al partner 100 meno quota nostra. Nessun 35/65 imposto ai dati importati. |
-| Percentuali salvate | Valori finiti 0–100; somma entro 0,01 da 100. Persistenza dei valori immessi, con le stesse regole di normalizzazione alla lettura. |
+| Ripartizione utili | Esclusa in tutti i portali per D-013. Nessuna percentuale richiesta, letta, calcolata o salvata dai servizi applicativi. Margine e utile del singolo Seller restano nel futuro blocco contabile. |
 | Nome/ragione sociale/email | Nome non vuoto; trim dei tre campi, email libera come nell'originale. L'edit di questi campi è l'estensione SaaS concordata: l'originale li inseriva alla creazione, ma non li modificava nel form esistente. |
 | Account Kaufland | Nome proposto Kaufland principale; nome trim e almeno una fra Client Key/Secret Key. Marketplace lowercase, account attivo, JSON cifrato Fernet e impostazioni iniziali vuote. |
 | Elenco account | Ordinamento marketplace/nome account; stato attivo e Client Key mascherata con 8 pallini e ultimi 4 caratteri. Secret Key mai restituita. |
@@ -30,12 +31,16 @@ richiesta dal Master Spec §27 resta pendente (`MASTER-0520`, `0521`, `0522`).
 
 ## Persistenza e migrazione
 
-`20260907_0005` crea `seller_commercial_settings` e `seller_marketplace_accounts`.
-Importa i Seller già collegati da B04, le percentuali normalizzate secondo la lettura originale,
+La migrazione storica `20260907_0005`, già pubblicata, crea `seller_commercial_settings` e
+`seller_marketplace_accounts`. Ha importato i Seller già collegati da B04, le percentuali normalizzate secondo la lettura originale,
 gli account Kaufland, lo stato attivo, gli ID legacy e `settings_json` invariato. Il ciphertext
 viene copiato senza decifrarlo o cambiarlo. Gli account senza Seller assegnato sono esclusi e
 conteggiati; gli altri canali restano nelle tabelle sorgenti per le rispettive migrazioni.
 Duplicati ambigui dei nomi account fermano l'importazione anziché perdere dati.
+
+Dopo D-013 la tabella delle percentuali è solo un archivio inerte. Lettura e salvataggio
+dell'anagrafica non la interrogano né la aggiornano. Nessuna migrazione distruttiva e nessuna
+modifica retroattiva alla migrazione pubblicata; gli account Kaufland restano operativi.
 
 La lettura delle tabelle legacy RLS usa lo scope della migrazione nella stessa transazione e
 lo ripristina anche in caso di errore. Le tabelle sorgenti non vengono aggiornate o cancellate.
@@ -62,15 +67,15 @@ esistono solo transitoriamente nel form e sono svuotate dopo il salvataggio.
 
 ## Accettazione
 
-La prova include normalizzazione originale, salvataggio/rilettura, sessione autenticata,
+La prova include salvataggio/rilettura dell'anagrafica senza percentuali, assenza dei vecchi
+campi dalle risposte, conservazione dei valori storici senza aggiornamento, sessione autenticata,
 isolamento Seller/organizzazione, account estranei e ruoli revocati/sola lettura, cifratura
 compatibile, conferma eliminazione, migrazione e conservazione dei dati sorgenti.
 Il collaudo browser locale usa autenticazione reale e dati interamente dimostrativi.
 
 Non vengono conteggiati come completati il form multicanale intero, l'attivazione/creazione
-Seller, il calcolo delle quote contabili o il test API marketplace. Il dettaglio dei criteri
+Seller o il test API marketplace. Le quote contabili sono escluse, non pendenti. Il dettaglio dei criteri
 verificati è nel ledger `docs/progress/verified-criteria.json`.
 
-10 criteri: `LEGACY-UI-0011`, `0012`, `0013`, `0024`, `LEGACY-TEST-0599`,
-`MASTER-0498`, `0517`, `0518`, `0519`, `0742`. Totale **80/2.017 = 3,97%**.
-Verifiche automatiche: **143 test Python**, **36 test frontend**, typecheck e build Next.js.
+Primo rilascio: 10 criteri verificati, 143 test Python e 36 test frontend, typecheck e build.
+Il perimetro e i conteggi correnti dopo D-013 sono in `docs/PROJECT_PROGRESS.md` e nel ledger.

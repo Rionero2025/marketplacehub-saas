@@ -4,6 +4,11 @@
 
 Il comportamento del programma Streamlit originale è la specifica. Ogni funzione viene trasferita senza reinterpretarla. La nuova architettura separa interfaccia web, API, core, worker, database, cache e storage, ma conserva il flusso operativo osservabile.
 
+Le modifiche esplicite dell'utente documentate in `docs/DECISIONS.md` prevalgono sulla
+parità. D-013 esclude dal SaaS la ripartizione degli utili nostro/partner in tutti i portali;
+restano richiesti margine e utile del singolo Seller. Non reintrodurre quote o percentuali
+di ripartizione nei blocchi Ordini, Dashboard, Contabilità o Agency.
+
 ## Cosa significa “identico”
 
 Per ogni pagina devono essere inventariati e riprodotti:
@@ -26,7 +31,7 @@ Una funzione non è completata perché esiste un servizio con nome simile. È co
 - Il repository e l’installazione Streamlit originali sono in sola lettura.
 - Non introdurre nuovi flussi, limiti, conferme o formule per preferenza progettuale.
 - Migliorie tecniche di sicurezza e concorrenza sono ammesse solo se trasparenti per il comportamento funzionale.
-- Seller, Agency e Platform Admin hanno superfici diverse. Ogni calcolo di un Seller usa soltanto dati, account, listini e percentuali di quel Seller.
+- Seller, Agency e Platform Admin hanno superfici diverse. Ogni calcolo di un Seller usa soltanto dati, account e listini di quel Seller; eventuali aliquote contabili non sono percentuali di ripartizione dell'utile.
 - Il design viene rifinito dopo la parità funzionale, salvo l’usabilità necessaria a collaudare il flusso.
 
 ## Metodo obbligatorio per ogni blocco

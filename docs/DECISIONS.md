@@ -67,3 +67,22 @@ L'edit di nome/ragione sociale/email è l'estensione SaaS concordata; regole del
 cifratura e gestione Kaufland seguono l'originale. Il salvataggio credenziali non viene
 presentato come verifica della connessione. La sincronizzazione ordini sarà il passo operativo
 successivo, senza dichiararla completata da questa configurazione.
+
+## D-013 — Esclusione della ripartizione degli utili dal SaaS
+
+Il 7 settembre 2026 l'utente ha chiarito: «nel programma saas la ripartizione utili margini
+non è necessaria». Questa decisione sostituisce la parte di D-012 sulle percentuali e prevale
+sulla parità Streamlit e sui riferimenti del Master Spec per questa sola funzione.
+
+Seller, Agency e Platform non configurano percentuali nostro/partner e non calcolano né
+mostrano quote di utile ripartite. Restano richiesti costi, ricavi, commissioni, margine e
+utile del singolo Seller, oltre agli aggregati autorizzati. Le funzioni contabili non ancora
+trasferite rimangono pendenti. Gli abbonamenti SaaS non cambiano.
+
+L'anagrafica salva soltanto nome, ragione sociale ed email. I vecchi campi non sono esposti
+dalle API né letti o aggiornati dai servizi applicativi. Le migrazioni già pubblicate e i
+dati storici importati rimangono conservati e inerti, senza cancellazioni. Il codice e i
+dati originali Streamlit restano in sola lettura.
+
+I criteri esclusivamente relativi alla ripartizione sono esclusi dal perimetro attivo con
+motivazione verificabile; i criteri misti restano richiesti per tutte le altre operazioni.

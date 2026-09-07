@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { readSellerSettings, validProfitSplit, type SellerSettings } from "../lib/seller-settings-types";
+import { readSellerSettings, type SellerSettings } from "../lib/seller-settings-types";
 import { DashboardIcon } from "./DashboardIcon";
 
-type ProfileDraft = { name: string; legal_name: string; email: string; ours: string; partner: string };
-const emptyDraft: ProfileDraft = { name: "", legal_name: "", email: "", ours: "", partner: "" };
-const toDraft = (value: SellerSettings): ProfileDraft => ({ name: value.name, legal_name: value.legal_name ?? "", email: value.email ?? "", ours: String(value.our_profit_pct), partner: String(value.partner_profit_pct) });
+type ProfileDraft = { name: string; legal_name: string; email: string };
+const emptyDraft: ProfileDraft = { name: "", legal_name: "", email: "" };
+const toDraft = (value: SellerSettings): ProfileDraft => ({ name: value.name, legal_name: value.legal_name ?? "", email: value.email ?? "" });
 
 /** Mounted with the Seller id as React key, so switching shops destroys drafts and credential inputs. */
 export function SellerSettingsPanel({ sellerId, loginPath, onSaved }: { sellerId: string; loginPath: string; onSaved: () => void }) {
@@ -29,7 +29,6 @@ export function SellerSettingsPanel({ sellerId, loginPath, onSaved }: { sellerId
   const controller = useRef<AbortController | null>(null);
   const operationActive = useRef(false);
   const canEdit = Boolean(settings?.can_manage) && !pending && !needsReload;
-  const splitValid = draft.ours.trim() !== "" && draft.partner.trim() !== "" && validProfitSplit(Number(draft.ours), Number(draft.partner));
   const domId = `seller-settings-${sellerId}`;
 
   useEffect(() => {
@@ -113,8 +112,8 @@ export function SellerSettingsPanel({ sellerId, loginPath, onSaved }: { sellerId
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canEdit) return;
-    if (!draft.name.trim() || !splitValid) { setError("Inserisci il nome del negozio e due percentuali tra 0 e 100 con totale 100%."); return; }
-    await request("save", { name: draft.name.trim(), legal_name: draft.legal_name.trim(), email: draft.email.trim(), our_profit_pct: Number(draft.ours), partner_profit_pct: Number(draft.partner) });
+    if (!draft.name.trim()) { setError("Inserisci il nome del negozio."); return; }
+    await request("save", { name: draft.name.trim(), legal_name: draft.legal_name.trim(), email: draft.email.trim() });
   }
 
   async function addAccount(event: FormEvent<HTMLFormElement>) {
@@ -137,16 +136,13 @@ export function SellerSettingsPanel({ sellerId, loginPath, onSaved }: { sellerId
         {!settings.can_manage && <p className="settings-notice">Accesso in sola lettura. Per modificare questi dati serve l’autorizzazione alla gestione del negozio.</p>}
         <form className="settings-form" onSubmit={saveProfile}>
           <fieldset disabled={!canEdit}>
-            <legend>Anagrafica e ripartizione del margine</legend>
+            <legend>Anagrafica del negozio</legend>
             <div className="settings-fields">
               <div><label htmlFor={`${domId}-name`}>Nome negozio</label><input id={`${domId}-name`} required value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></div>
               <div><label htmlFor={`${domId}-legal`}>Ragione sociale</label><input id={`${domId}-legal`} value={draft.legal_name} onChange={(event) => setDraft({ ...draft, legal_name: event.target.value })} /></div>
               <div className="settings-field-wide"><label htmlFor={`${domId}-email`}>Email del negozio</label><input id={`${domId}-email`} type="text" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} /></div>
-              <div><label htmlFor={`${domId}-ours`}>% nostro guadagno sul margine utile</label><input id={`${domId}-ours`} type="number" min="0" max="100" step="any" required value={draft.ours} onChange={(event) => setDraft({ ...draft, ours: event.target.value })} aria-describedby={`${domId}-split`} /></div>
-              <div><label htmlFor={`${domId}-partner`}>% guadagno del partner Seller</label><input id={`${domId}-partner`} type="number" min="0" max="100" step="any" required value={draft.partner} onChange={(event) => setDraft({ ...draft, partner: event.target.value })} aria-describedby={`${domId}-split`} /></div>
             </div>
-            <p id={`${domId}-split`} className={`settings-hint${splitValid ? "" : " settings-invalid"}`}>Le due quote devono sommare 100% (tolleranza 0,01).</p>
-            {settings.can_manage && <button className="settings-primary" type="submit" disabled={!canEdit || !draft.name.trim() || !splitValid}>{pending === "save" ? "Salvataggio…" : "Salva dati negozio"}</button>}
+            {settings.can_manage && <button className="settings-primary" type="submit" disabled={!canEdit || !draft.name.trim()}>{pending === "save" ? "Salvataggio…" : "Salva dati negozio"}</button>}
           </fieldset>
         </form>
         <div className="settings-accounts">

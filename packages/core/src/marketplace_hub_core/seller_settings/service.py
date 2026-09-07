@@ -1,10 +1,8 @@
-import math
 from uuid import UUID
 
 from pydantic import SecretStr
 
 from marketplace_hub_core.auth.models import AuthenticatedSession
-from marketplace_hub_core.seller_settings.profit_sharing import normalized_percentages
 from marketplace_hub_core.seller_settings.repository import SqlSellerSettingsRepository
 from marketplace_hub_core.seller_settings.security import encrypt_credentials, masked_client_key
 from marketplace_hub_core.tenancy.service import WorkspaceService
@@ -26,9 +24,6 @@ class SellerSettingsService:
     def read(self, principal: AuthenticatedSession, seller_id: UUID) -> dict:
         seller = self.workspace.require_seller(principal, seller_id)
         result = self.repository.read(seller_id, UUID(seller["organization_id"]))
-        result["our_profit_pct"], result["partner_profit_pct"] = normalized_percentages(
-            result["our_profit_pct"], result["partner_profit_pct"],
-        )
         result["can_manage"] = "WORKSPACE_MANAGE" in seller["write_permissions"]
         for account in result["marketplace_accounts"]:
             account["client_key_masked"] = masked_client_key(
@@ -40,18 +35,9 @@ class SellerSettingsService:
         seller = self.workspace.require_seller(
             principal, seller_id, permission="WORKSPACE_MANAGE", write=True,
         )
-        values = dict(values)
-        for key in ("name", "legal_name", "email"):
-            values[key] = values[key].strip()
+        values = {key: values[key].strip() for key in ("name", "legal_name", "email")}
         if not values["name"]:
             raise SellerSettingsValidationError("Indica il nome del negozio.")
-        our, partner = values["our_profit_pct"], values["partner_profit_pct"]
-        if any(not math.isfinite(pct) or not 0 <= pct <= 100 for pct in (our, partner)):
-            raise SellerSettingsValidationError(
-                "Le percentuali devono essere comprese tra 0 e 100."
-            )
-        if abs((our + partner) - 100.0) > 0.01:
-            raise SellerSettingsValidationError("La somma delle percentuali deve essere 100%.")
         self.repository.update(seller_id, UUID(seller["organization_id"]), values)
         return self.read(principal, seller_id)
 

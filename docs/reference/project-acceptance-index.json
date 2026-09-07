@@ -1,7 +1,7 @@
 {
   "method": {
     "description": "One criterion for every original executable regression test, Streamlit interaction, and numbered/bulleted Master Spec obligation.",
-    "metric": "verified criteria / total criteria",
+    "metric": "verified criteria / active criteria (baseline minus explicit exclusions)",
     "warning": "This is acceptance coverage, not an estimate of hours remaining."
   },
   "source_counts": {
@@ -10,9 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 80,
-    "total": 2017,
-    "percent": 3.97
+    "verified": 79,
+    "baseline_total": 2017,
+    "excluded": 6,
+    "total": 2011,
+    "percent": 3.93
   },
   "criteria": [
     {
@@ -279,7 +281,9 @@
       "kind": "legacy_regression",
       "source": "tests/test_accounting.py:636",
       "requirement": "test_export_profit_split_columns_and_personalized_partner_header",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare verifica export Ricavo Netto 25 e altre verifiche; escludere colonne/intestazioni delle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0039",
@@ -342,7 +346,9 @@
       "kind": "legacy_regression",
       "source": "tests/test_accounting_costs.py:108",
       "requirement": "test_manual_costs_adjust_margin_and_profit_split_without_changing_sales",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare costi manuali 10, netto 20, vendite 100 e spesa 70; escludere asserzioni sulle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0048",
@@ -412,14 +418,18 @@
       "kind": "legacy_regression",
       "source": "tests/test_accounting_live_manual_v259.py:37",
       "requirement": "test_manual_purchase_cost_immediately_drives_margin_and_profit_split",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare costo manuale persistente 40 e margine/netto 60; escludere asserzioni sulle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0058",
       "kind": "legacy_regression",
       "source": "tests/test_accounting_live_manual_v259.py:100",
       "requirement": "test_accounting_page_has_live_grid_formula_and_same_run_summary_refresh",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare formula margine live e aggiornamento immediato riepilogo; escludere aggiornamento delle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0059",
@@ -1399,35 +1409,45 @@
       "kind": "legacy_regression",
       "source": "tests/test_dashboard.py:131",
       "requirement": "test_seller_summary_adds_selected_interval_and_profit_split",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare periodo selezionato, vendite 300 e profitto 90; escludere asserzioni sulle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0199",
       "kind": "legacy_regression",
       "source": "tests/test_dashboard.py:156",
       "requirement": "test_combined_selected_period_returns_total_bebol_share",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare aggregazione ordini e totale 3; escludere asserzioni sulle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0200",
       "kind": "legacy_regression",
       "source": "tests/test_dashboard_clickable_v264.py:49",
       "requirement": "test_v264_detail_uses_same_profit_and_split_as_dashboard_card",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare coerenza dettaglio/card con vendite 100 e netto 30; escludere asserzioni sulle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0201",
       "kind": "legacy_regression",
       "source": "tests/test_dashboard_clickable_v264.py:74",
       "requirement": "test_v264_detail_respects_selected_period_and_zeroes_cancelled_economics",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare filtro periodo e azzeramento economico dei cancellati; escludere asserzioni sulle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0202",
       "kind": "legacy_regression",
       "source": "tests/test_dashboard_clickable_v264.py:95",
       "requirement": "test_v264_orders_card_detail_collapses_multiline_orders_to_one_row",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare ordini multilinea con 2 prodotti, vendite 150 e netto 55; escludere asserzioni sulle quote.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0203",
@@ -1441,7 +1461,9 @@
       "kind": "legacy_regression",
       "source": "tests/test_dashboard_clickable_v264.py:135",
       "requirement": "test_v264_dashboard_page_contains_all_clickable_detail_cards",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare card cliccabili ordini, vendite, margine, righe mancanti e periodo; escludere BEBOL/partner.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0205",
@@ -4199,30 +4221,36 @@
       "kind": "legacy_regression",
       "source": "tests/test_profit_sharing.py:29",
       "requirement": "test_profit_split_reconciles_rounded_amounts",
-      "status": "pending"
+      "status": "excluded",
+      "scope_reason": "D-013: escluso calcolo e arrotondamento delle quote nostro/partner.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0599",
       "kind": "legacy_regression",
       "source": "tests/test_profit_sharing.py:36",
       "requirement": "test_invalid_legacy_split_is_safely_completed_to_100_percent",
-      "status": "verified",
-      "block": "B10.1",
-      "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+      "status": "excluded",
+      "scope_reason": "D-013: esclusa normalizzazione delle percentuali di ripartizione.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0600",
       "kind": "legacy_regression",
       "source": "tests/test_profit_sharing.py:40",
       "requirement": "test_dashboard_summary_splits_each_seller_before_combining",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare profitto del singolo Seller 25 e aggregato 85; escludere applicazione delle percentuali di ripartizione.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0601",
       "kind": "legacy_regression",
       "source": "tests/test_profit_sharing.py:70",
       "requirement": "test_init_db_migrates_old_seller_table_with_profit_columns",
-      "status": "pending"
+      "status": "excluded",
+      "scope_reason": "D-013: nessun requisito di introdurre colonne per la ripartizione; i dati storici già importati restano conservati.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-TEST-0602",
@@ -4957,14 +4985,18 @@
       "kind": "legacy_interaction",
       "source": "pages/0_Dashboard.py:973",
       "requirement": "button: _dashboard_card_label( \"Guadagno complessivo BEBOL nell’intervallo\", format_euro(selected[\"our_amount\"]), f\"{selected_period_label} · {format_integer(len(summaries))} Seller inclusi\", )",
-      "status": "pending"
+      "status": "excluded",
+      "scope_reason": "D-013: esclusa card Guadagno complessivo BEBOL nell'intervallo.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-UI-0004",
       "kind": "legacy_interaction",
       "source": "pages/0_Dashboard.py:1033",
       "requirement": "button: _dashboard_card_label(title, value, note)",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare card dinamiche della dashboard, escludendo la card della quota partner.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-UI-0005",
@@ -4992,7 +5024,9 @@
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:62",
       "requirement": "form_submit_button: \"Registra Seller\"",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare registrazione Seller senza percentuali di ripartizione e senza vincolo somma 100%.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-UI-0009",
@@ -5140,7 +5174,9 @@
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:292",
       "requirement": "button: \"Aggiorna Seller e ripartizione\"",
-      "status": "pending"
+      "status": "pending",
+      "effective_requirement": "Conservare aggiornamento Seller attivo; escludere percentuali e ripartizione.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "LEGACY-UI-0029",
@@ -10868,8 +10904,10 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:711",
       "section": "16. CONTABILITÀ E MARGINE REALE",
       "requirement": "quote seller/partner quando previste nei singoli workflow;",
-      "status": "pending",
-      "evidence": ""
+      "status": "excluded",
+      "evidence": "",
+      "scope_reason": "D-013: escluse quote seller/partner dai workflow SaaS.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "MASTER-0354",
@@ -15352,8 +15390,10 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1671",
       "section": "43. CHECKLIST FUNZIONI ESISTENTI DA NON PERDERE DURANTE IL REFACTOR > Contabilità",
       "requirement": "quote partner/seller nei workflow che le utilizzano;",
-      "status": "pending",
-      "evidence": ""
+      "status": "excluded",
+      "evidence": "",
+      "scope_reason": "D-013: escluse quote partner/seller dai workflow SaaS.",
+      "scope_evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas"
     },
     {
       "id": "MASTER-0846",

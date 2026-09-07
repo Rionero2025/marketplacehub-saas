@@ -124,7 +124,6 @@ button:disabled { cursor: wait; opacity: .65; }
 .settings-content input { padding: 8px 10px; min-height: 35px; border: 1px solid #ccd8e3; border-radius: 4px; color: #35495b; font-size: 12px; }
 .settings-content input:disabled { background: #f7f9fb; color: #607284; }
 .settings-hint { margin: 8px 0 13px; color: #607284; font-size: 11px; line-height: 1.6; }
-.settings-invalid { color: #a33c23; }
 .settings-primary { padding: 8px 12px; border-radius: 4px; background: #0077b8; font-size: 12px; font-weight: 600; }
 .settings-content button:disabled { cursor: default; }
 .settings-success, .settings-notice { margin: 12px 0; padding: 10px 12px; font-size: 12px; line-height: 1.5; border-radius: 4px; }

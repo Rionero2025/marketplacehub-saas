@@ -10,7 +10,6 @@ import test_tenancy_api
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from marketplace_hub_api.main import create_app
-from marketplace_hub_core.seller_settings.profit_sharing import normalized_percentages
 from marketplace_hub_core.seller_settings.schema import (
     seller_commercial_settings,
     seller_marketplace_accounts,
@@ -30,7 +29,7 @@ workspace = test_tenancy_api.workspace
 TEST_MASTER = "test-only-synthetic-master-key"
 PROFILE = {
     "name": " Negozio aggiornato ", "legal_name": " Azienda aggiornata ",
-    "email": " contatto libero ", "our_profit_pct": 35, "partner_profit_pct": 65,
+    "email": " contatto libero ",
 }
 KEYS = {
     "account_name": " Kaufland Europa ", "client_key": " client-value-1234 ",
@@ -79,12 +78,13 @@ def test_all_seller_settings_routes_require_session(configured):
         assert response.headers["cache-control"] == "no-store"
 
 
-def test_edit_profile_split_survives_new_session_and_updates_workspace(configured):
+def test_edit_profile_without_split_survives_new_session_and_updates_workspace(configured):
     client, seller, _, _, user = owner(configured)
     initial = client.get(settings_path(seller))
     assert initial.status_code == 200
-    assert initial.json()["our_profit_pct"] == 0
-    assert initial.json()["partner_profit_pct"] == 100
+    assert set(initial.json()) == {
+        "seller_id", "name", "legal_name", "email", "can_manage", "marketplace_accounts",
+    }
     assert initial.json()["can_manage"] is True
     saved = client.put(settings_path(seller), json=PROFILE)
     assert saved.status_code == 200
@@ -95,55 +95,64 @@ def test_edit_profile_split_survives_new_session_and_updates_workspace(configure
     refreshed, _ = configured.session(user)
     assert refreshed.get(settings_path(seller)).json() == saved.json()
     assert refreshed.get("/v1/workspace").json()["active_seller"]["name"] == "Negozio aggiornato"
-    assert refreshed.get(settings_path(seller)).json()["our_profit_pct"] == 35
+    with configured.engine.connect() as connection:
+        assert connection.execute(select(seller_commercial_settings)).first() is None
 
 
-@pytest.mark.parametrize("our,partner,expected", [
-    (None, None, (0, 100)), ("bad", "bad", (0, 100)),
-    (float("nan"), float("inf"), (0, 100)),
-    (-1, 102, (0, 100)), (125, -1, (100, 0)),
-    (35, 40, (35, 65)), (20.123456, 79.876544, (20.1235, 79.8765)),
-    (50, 49.995, (50, 49.995)),
+@pytest.mark.parametrize("obsolete_fields", [
+    {"our_profit_pct": 35}, {"partner_profit_pct": 65},
+    {"our_profit_pct": 35, "partner_profit_pct": 65},
 ])
-def test_legacy_percentage_normalization(our, partner, expected):
-    assert normalized_percentages(our, partner) == expected
-
-
-@pytest.mark.parametrize("our,partner", [(-1, 101), (101, -1), (35, 60), (50, 49.98),
-                                         ("NaN", 100), (0, "Infinity")])
-def test_invalid_split_rejected_atomically(configured, our, partner):
+def test_obsolete_split_fields_are_not_accepted_or_saved(configured, obsolete_fields):
     client, seller, _, _, _ = owner(configured)
     before = client.get(settings_path(seller)).json()
     response = client.put(settings_path(seller), json={
-        **PROFILE, "our_profit_pct": our, "partner_profit_pct": partner,
+        **PROFILE, **obsolete_fields,
     })
     assert response.status_code == 422
     assert client.get(settings_path(seller)).json() == before
+    with configured.engine.connect() as connection:
+        assert connection.execute(select(seller_commercial_settings)).first() is None
 
 
-def test_tolerance_and_blank_optional_fields_follow_original_rules(configured):
+def test_blank_optional_fields_follow_original_rules(configured):
     client, seller, _, _, _ = owner(configured)
     saved = client.put(settings_path(seller), json={
         **PROFILE, "legal_name": " ", "email": " ",
-        "our_profit_pct": 50, "partner_profit_pct": 49.995,
     })
     assert saved.status_code == 200
     assert saved.json()["legal_name"] == saved.json()["email"] == ""
-    assert saved.json()["partner_profit_pct"] == 49.995
     assert client.put(settings_path(seller), json={**PROFILE, "name": " "}).status_code == 422
 
 
-def test_legacy_malformed_split_normalized_on_read_without_mutating(configured):
+def test_legacy_split_stays_inert_and_unchanged_when_reading_and_saving_profile(configured):
     client, seller, _, _, _ = owner(configured)
     with configured.engine.begin() as connection:
         connection.execute(seller_commercial_settings.insert().values(
             seller_id=seller, our_profit_pct=35, partner_profit_pct=10,
         ))
-    result = client.get(settings_path(seller)).json()
-    assert (result["our_profit_pct"], result["partner_profit_pct"]) == (35, 65)
+    before = client.get(settings_path(seller))
+    saved = client.put(settings_path(seller), json=PROFILE)
+    for response in (before, saved):
+        assert response.status_code == 200
+        assert "our_profit_pct" not in response.json()
+        assert "partner_profit_pct" not in response.json()
     with configured.engine.connect() as connection:
-        value = connection.execute(select(seller_commercial_settings.c.partner_profit_pct)).scalar()
-        assert value == 10
+        row = connection.execute(select(seller_commercial_settings)).mappings().one()
+        assert (row["our_profit_pct"], row["partner_profit_pct"]) == (35, 10)
+
+
+def test_profile_settings_do_not_depend_on_historical_split_storage(configured):
+    client, seller, _, _, _ = owner(configured)
+    seller_commercial_settings.drop(configured.engine)
+    assert client.get(settings_path(seller)).status_code == 200
+    assert client.put(settings_path(seller), json=PROFILE).status_code == 200
+
+
+def test_settings_api_contract_contains_only_profile_fields(configured):
+    schema = configured.app.openapi()["components"]["schemas"]["SellerSettingsUpdate"]
+    assert set(schema["properties"]) == {"name", "legal_name", "email"}
+    assert set(schema["required"]) == {"name", "legal_name", "email"}
 
 
 def test_credentials_encrypted_with_original_format_and_only_mask_returned(configured):

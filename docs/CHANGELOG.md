@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-07 — D-013: esclusa la ripartizione degli utili
+
+- rimosse percentuali e divisione nostro/partner dal form, DTO e logica attiva del SaaS;
+- anagrafica salvata con nome, ragione sociale ed email, senza vincolo somma 100%;
+- conservati dati storici e migrazioni, senza letture o aggiornamenti operativi delle quote;
+- esclusione applicata anche ai futuri blocchi Agency, dashboard e contabilità;
+- mantenuti nel perimetro costi, ricavi, commissioni, margine e utile del singolo Seller;
+- baseline immutata; 6 criteri esclusi, copertura attiva 79/2.011 = 3,93%;
+- verificati 29 test API/core, 36 test frontend, typecheck e build produzione.
+
 ## 2026-09-07 — Blocco 4: organizzazioni e negozio attivo
 
 - importate organizzazioni, anagrafiche Seller e assegnazioni precedenti con UUID stabili;

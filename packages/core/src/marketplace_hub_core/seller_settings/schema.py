@@ -14,6 +14,7 @@ from sqlalchemy import (
 
 from marketplace_hub_core.tenancy.schema import metadata
 
+# Historical import storage only; current Seller settings neither read nor write it.
 seller_commercial_settings = Table(
     "seller_commercial_settings",
     metadata,

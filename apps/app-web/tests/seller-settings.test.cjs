@@ -8,9 +8,9 @@ const ts = require("typescript");
 const sellerId = "a1000000-0000-4000-8000-000000000001";
 const accountId = "a2000000-0000-4000-8000-000000000001";
 const otherSellerId = "a1000000-0000-4000-8000-000000000002";
-const fixture = () => ({ seller_id: sellerId, name: "Negozio demo", legal_name: "Azienda demo", email: "", our_profit_pct: 35, partner_profit_pct: 65, can_manage: true,
+const fixture = () => ({ seller_id: sellerId, name: "Negozio demo", legal_name: "Azienda demo", email: "", can_manage: true,
   marketplace_accounts: [{ id: accountId, marketplace: "kaufland", account_name: "Kaufland principale", active: true, credentials_configured: true, client_key_masked: "••••••••abcd" }] });
-const body = () => ({ name: "Nuovo nome", legal_name: "", email: "testo libero", our_profit_pct: 40, partner_profit_pct: 60 });
+const body = () => ({ name: "Nuovo nome", legal_name: "", email: "testo libero" });
 const account = () => ({ account_name: " Secondo account ", client_key: " test-client ", secret_key: "" });
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -39,10 +39,10 @@ function proxy(fetchImpl) {
 }
 const request = (payload, headers = {}) => ({ url: "https://app.test/api/sellers/settings", headers: new Headers({ cookie: "mh_session=existing", ...headers }), json: async () => payload });
 
-test("settings input preserves original free text and validates the .01 profit split tolerance", () => {
+test("settings input requires a name, preserves free text and discards retired profit split fields", () => {
   assert.equal(types.readSettingsInput(body()).email, "testo libero");
-  assert.ok(types.readSettingsInput({ ...body(), name: " N ", our_profit_pct: 40, partner_profit_pct: 59.991 }));
-  for (const values of [{ our_profit_pct: -1 }, { our_profit_pct: 101 }, { our_profit_pct: Infinity }, { our_profit_pct: "40" }, { partner_profit_pct: 59.98 }, { name: " " }, { email: null }]) {
+  assert.deepEqual(plain(types.readSettingsInput({ ...body(), name: " N ", our_profit_pct: 40, partner_profit_pct: 40 })), { ...body(), name: "N" });
+  for (const values of [{ name: " " }, { name: null }, { legal_name: null }, { email: null }]) {
     assert.equal(types.readSettingsInput({ ...body(), ...values }), null);
   }
 });
@@ -56,11 +56,15 @@ test("account input accepts either key as in Streamlit and refuses two empty key
 test("public DTO verifies identity and nested accounts while discarding raw credentials", () => {
   const value = fixture();
   value.client_key = "never-expose";
+  value.our_profit_pct = 40;
+  value.partner_profit_pct = 60;
   value.marketplace_accounts[0].secret_key = "never-expose";
   const parsed = types.readSellerSettings(value, sellerId);
   assert.ok(parsed);
   assert.equal(JSON.stringify(parsed).includes("never-expose"), false);
-  for (const bad of [{ ...value, seller_id: otherSellerId }, { ...value, can_manage: "true" }, { ...value, our_profit_pct: NaN },
+  assert.equal("our_profit_pct" in parsed, false);
+  assert.equal("partner_profit_pct" in parsed, false);
+  for (const bad of [{ ...value, seller_id: otherSellerId }, { ...value, can_manage: "true" },
     { ...value, marketplace_accounts: [{ ...value.marketplace_accounts[0], client_key_masked: "raw-secret" }] },
     { ...value, marketplace_accounts: [value.marketplace_accounts[0], value.marketplace_accounts[0]] }]) {
     assert.equal(types.readSellerSettings(bad, sellerId), null);
@@ -110,7 +114,7 @@ test("BFF requires exact deletion confirmation and does not send unknown input f
     assert.equal((await run(request(payload), sellerId, "delete-account", accountId)).status, 422);
   }
   assert.equal(inputs.length, 0);
-  await run(request({ ...body(), seller_id: otherSellerId, can_manage: true, url: "http://other.test" }), sellerId, "save");
+  await run(request({ ...body(), seller_id: otherSellerId, can_manage: true, url: "http://other.test", our_profit_pct: 40, partner_profit_pct: 40 }), sellerId, "save");
   assert.deepEqual(inputs[0], body());
 });
 
@@ -185,15 +189,17 @@ function component(fetchImpl, id = sellerId) {
   };
 }
 
-test("editor loads lazily, saves original split fields and refreshes the overview only after confirmation", async () => {
+test("editor loads lazily, saves only profile fields and refreshes the overview only after confirmation", async () => {
   const panel = component(async (_url, options) => Response.json(options.method === "PUT" ? { ...fixture(), ...JSON.parse(options.body) } : fixture()));
   assert.equal(panel.requests.length, 0);
   await panel.open();
-  panel.change("name", "Negozio aggiornato"); panel.change("ours", "40"); panel.change("partner", "60");
+  assert.equal(panel.byId("ours"), undefined);
+  assert.equal(panel.byId("partner"), undefined);
+  panel.change("name", "Negozio aggiornato");
   await panel.submit("settings-form");
   assert.equal(panel.saved(), 1);
   assert.equal(panel.byId("name").props.value, "Negozio aggiornato");
-  assert.deepEqual(JSON.parse(panel.requests.at(-1)[1].body), { name: "Negozio aggiornato", legal_name: "Azienda demo", email: "", our_profit_pct: 40, partner_profit_pct: 60 });
+  assert.deepEqual(JSON.parse(panel.requests.at(-1)[1].body), { name: "Negozio aggiornato", legal_name: "Azienda demo", email: "" });
   assert.match(panel.text(), /Dati del negozio salvati/);
   panel.unmount();
 });

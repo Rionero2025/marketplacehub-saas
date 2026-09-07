@@ -1,0 +1,27 @@
+{
+  "evidence": "docs/DECISIONS.md#d-013--esclusione-della-ripartizione-degli-utili-dal-saas",
+  "excluded": [
+    {"id": "LEGACY-TEST-0598", "reason": "D-013: escluso calcolo e arrotondamento delle quote nostro/partner."},
+    {"id": "LEGACY-TEST-0599", "reason": "D-013: esclusa normalizzazione delle percentuali di ripartizione."},
+    {"id": "LEGACY-TEST-0601", "reason": "D-013: nessun requisito di introdurre colonne per la ripartizione; i dati storici già importati restano conservati."},
+    {"id": "LEGACY-UI-0003", "reason": "D-013: esclusa card Guadagno complessivo BEBOL nell'intervallo."},
+    {"id": "MASTER-0353", "reason": "D-013: escluse quote seller/partner dai workflow SaaS."},
+    {"id": "MASTER-0845", "reason": "D-013: escluse quote partner/seller dai workflow SaaS."}
+  ],
+  "amended": [
+    {"id": "LEGACY-TEST-0038", "effective_requirement": "Conservare verifica export Ricavo Netto 25 e altre verifiche; escludere colonne/intestazioni delle quote."},
+    {"id": "LEGACY-TEST-0047", "effective_requirement": "Conservare costi manuali 10, netto 20, vendite 100 e spesa 70; escludere asserzioni sulle quote."},
+    {"id": "LEGACY-TEST-0057", "effective_requirement": "Conservare costo manuale persistente 40 e margine/netto 60; escludere asserzioni sulle quote."},
+    {"id": "LEGACY-TEST-0058", "effective_requirement": "Conservare formula margine live e aggiornamento immediato riepilogo; escludere aggiornamento delle quote."},
+    {"id": "LEGACY-TEST-0198", "effective_requirement": "Conservare periodo selezionato, vendite 300 e profitto 90; escludere asserzioni sulle quote."},
+    {"id": "LEGACY-TEST-0199", "effective_requirement": "Conservare aggregazione ordini e totale 3; escludere asserzioni sulle quote."},
+    {"id": "LEGACY-TEST-0200", "effective_requirement": "Conservare coerenza dettaglio/card con vendite 100 e netto 30; escludere asserzioni sulle quote."},
+    {"id": "LEGACY-TEST-0201", "effective_requirement": "Conservare filtro periodo e azzeramento economico dei cancellati; escludere asserzioni sulle quote."},
+    {"id": "LEGACY-TEST-0202", "effective_requirement": "Conservare ordini multilinea con 2 prodotti, vendite 150 e netto 55; escludere asserzioni sulle quote."},
+    {"id": "LEGACY-TEST-0204", "effective_requirement": "Conservare card cliccabili ordini, vendite, margine, righe mancanti e periodo; escludere BEBOL/partner."},
+    {"id": "LEGACY-TEST-0600", "effective_requirement": "Conservare profitto del singolo Seller 25 e aggregato 85; escludere applicazione delle percentuali di ripartizione."},
+    {"id": "LEGACY-UI-0004", "effective_requirement": "Conservare card dinamiche della dashboard, escludendo la card della quota partner."},
+    {"id": "LEGACY-UI-0008", "effective_requirement": "Conservare registrazione Seller senza percentuali di ripartizione e senza vincolo somma 100%."},
+    {"id": "LEGACY-UI-0028", "effective_requirement": "Conservare aggiornamento Seller attivo; escludere percentuali e ripartizione."}
+  ]
+}

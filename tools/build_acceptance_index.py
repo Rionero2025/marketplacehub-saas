@@ -19,6 +19,10 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     parser.add_argument("--audit-complete", action="store_true")
     parser.add_argument("--verified-criteria", type=Path)
+    parser.add_argument(
+        "--scope-overrides", type=Path,
+        default=Path(__file__).resolve().parents[1] / "docs/progress/scope-overrides.json",
+    )
     args = parser.parse_args()
 
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
@@ -105,14 +109,31 @@ def main() -> None:
             item["block"] = verified_item["block"]
             item["evidence"] = verified_item["evidence"]
 
+    # Explicit user decisions amend the SaaS scope, never the frozen source baseline.
+    scope = json.loads(args.scope_overrides.read_text(encoding="utf-8"))
+    excluded = {item["id"]: item for item in scope["excluded"]}
+    amended = {item["id"]: item for item in scope["amended"]}
+    unknown_scope = (set(excluded) | set(amended)) - known_ids
+    if unknown_scope or set(excluded) & set(amended) or set(excluded) & set(verified_by_id):
+        raise SystemExit("Invalid, overlapping or still-verified scope override IDs")
+    for item in criteria:
+        if item["id"] in excluded:
+            item["status"] = "excluded"
+            item["scope_reason"] = excluded[item["id"]]["reason"]
+            item["scope_evidence"] = scope["evidence"]
+        elif item["id"] in amended:
+            item["effective_requirement"] = amended[item["id"]]["effective_requirement"]
+            item["scope_evidence"] = scope["evidence"]
+
     verified = sum(item["status"] == "verified" for item in criteria)
+    active_total = len(criteria) - len(excluded)
     output = {
         "method": {
             "description": (
                 "One criterion for every original executable regression test, "
                 "Streamlit interaction, and numbered/bulleted Master Spec obligation."
             ),
-            "metric": "verified criteria / total criteria",
+            "metric": "verified criteria / active criteria (baseline minus explicit exclusions)",
             "warning": "This is acceptance coverage, not an estimate of hours remaining.",
         },
         "source_counts": {
@@ -122,8 +143,10 @@ def main() -> None:
         },
         "summary": {
             "verified": verified,
-            "total": len(criteria),
-            "percent": round(verified * 100 / len(criteria), 2),
+            "baseline_total": len(criteria),
+            "excluded": len(excluded),
+            "total": active_total,
+            "percent": round(verified * 100 / active_total, 2),
         },
         "criteria": criteria,
     }

@@ -39,7 +39,7 @@ Le tre pagine router Marketplace aggiungono la scelta del canale e inoltrano all
 - Fornitori: Cecotec, Innpro, AB Online e ActiveShop; altre compatibilità sono esercitate dai test della versione locale.
 - Catalog intelligence: normalizzazione, provenienza, taxonomy, schema categorie, classificazione, mapping, IA, validazione, feed e pubblicazione.
 - Operations: Packlink, tracking, scadenze di spedizione, selezione ordini e stati marketplace.
-- Finance: contabilità, PDF, costi ordine, profit sharing, settlement e statistiche prodotto.
+- Finance originale: contabilità, PDF, costi ordine, profit sharing, settlement e statistiche prodotto. Nel SaaS il profit sharing è escluso per D-013; margine e utile del singolo Seller restano richiesti.
 - Assistenza: connettori, thread, messaggi, azioni e bozze IA.
 
 ## Regola di completamento

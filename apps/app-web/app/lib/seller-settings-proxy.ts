@@ -27,7 +27,7 @@ export async function sellerSettingsProxy(request: NextRequest, sellerId: string
     const value: unknown = await request.json().catch(() => null);
     const input = operation === "save" ? readSettingsInput(value) : readAccountInput(value);
     if (!input) return failure(operation === "save"
-      ? "Controlla i dati del negozio e la ripartizione delle percentuali: il totale deve essere 100%."
+      ? "Controlla i dati del negozio: il nome è obbligatorio."
       : "Inserisci il nome dell’account e almeno una chiave API.", 422);
     body = JSON.stringify(input);
   }

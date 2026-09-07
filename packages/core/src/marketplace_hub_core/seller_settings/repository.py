@@ -4,9 +4,6 @@ from uuid import UUID, uuid4
 from sqlalchemy import Engine, select
 
 from marketplace_hub_core.seller_settings.schema import (
-    seller_commercial_settings as commercial,
-)
-from marketplace_hub_core.seller_settings.schema import (
     seller_marketplace_accounts as accounts,
 )
 from marketplace_hub_core.tenancy.schema import seller_profiles as profiles
@@ -35,9 +32,6 @@ class SqlSellerSettingsRepository:
                 select(
                     profiles.c.id.label("seller_id"), profiles.c.name,
                     profiles.c.legal_name, profiles.c.email,
-                    commercial.c.our_profit_pct, commercial.c.partner_profit_pct,
-                ).select_from(
-                    profiles.outerjoin(commercial, profiles.c.id == commercial.c.seller_id)
                 )
                 .where(*self._scope(seller_id, organization_id))
             ).mappings().first()
@@ -70,20 +64,6 @@ class SqlSellerSettingsRepository:
             )
             if result.rowcount != 1:
                 raise SellerNotAccessibleError("Negozio non disponibile.")
-            # The profile update locks this Seller row, serializing concurrent writes.
-            split = {
-                "our_profit_pct": values["our_profit_pct"],
-                "partner_profit_pct": values["partner_profit_pct"],
-            }
-            exists = connection.execute(
-                select(commercial.c.seller_id).where(commercial.c.seller_id == seller_id)
-            ).first()
-            if exists:
-                connection.execute(commercial.update().where(
-                    commercial.c.seller_id == seller_id,
-                ).values(**split))
-            else:
-                connection.execute(commercial.insert().values(seller_id=seller_id, **split))
 
     def add_account(
         self, seller_id: UUID, organization_id: UUID, account_name: str, encrypted: str,

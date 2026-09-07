@@ -10,6 +10,10 @@ L'inventario combina tre insiemi senza dichiarare completata una funzione per se
 
 Il totale è **2.017 criteri di accettazione**. Il file `docs/reference/project-acceptance-index.json` contiene ogni criterio con ID, origine, testo e stato.
 
+D-013 esclude 6 criteri di ripartizione utili dalla baseline: il perimetro SaaS attivo è
+**2.011 criteri**. I criteri misti restano richiesti senza quote nostro/partner. Le esclusioni
+e i requisiti effettivi sono in `docs/progress/scope-overrides.json`.
+
 ## Blocchi di consegna
 
 | Blocco | Contenuto |
@@ -52,6 +56,9 @@ Ogni blocco successivo deve indicare gli ID passati da `pending` a `verified`, i
 
 ## Dettaglio obbligatorio della Contabilità
 
-Il blocco B26 include espressamente nome prodotto, EAN, SKU e SKU composito, fornitore, listino contabile selezionato, costo d'acquisto, prezzo di vendita, commissione, rimborso, payout/da ricevere, costo extra, quantità, margine, quote partner/Seller, numero ordine fornitore, cliente, tracking, ricevuta e note.
+Il blocco B26 include espressamente nome prodotto, EAN, SKU e SKU composito, fornitore, listino contabile selezionato, costo d'acquisto, prezzo di vendita, commissione, rimborso, payout/da ricevere, costo extra, quantità, margine, utile del Seller, numero ordine fornitore, cliente, tracking, ricevuta e note.
+
+La ripartizione nostro/partner è esclusa dal SaaS per richiesta esplicita dell'utente
+(D-013). Nessun portale deve proporre percentuali o quote di ripartizione.
 
 Deve inoltre replicare selezione persistente per riga, selezione/deselezione dei filtrati, azzeramento, editing diretto, salvataggio immediato, righe economiche bloccate per stati annullati/rimborsati/resi/no stock, import/confronto Excel, prevenzione export duplicati, storico export e PDF per periodo. Questa descrizione impedisce che una semplice tabella ordini venga chiamata “Contabilità”.
