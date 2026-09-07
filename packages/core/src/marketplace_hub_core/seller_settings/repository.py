@@ -47,6 +47,7 @@ class SqlSellerSettingsRepository:
                 ).where(
                     accounts.c.seller_id == seller_id,
                     accounts.c.organization_id == organization_id,
+                    accounts.c.marketplace == "kaufland",
                 ).order_by(accounts.c.marketplace, accounts.c.account_name, accounts.c.id)
             ).mappings().all()
         result = dict(profile)

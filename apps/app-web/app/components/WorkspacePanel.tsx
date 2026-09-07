@@ -97,7 +97,7 @@ export function WorkspacePanel({ result, realm, loginPath }: {
                 <div className="seller-profile-heading"><span className="store-mark" aria-hidden="true">{activeSeller.name.slice(0, 1).toUpperCase()}</span><div><h3>{activeSeller.name}</h3><p>{activeSeller.organization_name}</p></div></div>
                 <dl className="seller-details"><div><dt>Ruolo nel negozio</dt><dd><span className="role-badge">{activeSeller.role_label}</span></dd></div><div><dt>Ragione sociale</dt><dd>{activeSeller.legal_name || "Non indicata"}</dd></div><div className="seller-email"><dt>Email del negozio</dt><dd>{activeSeller.email || "Non indicata"}</dd></div></dl>
               </div> : <p className="workspace-muted">Seleziona un negozio per consultarne i dati e le autorizzazioni.</p>}
-              {activeSeller && <SellerSettingsPanel key={activeSeller.id} sellerId={activeSeller.id} loginPath={loginPath} onSaved={() => startRefresh(() => router.refresh())} />}
+              {activeSeller && <SellerSettingsPanel key={activeSeller.id} sellerId={activeSeller.id} loginPath={loginPath} marketplacePath={realm === "seller" ? "/seller/marketplaces" : undefined} onSaved={() => startRefresh(() => router.refresh())} />}
             </div>
           </> : <div className="workspace-section-body workspace-empty"><span className="store-mark"><DashboardIcon name="store" size={24} /></span><h3>Nessun negozio assegnato</h3><p>Il tuo account è attivo. Contatta l’amministratore della tua organizzazione per l’assegnazione di un negozio.</p></div>}
         </section>

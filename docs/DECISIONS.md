@@ -86,3 +86,34 @@ dati originali Streamlit restano in sola lettura.
 
 I criteri esclusivamente relativi alla ripartizione sono esclusi dal perimetro attivo con
 motivazione verificabile; i criteri misti restano richiesti per tutte le altre operazioni.
+
+## D-014 — Priorità al Seller Enterprise completo
+
+L'utente ha stabilito che il lavoro attuale riguarda esclusivamente il pannello Seller nella
+versione funzionalmente completa Enterprise. Si completano i moduli senza restrizioni di
+pacchetto; soltanto dopo si definiranno abilitazioni e limiti per i pacchetti acquistati,
+applicati anche dal backend. Questa scelta non attribuisce acquisti o abbonamenti fittizi.
+Le nuove funzioni Agency e Platform restano rinviate; isolamento dei dati e permessi
+esistenti continuano ad applicarsi. D-013 resta valida.
+
+## D-015 — Collega marketplace precede la sincronizzazione ordini
+
+L'utente richiede una sezione autonoma nel Seller con una griglia grafica di marketplace,
+ispirata a Base.com. L'account collegato a monte determina il connettore usato dai moduli
+successivi: nessun flusso ordini o contabile deve essere fisso su Kaufland.
+
+Il primo catalogo comprende 28 marketplace riconoscibili, con ricerca e stato esplicito.
+Kaufland e Worten hanno connettori di verifica API in questo blocco. Gli altri sono
+segnalati come da sviluppare e non raccolgono credenziali. La presenza nella griglia non
+implica che sincronizzazione ordini, catalogo o contabilità siano già implementati.
+
+Il nuovo flusso Verifica e collega richiede credenziali complete e verifica remota prima
+del salvataggio cifrato: è un'estensione richiesta rispetto al semplice salvataggio
+Streamlit. Conserva nome account, trim, cifratura, isolamento e conferma ELIMINA. L'URL
+Worten è limitato al servizio ufficiale, con redirect disabilitati. Questo protegge le
+credenziali in un servizio multiutente senza introdurre endpoint inventati.
+
+Metadata mostrati soltanto se restituiti dalle API: Kaufland espone storefront registrati,
+non necessariamente attivi, e non un nome negozio pubblico nel contratto consultato.
+Worten può restituire Shop ID e nome pubblico tramite A01. Credenziali già importate sono
+da verificare; una risposta 401 non viene arbitrariamente interpretata come scadenza.

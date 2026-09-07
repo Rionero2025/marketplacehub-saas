@@ -1,5 +1,9 @@
 # B10.1 — Anagrafica e account Kaufland
 
+Aggiornamento B10.2: la gestione marketplace del pannello Seller è ora nella sezione
+dedicata Collega marketplace. Il form anagrafica contiene solo nome/ragione sociale/email;
+gli endpoint storici qui documentati rimangono compatibili. Vedere B10_2_MARKETPLACE_CONNECTIONS.
+
 ## Perimetro concordato
 
 Primo passo operativo della sezione Negozio: modifica anagrafica del Seller autorizzato,

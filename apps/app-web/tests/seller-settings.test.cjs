@@ -216,29 +216,16 @@ test("read-only editor disables profile changes and offers no account mutation c
   panel.unmount();
 });
 
-test("account keys clear after confirmed save and the UI never claims an API connection check", async () => {
-  const panel = component(async () => Response.json(fixture()));
-  await panel.open(); panel.change("client", "synthetic-key");
-  assert.equal(panel.byId("client").props.type, "password");
-  await panel.submit("settings-form settings-add-account");
-  assert.equal(panel.byId("client").props.value, "");
-  assert.equal(panel.byId("secret").props.value, "");
-  assert.match(panel.text(), /connessione API non è stata verificata/);
-  assert.equal(panel.saved(), 1);
-  panel.unmount();
-});
-
-test("ambiguous save failures block further writes until a successful fresh read", async () => {
+test("ambiguous profile save blocks further writes until a successful fresh read", async () => {
   const panel = component(async (_url, options) => options.method === "GET" ? Response.json(fixture()) : new Response(null, { status: 503 }));
-  await panel.open(); panel.change("client", "synthetic-key");
-  await panel.submit("settings-form settings-add-account");
+  await panel.open();
+  await panel.submit("settings-form");
   assert.equal(panel.saved(), 0);
   assert.match(panel.text(), /Operazione non confermata/);
-  assert.equal(panel.button("Salva account Kaufland").props.disabled, true);
-  await panel.submit("settings-form settings-add-account");
+  assert.equal(panel.button("Salva dati negozio").props.disabled, true);
+  await panel.submit("settings-form");
   assert.equal(panel.requests.length, 2);
   await panel.button("Aggiorna dati").props.onClick(); panel.render();
-  assert.equal(panel.byId("client").props.value, "");
   assert.equal(panel.button("Salva dati negozio").props.disabled, false);
   panel.unmount();
 });
@@ -252,18 +239,6 @@ test("invalid Seller identity and revoked access never turn into successful muta
     if (panel.button("Salva dati negozio")) assert.equal(panel.button("Salva dati negozio").props.disabled, true);
     panel.unmount();
   }
-});
-
-test("account delete needs exact typed confirmation and sends the selected account only", async () => {
-  const panel = component(async () => Response.json(fixture()));
-  await panel.open(); panel.button("Elimina").props.onClick(); panel.render();
-  assert.equal(panel.button("Elimina definitivamente").props.disabled, true);
-  panel.change("delete", "elimina"); assert.equal(panel.button("Elimina definitivamente").props.disabled, true);
-  panel.change("delete", "ELIMINA"); assert.equal(panel.button("Elimina definitivamente").props.disabled, false);
-  panel.button("Elimina definitivamente").props.onClick(); await panel.settle();
-  assert.equal(panel.requests.at(-1)[0], `/api/sellers/${sellerId}/kaufland-accounts/${accountId}`);
-  assert.deepEqual(JSON.parse(panel.requests.at(-1)[1].body), { confirmation: "ELIMINA" });
-  panel.unmount();
 });
 
 test("switching Seller unmounts pending settings, aborts the request and ignores late success", async () => {

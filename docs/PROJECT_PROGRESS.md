@@ -26,11 +26,20 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B03 — Autenticazione e accessi | completato | 15 | **2,43%** |
 | B04 — Organizzazioni e negozio attivo | completato | 21 | **3,47%** |
 | B10.1 — Anagrafica e account Kaufland | completato; B10 resta parziale | 9 | **3,93%** |
+| B10.2 — Collega marketplace, Seller Enterprise | completato nel perimetro Kaufland/Worten; altri connettori pendenti | 8 | **4,33%** |
 
-Calcolo corrente: `79 / 2.011 = 3,928%`, mostrato con due decimali. I totali B01–B04 nella
-tabella sono quelli storici al rilascio. La variazione rispetto a 3,97% deriva esclusivamente
+Calcolo corrente: `87 / 2.011 = 4,326%`, mostrato con due decimali. I totali B01–B04 nella
+tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
+
+B10.2 aggiunge 8 criteri effettivamente verificati: form/verifica Worten, account salvato,
+parser storefront originale, test connessione e metadata veri. La griglia di 28 marketplace
+non equivale a 28 connettori implementati: Kaufland/Worten sono disponibili per collegamento,
+26 sono esplicitamente da sviluppare. Nessuna sincronizzazione ordini conteggiata.
+Verifiche: 181 test Python, 52 test frontend, typecheck, build e browser desktop/mobile.
+Vedere `docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md`, D-014 e D-015. Le nuove funzioni si
+concentrano sul Seller Enterprise senza limitazioni commerciali; Agency e Platform rinviate.
 
 B10.1 è stato anticipato su richiesta dell'utente per dare operatività al Seller. Sito/piani,
 billing e onboarding B05–B07 restano pendenti. Il blocco trasferisce configurazione e

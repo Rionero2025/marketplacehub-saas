@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-07 — B10.2: Collega marketplace nel Seller Enterprise
+
+- nuova sezione dedicata con griglia grafica di 28 marketplace, ricerca e filtri;
+- verifica e collegamento API per Kaufland/Worten, altri connettori dichiarati da sviluppare;
+- credenziali cifrate, riverifica account importati, metadata reali e stato/errori specifici;
+- host fissi, timeout, limiti risposta, isolamento Seller e protezione delle verifiche concorrenti;
+- separata l'anagrafica dalla gestione multicanale; nessuna ripartizione utili o limite di piano;
+- 181 test Python, 52 test frontend, typecheck, build e collaudo browser desktop/mobile;
+- 8 criteri verificati aggiunti: 87/2.011 = 4,33%.
+
 ## 2026-09-07 — D-013: esclusa la ripartizione degli utili
 
 - rimosse percentuali e divisione nostro/partner dal form, DTO e logica attiva del SaaS;

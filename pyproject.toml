@@ -11,6 +11,7 @@ dependencies = [
   "argon2-cffi==25.1.0",
   "cryptography==50.0.1",
   "fastapi==0.116.1",
+  "httpx==0.28.1",
   "psycopg[binary,pool]==3.2.9",
   "pydantic-settings==2.10.1",
   "redis==6.4.0",
@@ -24,7 +25,6 @@ marketplace-hub-create-platform-admin = "marketplace_hub_core.auth.bootstrap:mai
 
 [project.optional-dependencies]
 dev = [
-  "httpx==0.28.1",
   "pytest==8.4.1",
   "pytest-cov==6.2.1",
   "ruff==0.12.10",

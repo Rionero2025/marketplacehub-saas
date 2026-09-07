@@ -1,6 +1,6 @@
 export type MarketplaceAccount = {
   id: string;
-  marketplace: "kaufland";
+  marketplace: string;
   account_name: string;
   active: boolean;
   credentials_configured: boolean;
@@ -30,12 +30,12 @@ export function readSellerSettings(value: unknown, sellerId: string): SellerSett
     || typeof value.can_manage !== "boolean" || !Array.isArray(value.marketplace_accounts)) return null;
   const accounts: MarketplaceAccount[] = [];
   for (const account of value.marketplace_accounts) {
-    if (!isObject(account) || !isUuid(account.id) || account.marketplace !== "kaufland"
+    if (!isObject(account) || !isUuid(account.id) || typeof account.marketplace !== "string" || !account.marketplace.trim()
       || typeof account.account_name !== "string" || typeof account.active !== "boolean"
       || typeof account.credentials_configured !== "boolean" || typeof account.client_key_masked !== "string"
       || !/^(?:—|•{8}[\s\S]{0,4})$/u.test(account.client_key_masked)
       || accounts.some((existing) => existing.id === account.id)) return null;
-    accounts.push({ id: account.id, marketplace: "kaufland", account_name: account.account_name, active: account.active,
+    accounts.push({ id: account.id, marketplace: account.marketplace, account_name: account.account_name, active: account.active,
       credentials_configured: account.credentials_configured, client_key_masked: account.client_key_masked });
   }
   return { seller_id: sellerId, name: value.name, legal_name: value.legal_name, email: value.email,

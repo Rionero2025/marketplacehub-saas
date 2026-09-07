@@ -10,11 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 79,
+    "verified": 87,
     "baseline_total": 2017,
     "excluded": 6,
     "total": 2011,
-    "percent": 3.93
+    "percent": 4.33
   },
   "criteria": [
     {
@@ -2296,7 +2296,9 @@
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_live_inventory.py:162",
       "requirement": "test_storefront_parser_accepts_api_objects",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
     },
     {
       "id": "LEGACY-TEST-0324",
@@ -5081,21 +5083,27 @@
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:110",
       "requirement": "text_input: \"API Key Mirakl\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
     },
     {
       "id": "LEGACY-UI-0016",
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:111",
       "requirement": "text_input: \"Shop ID Portogallo\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
     },
     {
       "id": "LEGACY-UI-0017",
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:118",
       "requirement": "button: \"Verifica credenziali Worten\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
     },
     {
       "id": "LEGACY-UI-0018",
@@ -5123,14 +5131,18 @@
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:186",
       "requirement": "selectbox: \"Account Worten da verificare\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
     },
     {
       "id": "LEGACY-UI-0022",
       "kind": "legacy_interaction",
       "source": "pages/1_Gestione_Seller.py:191",
       "requirement": "button: \"Prova connessione Worten\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
     },
     {
       "id": "LEGACY-UI-0023",
@@ -12435,8 +12447,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1055",
       "section": "27. CREDENZIALI MARKETPLACE",
       "requirement": "supportare test connessione;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md",
+      "block": "B10.2"
     },
     {
       "id": "MASTER-0522",
@@ -12444,8 +12457,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1056",
       "section": "27. CREDENZIALI MARKETPLACE",
       "requirement": "salvare metadata del vero account marketplace recuperato via API.",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md",
+      "block": "B10.2"
     },
     {
       "id": "MASTER-0523",

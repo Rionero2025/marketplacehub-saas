@@ -1,0 +1,147 @@
+{
+  "retrieved": "2026-09-07",
+  "reference": "https://base.com/it-IT/integrazioni/",
+  "usage": "Brand identification only; marks belong to their respective owners. No affiliation or available integration implied. Text fallbacks are name labels, not official artwork. Simple Icons artwork distributed under CC0; brand terms remain applicable.",
+  "assets": [
+    {
+      "code": "aliexpress",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/aliexpress.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "allegro",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/allegro.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "carrefour",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/carrefour.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "darty",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/darty.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "ebay",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/ebay.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "etsy",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/etsy.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "fnac",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/fnac.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "kaufland",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/kaufland.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "leroymerlin",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/leroymerlin.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "mediamarkt",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/mediamarkt.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "otto",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/otto.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "rakuten",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/rakuten.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "tiktokshop",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/tiktok.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "zalando",
+      "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/777807a262bb7384ff406fd4b35fdcd02e9514c3/icons/zalando.svg",
+      "format": "Simple Icons SVG; brand color fill"
+    },
+    {
+      "code": "worten",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "amazon",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "mediaworld",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "bigbang",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "bol",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "manomano",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "temu",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "decathlon",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "eprice",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "conforama",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "pccomponentes",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "emag",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "fruugo",
+      "source": "Text brand-name representation",
+      "format": "SVG text; no invented emblem"
+    },
+    {
+      "code": "cdiscount",
+      "source": "https://i2.cdscdn.com/resources/RWD/header/nLogo.png",
+      "format": "unaltered official PNG embedded in SVG"
+    }
+  ]
+}

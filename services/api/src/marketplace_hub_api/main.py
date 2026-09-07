@@ -13,6 +13,10 @@ from marketplace_hub_core.auth import AuthService
 from marketplace_hub_core.auth.rate_limit import RedisLoginRateLimiter
 from marketplace_hub_core.auth.sql_repository import SqlAuthRepository
 from marketplace_hub_core.database import create_database_engine
+from marketplace_hub_core.marketplace_connections.repository import (
+    SqlMarketplaceConnectionsRepository,
+)
+from marketplace_hub_core.marketplace_connections.service import MarketplaceConnectionsService
 from marketplace_hub_core.readiness import Check, check_database, check_redis, run_checks
 from marketplace_hub_core.seller_settings.repository import SqlSellerSettingsRepository
 from marketplace_hub_core.seller_settings.service import SellerSettingsService
@@ -22,6 +26,7 @@ from marketplace_hub_core.tenancy.service import WorkspaceService
 from redis import Redis
 
 from marketplace_hub_api.auth import create_auth_router
+from marketplace_hub_api.marketplace_connections import create_marketplace_connections_router
 from marketplace_hub_api.seller_settings import create_seller_settings_router
 from marketplace_hub_api.workspace import create_workspace_router
 
@@ -33,6 +38,7 @@ def create_app(
     auth_service: AuthService | None = None,
     workspace_service: WorkspaceService | None = None,
     seller_settings_service: SellerSettingsService | None = None,
+    marketplace_connections_service: MarketplaceConnectionsService | None = None,
 ) -> FastAPI:
     app_settings = settings or get_settings()
     checks = readiness_checks or {
@@ -67,6 +73,12 @@ def create_app(
             app_settings.master_key,
         )
 
+    if marketplace_connections_service is None:
+        marketplace_connections_service = MarketplaceConnectionsService(
+            SqlMarketplaceConnectionsRepository(workspace_service.repository.engine),
+            workspace_service, app_settings.master_key,
+        )
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         try:
@@ -93,6 +105,9 @@ def create_app(
     app.include_router(create_workspace_router(workspace_service, auth_service, app_settings))
     app.include_router(create_seller_settings_router(
         seller_settings_service, auth_service, app_settings,
+    ))
+    app.include_router(create_marketplace_connections_router(
+        marketplace_connections_service, auth_service, app_settings,
     ))
 
     @app.middleware("http")

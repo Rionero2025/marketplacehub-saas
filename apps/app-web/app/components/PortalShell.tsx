@@ -6,12 +6,12 @@ import type { ReactNode } from "react";
 import { DashboardIcon } from "./DashboardIcon";
 import type { DashboardIconName } from "./DashboardIcon";
 
-export function PortalShell({ portal, displayName, children }: { portal: string; displayName: string; children: ReactNode }) {
+export function PortalShell({ portal, displayName, children, currentPage = "overview" }: { portal: string; displayName: string; children: ReactNode; currentPage?: "overview" | "marketplaces" }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("#workspace-overview");
+  const [activeSection, setActiveSection] = useState(currentPage === "marketplaces" ? "/seller/marketplaces" : "#workspace-overview");
   const sidebarRef = useRef<HTMLElement>(null);
   const menuToggleRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -52,12 +52,14 @@ export function PortalShell({ portal, displayName, children }: { portal: string;
     };
   }, [menuOpen]);
   const sellerPortal = portal === "SELLER";
+  const overviewPrefix = currentPage === "marketplaces" ? "/seller" : "";
   const portalLabel = sellerPortal ? "Area Seller" : portal === "AGENZIA" ? "Area Agenzia" : "Amministrazione";
   const navigation: { href: string; label: string; icon: DashboardIconName }[] = [
-    { href: "#workspace-overview", label: "Panoramica", icon: "home" },
-    { href: "#workspace-seller", label: sellerPortal ? "Negozio" : "Negozi", icon: "store" },
-    { href: "#workspace-organizations", label: "Organizzazioni", icon: "building" },
-    { href: "#workspace-permissions", label: "Autorizzazioni", icon: "shield" },
+    { href: `${overviewPrefix}#workspace-overview`, label: "Panoramica", icon: "home" },
+    { href: `${overviewPrefix}#workspace-seller`, label: sellerPortal ? "Negozio" : "Negozi", icon: "store" },
+    ...(sellerPortal ? [{ href: "/seller/marketplaces", label: "Collega marketplace", icon: "plug" as DashboardIconName }] : []),
+    { href: `${overviewPrefix}#workspace-organizations`, label: "Organizzazioni", icon: "building" },
+    { href: `${overviewPrefix}#workspace-permissions`, label: "Autorizzazioni", icon: "shield" },
   ];
   async function logout() {
     setPending(true);
@@ -80,14 +82,14 @@ export function PortalShell({ portal, displayName, children }: { portal: string;
     {menuOpen && <button className="hub-menu-backdrop" type="button" aria-label="Chiudi il menu" onClick={() => setMenuOpen(false)} />}
     <aside ref={sidebarRef} className="hub-sidebar" id="hub-sidebar" role={menuOpen ? "dialog" : undefined} aria-modal={menuOpen || undefined} aria-label="Navigazione del workspace">
       <div className="hub-rail">
-        <a className="hub-rail-brand" href="#workspace-overview" onClick={() => { setActiveSection("#workspace-overview"); setMenuOpen(false); }} aria-label="Marketplace Hub, panoramica">MH</a>
+        <a className="hub-rail-brand" href={`${overviewPrefix}#workspace-overview`} onClick={() => { setActiveSection("#workspace-overview"); setMenuOpen(false); }} aria-label="Marketplace Hub, panoramica">MH</a>
         <nav aria-label="Scorciatoie del workspace">
           {navigation.map((item) => <a key={item.href} className={`hub-rail-link${activeSection === item.href ? " is-active" : ""}`} href={item.href} title={item.label} aria-label={item.label} aria-current={activeSection === item.href ? "location" : undefined} onClick={() => { setActiveSection(item.href); setMenuOpen(false); }}><DashboardIcon name={item.icon} size={21} /></a>)}
         </nav>
       </div>
       <div className="hub-sidebar-panel">
       <button className="hub-menu-close" type="button" aria-label="Chiudi il menu" onClick={() => setMenuOpen(false)}><DashboardIcon name="close" size={20} /></button>
-      <a className="hub-brand" href="#workspace-overview" onClick={() => { setActiveSection("#workspace-overview"); setMenuOpen(false); }} aria-label="Marketplace Hub, panoramica">
+      <a className="hub-brand" href={`${overviewPrefix}#workspace-overview`} onClick={() => { setActiveSection("#workspace-overview"); setMenuOpen(false); }} aria-label="Marketplace Hub, panoramica">
         <span><span className="hub-brand-name">Marketplace Hub</span><span className="hub-brand-caption">Il tuo spazio operativo</span></span>
       </a>
       <p className="hub-nav-label">Workspace</p>
@@ -105,7 +107,7 @@ export function PortalShell({ portal, displayName, children }: { portal: string;
     <section className="hub-main" inert={menuOpen}>
       <header className="hub-topbar">
         <button ref={menuToggleRef} type="button" className="hub-menu-toggle" aria-label={menuOpen ? "Chiudi il menu" : "Apri il menu"} aria-controls="hub-sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><DashboardIcon name={menuOpen ? "close" : "menu"} size={21} /></button>
-        <div className="hub-breadcrumbs"><span>Workspace</span><DashboardIcon name="chevron" size={12} /><strong>Panoramica</strong></div>
+        <div className="hub-breadcrumbs"><span>Workspace</span><DashboardIcon name="chevron" size={12} /><strong>{currentPage === "marketplaces" ? "Collega marketplace" : "Panoramica"}</strong></div>
         <div className="hub-topbar-account">
           <span className="hub-user-avatar" aria-hidden="true">{displayName.trim().slice(0, 1).toUpperCase() || "M"}</span>
           <div className="hub-user-details"><span className="hub-user-name">{displayName}</span><span className="hub-user-realm">{portalLabel}</span></div>

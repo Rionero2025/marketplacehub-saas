@@ -394,6 +394,46 @@
       "id": "MASTER-0742",
       "block": "B10.1",
       "evidence": "docs/blocks/B10_1_SELLER_SETTINGS.md"
+    },
+    {
+      "id": "LEGACY-UI-0015",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
+    },
+    {
+      "id": "LEGACY-UI-0016",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
+    },
+    {
+      "id": "LEGACY-UI-0017",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
+    },
+    {
+      "id": "LEGACY-UI-0021",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
+    },
+    {
+      "id": "LEGACY-UI-0022",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
+    },
+    {
+      "id": "LEGACY-TEST-0323",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
+    },
+    {
+      "id": "MASTER-0521",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
+    },
+    {
+      "id": "MASTER-0522",
+      "block": "B10.2",
+      "evidence": "docs/blocks/B10_2_MARKETPLACE_CONNECTIONS.md"
     }
   ]
 }
