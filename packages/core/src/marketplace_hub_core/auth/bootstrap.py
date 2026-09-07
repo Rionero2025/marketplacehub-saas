@@ -4,12 +4,11 @@ from argparse import ArgumentParser
 from datetime import UTC, datetime
 from getpass import getpass
 
-from marketplace_hub_core.auth.models import AuthRealm
 from marketplace_hub_core.auth.passwords import hash_password
 from marketplace_hub_core.auth.service import normalize_login
-from marketplace_hub_core.auth.sql_repository import SqlAuthRepository
 from marketplace_hub_core.database import create_database_engine
 from marketplace_hub_core.settings import get_settings
+from marketplace_hub_core.tenancy.bootstrap import create_platform_owner
 
 
 def main() -> None:
@@ -24,12 +23,11 @@ def main() -> None:
 
     engine = create_database_engine(get_settings())
     try:
-        repository = SqlAuthRepository(engine)
-        user = repository.create_user(
+        user = create_platform_owner(
+            engine,
             login=normalize_login(args.login),
             display_name=args.display_name.strip(),
             password_hash=hash_password(password),
-            realms=[AuthRealm.PLATFORM],
             now=datetime.now(UTC),
         )
         print(f"Platform Admin creato: {user.login}")

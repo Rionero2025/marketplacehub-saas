@@ -1,7 +1,12 @@
 import { PortalShell } from "../components/PortalShell";
 import { requireRealm } from "../lib/session";
+import { fetchWorkspace } from "../lib/workspace";
+import { WorkspacePanel } from "../components/WorkspacePanel";
+import { SessionUnavailable } from "../components/SessionUnavailable";
 
 export default async function SellerPortal() {
   const session = await requireRealm("seller", "/login/seller");
-  return <PortalShell portal="SELLER" displayName={session.display_name}><div className="workspace-card"><p className="eyebrow">AREA SELLER</p><h1>Pannello Seller</h1><p>Accesso verificato. Le funzioni operative verranno ricostruite nei blocchi dedicati seguendo il programma Streamlit.</p></div></PortalShell>;
+  if (!session) return <SessionUnavailable />;
+  const result = await fetchWorkspace("seller", "/login/seller");
+  return <PortalShell portal="SELLER" displayName={session.display_name}><WorkspacePanel result={result} realm="seller" loginPath="/login/seller" /></PortalShell>;
 }

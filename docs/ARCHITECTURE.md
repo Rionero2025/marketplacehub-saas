@@ -47,8 +47,16 @@ Vincoli:
 
 ## Fondazione e autenticazione implementate
 
-Il Blocco B02 rende eseguibile questa separazione: `marketing-web`, `app-web`, API FastAPI, worker RQ, core Python, PostgreSQL, Redis e Alembic hanno processi e configurazioni distinti. Il Blocco B03 aggiunge autenticazione persistente e tre realm di accesso verificati dall'API. Il modello organizzativo e l'isolamento tenant restano nel blocco successivo.
+Il Blocco B02 rende eseguibile questa separazione: `marketing-web`, `app-web`, API FastAPI, worker
+RQ, core Python, PostgreSQL, Redis e Alembic hanno processi e configurazioni distinti. B03 aggiunge
+autenticazione e tre realm di accesso. B04 risolve organizzazioni, membership, deleghe e Seller
+autorizzati nel core; il frontend riceve solo i profili compresi in questo scope. La selezione
+è associata alla sessione e viene invalidata alla revoca. I moduli operativi e i loro job dovranno
+usare lo stesso contesto autorizzato: il loro isolamento resta da implementare insieme ai moduli.
 
 ## Sequenza di migrazione
 
-Il ramo parte vuoto. Ogni modulo viene portato soltanto dopo aver scritto la matrice input → trasformazione → persistenza → output e i casi di confronto con la versione 271. Il SaaS precedente resta congelato e online finché il sostituto non supera lo staging.
+Il ramo parte vuoto. Ogni modulo viene portato soltanto dopo aver scritto la matrice input →
+trasformazione → persistenza → output e i casi di confronto con la versione 271. Il SaaS precedente
+resta congelato nel ramo archivio. Lo staging esistente segue ora `rebuild/streamlit-parity-v2`;
+non rappresenta ancora la parità operativa del prodotto originale.

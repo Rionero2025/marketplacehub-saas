@@ -244,6 +244,111 @@
       "id": "MASTER-0669",
       "block": "B03",
       "evidence": "tests/test_auth_frontend_contract.py"
+    },
+    {
+      "id": "MASTER-0058",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0059",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0060",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0062",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0063",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0140",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0141",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0143",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0144",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0145",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0146",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0501",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0602",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0661",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0662",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0663",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0664",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0665",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0666",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0760",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
+    },
+    {
+      "id": "MASTER-0761",
+      "block": "B04",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md"
     }
   ]
 }

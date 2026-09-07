@@ -42,4 +42,12 @@ L'elenco esatto e i file che dichiarano ogni tabella sono ricavabili dal manifes
 
 ## Stato della nuova base dati
 
-Il Blocco B02 ha introdotto PostgreSQL, pool configurabile e la catena Alembic `20260907_0001`. B03 aggiunge `auth_users`, `auth_user_realms` e `auth_sessions` con `20260907_0002`. Le sessioni sono revocabili e conservano solo l'hash del token. Queste tabelle descrivono l'identità e il portale autorizzato; il modello organizzativo multi-tenant viene aggiunto separatamente.
+Il Blocco B02 ha introdotto PostgreSQL, pool configurabile e Alembic `20260907_0001`. B03 aggiunge
+`auth_users`, `auth_user_realms`, `auth_sessions` e il collegamento alle identità precedenti
+`auth_legacy_user_links` (revisioni 0002–0003). Le sessioni conservano solo l'hash del token.
+
+B04 aggiunge organizzazioni, relazioni, ruoli, permessi, membership, profili Seller,
+assegnazioni individuali e selezioni di sessione con `20260907_0004`. Le organizzazioni
+discendono dai tenant precedenti e i profili mantengono `legacy_seller_id`. Il trasferimento
+legge i dati originali senza modificarli; il downgrade elimina le nove tabelle nuove.
+Lo schema e le regole di migrazione sono documentati in `blocks/B04_ORGANIZATIONS.md`.

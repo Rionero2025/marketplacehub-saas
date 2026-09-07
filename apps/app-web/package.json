@@ -6,7 +6,7 @@
     "build": "next build",
     "dev": "next dev --port 3000",
     "start": "next start --port ${PORT:-3000}",
-    "test": "tsc --noEmit",
+    "test": "tsc --noEmit && node --test tests/session.test.cjs tests/logout.test.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

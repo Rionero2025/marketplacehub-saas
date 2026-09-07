@@ -6,7 +6,8 @@ Il programma Streamlit locale, il repository `marketplacehub-1` e il sito Stream
 
 ## D-002 — Ricostruzione isolata
 
-La ricostruzione avviene su `rebuild/streamlit-parity-v2`. Il precedente `main` resta pubblicato e il suo stato è archiviato su `archive/pre-rebuild-2026-09-07`.
+La ricostruzione avviene su `rebuild/streamlit-parity-v2`. Il precedente stato è archiviato su
+`archive/pre-rebuild-2026-09-07`. Dopo il rilascio B03 lo staging esistente segue il ramo rebuild.
 
 ## D-003 — Parità comportamentale
 
@@ -35,3 +36,11 @@ La fondazione usa Next.js/TypeScript per le superfici web e Python/FastAPI per c
 ## D-009 — Identità separata dal tenant
 
 L'autenticazione B03 stabilisce chi è l'utente e quale portale può aprire. Organizzazioni, membership, ruoli e seller scope appartengono al modello B04 e saranno sempre risolti dal backend. In questo modo una scelta del browser non può concedere accesso a un realm o a un tenant.
+
+## D-010 — Continuità delle assegnazioni e scope a ogni richiesta
+
+B04 importa le assegnazioni dal SaaS congelato `93cab535e89f36d8149c5298f70463d2c297c7ac`.
+Il login valido non concede un tenant. La membership diretta prevale sulle deleghe Agency;
+lo scope personale resta un'intersezione. I nomi e le autorizzazioni mostrati provengono dal
+backend. Le funzioni di amministrazione delle assegnazioni e i controlli specifici dei moduli
+restano nei rispettivi blocchi: le etichette dei permessi non rappresentano funzioni già pronte.

@@ -10,9 +10,9 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 49,
+    "verified": 70,
     "total": 2017,
-    "percent": 2.43
+    "percent": 3.47
   },
   "criteria": [
     {
@@ -8192,8 +8192,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:133",
       "section": "3. MODELLO MULTI-TENANT E RUOLI > 3.1 Organizzazioni",
       "requirement": "`PLATFORM`",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0059",
@@ -8201,8 +8202,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:134",
       "section": "3. MODELLO MULTI-TENANT E RUOLI > 3.1 Organizzazioni",
       "requirement": "`AGENCY`",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0060",
@@ -8210,8 +8212,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:135",
       "section": "3. MODELLO MULTI-TENANT E RUOLI > 3.1 Organizzazioni",
       "requirement": "`SELLER`",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0061",
@@ -8228,8 +8231,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:140",
       "section": "3. MODELLO MULTI-TENANT E RUOLI > 3.1 Organizzazioni",
       "requirement": "AGENCY può avere più SELLER figli;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0063",
@@ -8237,8 +8241,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:141",
       "section": "3. MODELLO MULTI-TENANT E RUOLI > 3.1 Organizzazioni",
       "requirement": "SELLER può anche essere diretto, senza agency padre.",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0064",
@@ -8930,8 +8935,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:342",
       "section": "7. DATABASE > 7.1 Entità principali",
       "requirement": "organizations;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0141",
@@ -8939,8 +8945,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:343",
       "section": "7. DATABASE > 7.1 Entità principali",
       "requirement": "organization_relationships;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0142",
@@ -8957,8 +8964,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:345",
       "section": "7. DATABASE > 7.1 Entità principali",
       "requirement": "memberships;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0144",
@@ -8966,8 +8974,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:346",
       "section": "7. DATABASE > 7.1 Entità principali",
       "requirement": "roles;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0145",
@@ -8975,8 +8984,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:347",
       "section": "7. DATABASE > 7.1 Entità principali",
       "requirement": "permissions;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0146",
@@ -8984,8 +8994,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:348",
       "section": "7. DATABASE > 7.1 Entità principali",
       "requirement": "seller_profiles;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0147",
@@ -12183,8 +12194,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1026",
       "section": "26. SICUREZZA",
       "requirement": "RBAC server-side;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0502",
@@ -13108,8 +13120,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1223",
       "section": "33. TEST AUTOMATICI > Integration",
       "requirement": "tenant authorization.",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0603",
@@ -13657,8 +13670,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1314",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "organizations;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0662",
@@ -13666,8 +13680,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1315",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "Agency/Seller relationships;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0663",
@@ -13675,8 +13690,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1316",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "memberships;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0664",
@@ -13684,8 +13700,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1317",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "roles;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0665",
@@ -13693,8 +13710,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1318",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "permissions;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0666",
@@ -13702,8 +13720,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1319",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "tenant scoping;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0667",
@@ -14551,8 +14570,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1565",
       "section": "43. CHECKLIST FUNZIONI ESISTENTI DA NON PERDERE DURANTE IL REFACTOR > Seller / configurazione",
       "requirement": "nome seller/account interno;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0761",
@@ -14560,8 +14580,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1566",
       "section": "43. CHECKLIST FUNZIONI ESISTENTI DA NON PERDERE DURANTE IL REFACTOR > Seller / configurazione",
       "requirement": "selezione seller attivo;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B04_ORGANIZATIONS.md",
+      "block": "B04"
     },
     {
       "id": "MASTER-0762",

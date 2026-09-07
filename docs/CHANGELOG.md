@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-07 — Blocco 4: organizzazioni e negozio attivo
+
+- importate organizzazioni, anagrafiche Seller e assegnazioni precedenti con UUID stabili;
+- introdotti ruoli e permessi, gerarchia Agency/Seller e scope verificato a ogni richiesta;
+- mantenute precedenza dei ruoli diretti, restrizioni personali e revoche;
+- mostrati dati reali nei tre portali con scelta del negozio persistente per sessione;
+- reso transazionale il bootstrap Platform;
+- aggiunti stati recuperabili per indisponibilità temporanea della verifica sessione;
+- 21 criteri aggiunti; copertura verificata totale 70/2.017, pari al 3,47%.
+
 ## 2026-09-07 — Blocco 3: autenticazione e accessi
 
 - creati accessi visibili Seller e Agenzia e percorso interno Platform;

@@ -15,9 +15,12 @@ from marketplace_hub_core.auth.sql_repository import SqlAuthRepository
 from marketplace_hub_core.database import create_database_engine
 from marketplace_hub_core.readiness import Check, check_database, check_redis, run_checks
 from marketplace_hub_core.settings import Settings, get_settings
+from marketplace_hub_core.tenancy.repository import SqlWorkspaceRepository
+from marketplace_hub_core.tenancy.service import WorkspaceService
 from redis import Redis
 
 from marketplace_hub_api.auth import create_auth_router
+from marketplace_hub_api.workspace import create_workspace_router
 
 
 def create_app(
@@ -25,6 +28,7 @@ def create_app(
     settings: Settings | None = None,
     readiness_checks: Mapping[str, Check] | None = None,
     auth_service: AuthService | None = None,
+    workspace_service: WorkspaceService | None = None,
 ) -> FastAPI:
     app_settings = settings or get_settings()
     checks = readiness_checks or {
@@ -46,6 +50,11 @@ def create_app(
             login_attempt_limit=app_settings.login_attempt_limit,
             login_window_seconds=app_settings.login_window_seconds,
         )
+
+    if workspace_service is None:
+        if engine is None:
+            engine = create_database_engine(app_settings)
+        workspace_service = WorkspaceService(SqlWorkspaceRepository(engine))
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -70,6 +79,7 @@ def create_app(
         allow_headers=["content-type", "x-request-id"],
     )
     app.include_router(create_auth_router(auth_service, app_settings))
+    app.include_router(create_workspace_router(workspace_service, auth_service, app_settings))
 
     @app.middleware("http")
     async def request_context(request: Request, call_next: Any) -> Response:
