@@ -46,6 +46,29 @@ class CatalogSelection(ApiModel):
     enabled_ids: list[Annotated[int, Field(gt=0)]] = Field(max_length=1000)
 
 
+class BulkRowEdit(RowEdit):
+    id: int = Field(gt=0)
+
+    @model_validator(mode='after')
+    def manual_fields_only(self):
+        if not set(self.fields) <= {'supplier_order_number', 'extra_cost_eur', 'receipt'}:
+            raise ValueError('La modifica multipla riguarda ordine fornitore, costo extra e scontrino.')
+        extra = self.fields.get('extra_cost_eur')
+        if extra is not None and extra < 0:
+            raise ValueError('Il costo extra non può essere negativo.')
+        return self
+
+
+class BulkEdit(ApiModel):
+    rows: list[BulkRowEdit] = Field(min_length=1, max_length=1000)
+
+    @model_validator(mode='after')
+    def unique_rows(self):
+        if len({row.id for row in self.rows}) != len(self.rows):
+            raise ValueError('La selezione contiene righe duplicate.')
+        return self
+
+
 def valid_period(date_from: date, date_to: date):
     if date_to < date_from:
         raise HTTPException(422, 'La data finale non può precedere quella iniziale.')
@@ -84,6 +107,37 @@ def accounting_edit(seller_id: int, account_id: int, row_id: int, payload: RowEd
         raise HTTPException(404, str(exc)) from exc
     except legacy.AccountingEditConflict as exc:
         raise HTTPException(409, str(exc)) from exc
+
+
+@router.post('/bulk-edit')
+def accounting_bulk_edit(seller_id: int, account_id: int, payload: BulkEdit,
+                         user: ApiUser = Depends(require_permission('accounting'))) -> dict:
+    ensure_seller_access(user, seller_id)
+    try:
+        return seller_accounting.save_bulk(seller_id, account_id, [row.model_dump() for row in payload.rows])
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except legacy.AccountingEditConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.get('/selection')
+def accounting_selection(seller_id: int, account_id: int, date_from: date, date_to: date,
+                         search: str = Query('', max_length=200), missing_only: bool = False,
+                         suppliers: list[str] = Query(default=[], max_length=100),
+                         statuses: list[str] = Query(default=[], max_length=100),
+                         countries: list[str] = Query(default=[], max_length=100),
+                         user: ApiUser = Depends(require_permission('accounting'))) -> dict:
+    ensure_seller_access(user, seller_id)
+    valid_period(date_from, date_to)
+    try:
+        data = seller_accounting.list_rows(seller_id, account_id, date_from, date_to, search, missing_only,
+                                          limit=1000, suppliers=suppliers, statuses=statuses, countries=countries)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    if data['total'] > 1000:
+        raise HTTPException(413, 'Seleziona al massimo 1.000 righe: restringi i filtri.')
+    return {'items': data['items'], 'total': data['total']}
 
 
 @router.get('/catalogs')

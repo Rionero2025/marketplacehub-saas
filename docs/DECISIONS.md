@@ -77,3 +77,8 @@ Il riferimento contabile è la pagina Streamlit fornita dall’utente, non la sc
 ### Verifica del percorso dati contabile — 4 settembre 2026
 
 Non confondere l’ultimo prezzo dello SKU (minimo di pubblicazione) con la vendita API effettiva. Le fonti dei costi e degli importi sono consultabili per riga. L’importazione dell’archivio Ordini è distinta dalla sincronizzazione Contabilità che alimenta i margini della dashboard; il testo del comando ora lo esplicita.
+
+
+### Selezione e modifica multipla contabilità — 4 settembre 2026
+
+Nel SaaS la griglia secondaria usa Salva modifiche multiple per confermare insieme i valori inseriti. Se una versione è cambiata, nessuna riga è salvata e il modulo conserva le bozze. Filtri/account/Seller nuovi azzerano la selezione; cambio pagina la conserva.

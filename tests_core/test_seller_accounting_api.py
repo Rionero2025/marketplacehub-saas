@@ -236,3 +236,56 @@ def test_concurrent_postgresql_edits_cannot_overwrite_each_other(postgres_databa
         except accounting.AccountingEditConflict:return 'conflict'
     with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(save,[30,40]))
     assert sorted(results)==['conflict','saved']
+
+
+def test_bulk_edit_atomic_conflict_scope_and_persistent_fields(client,operational_db):
+    http,_=client
+    items={r['id']:r for r in read(http)['items']}
+    body={'rows':[{'id':i,'fields':{'extra_cost_eur':7,'supplier_order_number':'SUP-'+str(i),'receipt':'R'},'expected':items[i]['edit_values']} for i in (1,2)]}
+    # A stale second row rolls back the already processed first row and its overrides.
+    with operational_db() as con:con.execute("UPDATE accounting_order_lines SET note='Changed concurrently' WHERE id=2")
+    assert http.post(PATH+'/bulk-edit',params={'account_id':11},json=body).status_code==409
+    rows={r['id']:r for r in read(http)['items']}
+    assert rows[1]['extra_cost_eur']==0 and rows[1]['supplier_order_number'] in ('',None)
+    with operational_db() as con:
+        assert con.execute('SELECT COUNT(*) AS n FROM accounting_manual_overrides').fetchone()['n']==1
+    body['rows'][1]['expected']=rows[2]['edit_values']
+    response=http.post(PATH+'/bulk-edit',params={'account_id':11},json=body)
+    assert response.status_code==200,response.text
+    assert response.json()['updated_rows']==2
+    rows={r['id']:r for r in read(http)['items']}
+    assert rows[1]['extra_cost_eur']==7 and rows[1]['supplier_order_number']=='SUP-1'
+    assert rows[1]['net_revenue_eur']==23
+    with operational_db() as con:con.execute("UPDATE accounting_order_lines SET extra_cost_eur=0,supplier_order_number='' WHERE id=1")
+    assert next(r for r in read(http)['items'] if r['id']==1)['extra_cost_eur']==7
+    body['rows'][1]['id']=8
+    assert http.post(PATH+'/bulk-edit',params={'account_id':11},json=body).status_code==404
+    assert http.post(PATH+'/bulk-edit',params={'account_id':21},json=body).status_code==404
+
+
+def test_bulk_validation_permission_and_filtered_selection(client):
+    http,record=client
+    row=read(http)['items'][0]
+    edit={'id':row['id'],'fields':{'receipt':'S'},'expected':row['edit_values']}
+    for payload in ({'rows':[]},{'rows':[edit,edit]},
+                    {'rows':[{**edit,'fields':{'purchase_cost_eur':3}}]},
+                    {'rows':[{**edit,'fields':{'extra_cost_eur':-1}}]}):
+        assert http.post(PATH+'/bulk-edit',params={'account_id':11},json=payload).status_code==422
+    response=http.get(PATH+'/selection',params={**PARAMS,'search':'A'})
+    assert response.status_code==200,response.text
+    assert response.json()['total']==len(response.json()['items'])
+    assert all(r['seller_id']==1 for r in response.json()['items'])
+    assert http.get(PATH+'/selection',params={**PARAMS,'account_id':21}).status_code==404
+    record['tenant_role']='viewer'
+    assert http.post(PATH+'/bulk-edit',params={'account_id':11},json={'rows':[edit]}).status_code==403
+
+
+def test_bulk_deleted_row_aborts_transaction(client,operational_db):
+    http,_=client
+    items={r['id']:r for r in read(http)['items']}
+    changes=[{'marketplace_account_id':11,'marketplace':'kaufland','row_key':items[i]['row_key'],
+              'fields':{'receipt':'NEW'},'expected':items[i]['edit_values']} for i in (1,2)]
+    with operational_db() as con:con.execute('DELETE FROM accounting_order_lines WHERE id=2')
+    with pytest.raises(accounting.AccountingEditConflict):
+        accounting.save_accounting_inline_edits(changes,seller_id=1,require_all=True)
+    assert next(r for r in read(http)['items'] if r['id']==1)['receipt'] in ('',None)

@@ -30,8 +30,8 @@ Agency/Admin sono funzioni separate da questa pagina e non sostituiscono i conte
 | Vendite nette, commissioni, payout, margine utile, acquisti, rimborsi, margine lordo, costi mancanti | Riepilogo completato in questa consegna, in verifica |
 | Quote gestore/Seller, percentuali del Seller corrente | Riepilogo completato in questa consegna, in verifica |
 | Griglia editabile persistente senza salto al principio | Editor persistente presente; interazione diretta in cella ancora da allineare |
-| Selezione righe, tutte filtrate, deselezione/azzeramento, selezione consecutiva | Da portare |
-| Modifica massiva dei campi manuali sulle righe selezionate | Da portare |
+| Selezione righe, tutte filtrate, deselezione/azzeramento, selezione consecutiva | Implementate: massimo 1.000; intervallo Maiusc nella pagina; verifica autenticata aperta |
+| Modifica massiva dei campi manuali sulle righe selezionate | Implementata con salvataggio esplicito e atomico; tre campi originali; verifica autenticata aperta |
 | Documenti fornitore caricati/URL, OCR e abbinamento con conflitti e conferma | Da portare |
 | Confronto Excel/URL, scelta foglio, soli campi mancanti, conflitti e conferma | Da portare |
 | Excel delle righe selezionate e controllo precedenti esportazioni | Excel filtrato presente; selezione e controllo duplicati da portare |

@@ -1859,13 +1859,13 @@ def _decode_override_value(value: Any) -> Any:
 
 
 def _override_rows_for_scope(
-    con: Any, account_id: int, marketplace: str,
+    con: Any, account_id: int, marketplace: str, *, row_key: str | None = None,
 ) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
     for item in con.execute(
         """SELECT row_key,field_name,value_json FROM accounting_manual_overrides
-        WHERE marketplace_account_id=? AND marketplace=?""",
-        (int(account_id), clean_text(marketplace).lower()),
+        WHERE marketplace_account_id=? AND marketplace=?""" + (" AND row_key=?" if row_key is not None else ""),
+        (int(account_id), clean_text(marketplace).lower()) + ((row_key,) if row_key is not None else ()),
     ).fetchall():
         row_key = clean_text(item["row_key"])
         field_name = clean_text(item["field_name"])
@@ -1979,7 +1979,7 @@ class AccountingEditConflict(ValueError):
 
 
 def save_accounting_inline_edits(
-    changes: Iterable[Mapping[str, Any]], *, seller_id: int | None = None,
+    changes: Iterable[Mapping[str, Any]], *, seller_id: int | None = None, require_all: bool = False,
 ) -> dict[str, int]:
     """Persist direct grid edits and keep them authoritative across restarts/syncs."""
     updated_rows = 0
@@ -2004,9 +2004,11 @@ def save_accounting_inline_edits(
                 (account_id, marketplace, row_key) + scope_params,
             ).fetchone()
             if db_row is None:
+                if require_all:
+                    raise AccountingEditConflict("Una riga non è più disponibile. Nessuna modifica salvata: ricarica la selezione.")
                 continue
             current = dict(db_row)
-            existing_overrides = _override_rows_for_scope(con, account_id, marketplace).get(row_key, {})
+            existing_overrides = _override_rows_for_scope(con, account_id, marketplace, row_key=row_key).get(row_key, {})
             for field_name, value in existing_overrides.items():
                 if field_name in ACCOUNTING_INLINE_EDIT_FIELDS or field_name in ACCOUNTING_OVERRIDE_INTERNAL_FIELDS:
                     current[field_name] = value

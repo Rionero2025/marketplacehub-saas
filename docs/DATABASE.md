@@ -101,3 +101,8 @@ Nessuna migrazione. Percentuali da sellers; applicate esclusivamente al margine 
 ### Verifica del percorso dati contabile — 4 settembre 2026
 
 Nessuna migrazione o modifica di schema. Le prove del percorso dati usano lo schema contabile reale, su SQLite e sul PostgreSQL isolato della CI, incluse risincronizzazione idempotente, override persistenti e separazione degli account Seller.
+
+
+### Selezione e modifica multipla contabilità — 4 settembre 2026
+
+Nessuna migrazione. Override manuali persistenti già presenti, lock PostgreSQL in ordine crescente di id. Riga scomparsa o conflitto provocano rollback dell’intero batch. La lettura degli override nel salvataggio è limitata alla singola riga, evitando scansioni ripetute di tutto l’account.

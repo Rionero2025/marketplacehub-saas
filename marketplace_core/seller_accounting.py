@@ -96,3 +96,17 @@ def catalog_selection(seller_id: int):
     # URLs and local/storage paths can contain integration credentials.
     result['options'] = [{k: row.get(k) for k in ('price_list_id','supplier_name','list_name','updated_at','source_kind')} for row in result['options']]
     return result
+
+
+def save_bulk(seller_id: int, account_id: int, edits: list[dict]):
+    _, account = account_scope(seller_id, account_id)
+    ids = sorted(item['id'] for item in edits)
+    records = db.rows('SELECT id,row_key FROM accounting_order_lines WHERE seller_id=? AND marketplace_account_id=? AND marketplace=? AND id IN ('
+                      + ','.join('?' for _ in ids) + ')', (seller_id, account_id, account['marketplace'], *ids))
+    by_id = {item['id']: item['row_key'] for item in records}
+    if len(by_id) != len(ids):
+        raise LookupError('Una delle righe non è disponibile per questo Seller e account.')
+    changes = [{'marketplace_account_id': account_id, 'marketplace': account['marketplace'],
+                'row_key': by_id[item['id']], 'fields': item['fields'], 'expected': item['expected']}
+               for item in sorted(edits, key=lambda item: item['id'])]
+    return accounting.save_accounting_inline_edits(changes, seller_id=seller_id, require_all=True)

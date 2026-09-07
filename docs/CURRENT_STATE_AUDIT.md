@@ -150,3 +150,8 @@ Pagina Streamlit di riferimento verificata online in sola lettura. Filtri/quote 
 ### Verifica del percorso dati contabile — 4 settembre 2026
 
 Verificato il percorso risposta marketplace → normalizzazione/costi originali → database → API Seller con fixture Kaufland e Worten, EAN/listino prioritario, fallback SKU, resi/annullamenti, quantità multiple e override dopo risincronizzazione. La UI espone dati e provenienza già presenti nel backend. Questo aggiornamento non certifica tutti i flussi originari né la sincronizzazione di un account reale. Totale milestone invariato: 6/40 = 15%.
+
+
+### Selezione e modifica multipla contabilità — 4 settembre 2026
+
+Portati selezione e modifica multipla dei campi manuali del riferimento Streamlit. Tre nuovi test parametrizzati SQLite/PostgreSQL coprono rollback/conflitto, scope, validazione e riga rimossa; UI sintetica copre selezione intervallo/pagine/filtri, bozze e cambio Seller. Riferimento originale non modificato.

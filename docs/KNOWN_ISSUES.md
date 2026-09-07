@@ -95,3 +95,8 @@ La parità della Contabilità non è completata. ACCOUNTING_PARITY.md elenca le 
 ### Verifica del percorso dati contabile — 4 settembre 2026
 
 Risolti i campi vuoti di data e importo Kaufland dovuti a nomi diversi tra archivio e UI e lo SKU composito assente dalla tabella contabile. Non equivale alla parità completa: restano import/confronto documenti, selezione e operazioni massive, archivio export, PDF, riepilogo sync e altri flussi elencati in ACCOUNTING_PARITY.md. Collaudo autenticato con dati reali Seller ancora da eseguire. Il test del reso preserva il margine negativo del motore originale; non riproduce il vecchio azzeramento solo grafico della griglia Streamlit.
+
+
+### Selezione e modifica multipla contabilità — 4 settembre 2026
+
+Selezione ed editor multiplo implementati, con massimo 1.000 righe per operazione; non è ancora disponibile l’export delle sole righe selezionate con archivio/controllo duplicati. Import documenti, confronto Excel, PDF e collaudo autenticato su dati reali restano aperti.
