@@ -22,4 +22,9 @@ Questa percentuale misura la copertura verificata del prodotto finale. Non è un
 
 Calcolo corrente: `49 / 2.017 = 2,429%`, mostrato con due decimali.
 
+Correzione B03 del 7 settembre 2026: trasferimento delle identità precedenti e compatibilità con
+le password PBKDF2, mancanti nel primo rilascio. Il controllo iniziale di rifiuto credenziali non
+verificava l'accesso di un account esistente. La correzione non incrementa la copertura del prodotto;
+il totale resta 49/2.017. Le funzioni operative del Seller restano da ricostruire.
+
 I primi 26 criteri soddisfatti sono gli output della Fase 0 e i documenti permanenti. B02 aggiunge la fondazione eseguibile. B03 aggiunge identità persistenti, accessi Seller/Agency/Platform, sessioni revocabili e i controlli di sicurezza verificati. Organizzazioni, permessi tenant e funzioni operative Streamlit restano pendenti.

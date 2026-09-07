@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import replace
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID
@@ -24,6 +25,10 @@ class AuthRepository(Protocol):
     ) -> AuthUser: ...
 
     def save_session(self, session: StoredSession, realm: AuthRealm) -> None: ...
+
+    def update_password_hash(
+        self, user_id: UUID, expected_hash: str, new_hash: str, now: datetime
+    ) -> bool: ...
 
     def find_session(self, token_hash: str) -> tuple[StoredSession, AuthRealm] | None: ...
 
@@ -62,6 +67,15 @@ class MemoryAuthRepository:
 
     def save_session(self, session: StoredSession, realm: AuthRealm) -> None:
         self.sessions[session.token_hash] = (session, realm)
+
+    def update_password_hash(
+        self, user_id: UUID, expected_hash: str, new_hash: str, now: datetime
+    ) -> bool:
+        user = self.users.get(user_id)
+        if user is None or user.password_hash != expected_hash or not user.active:
+            return False
+        self.users[user_id] = replace(user, password_hash=new_hash)
+        return True
 
     def find_session(self, token_hash: str) -> tuple[StoredSession, AuthRealm] | None:
         return self.sessions.get(token_hash)

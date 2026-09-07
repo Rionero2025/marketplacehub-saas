@@ -87,6 +87,19 @@ class SqlAuthRepository(AuthRepository):
                 )
             )
 
+    def update_password_hash(
+        self, user_id: UUID, expected_hash: str, new_hash: str, now: datetime
+    ) -> bool:
+        with self.engine.begin() as connection:
+            result = connection.execute(
+                update(auth_users)
+                .where(auth_users.c.id == user_id)
+                .where(auth_users.c.password_hash == expected_hash)
+                .where(auth_users.c.active.is_(True))
+                .values(password_hash=new_hash, updated_at=now)
+            )
+            return result.rowcount == 1
+
     def find_session(self, token_hash: str) -> tuple[StoredSession, AuthRealm] | None:
         with self.engine.connect() as connection:
             row = connection.execute(

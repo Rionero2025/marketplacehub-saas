@@ -11,7 +11,12 @@ from marketplace_hub_core.auth.models import (
     IssuedSession,
     StoredSession,
 )
-from marketplace_hub_core.auth.passwords import hash_password, verify_password
+from marketplace_hub_core.auth.passwords import (
+    hash_password,
+    password_needs_rehash,
+    rehash_verified_password,
+    verify_password,
+)
 from marketplace_hub_core.auth.rate_limit import LoginRateLimiter
 from marketplace_hub_core.auth.repositories import AuthRepository
 
@@ -81,6 +86,13 @@ class AuthService:
                 window_seconds=self.login_window_seconds,
             )
             raise InvalidCredentialsError("Credenziali non valide.")
+        if password_needs_rehash(password_hash):
+            upgraded = self.repository.update_password_hash(
+                user.id, password_hash, rehash_verified_password(password), current_time
+            )
+            if not upgraded:
+                # A concurrent password change must not be overwritten or issue a session.
+                raise InvalidCredentialsError("Credenziali non valide.")
         self.rate_limiter.clear(limiter_key)
 
         token = secrets.token_urlsafe(48)
