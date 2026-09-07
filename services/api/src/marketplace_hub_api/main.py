@@ -2,19 +2,29 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from marketplace_hub_core.auth import AuthService
+from marketplace_hub_core.auth.rate_limit import RedisLoginRateLimiter
+from marketplace_hub_core.auth.sql_repository import SqlAuthRepository
+from marketplace_hub_core.database import create_database_engine
 from marketplace_hub_core.readiness import Check, check_database, check_redis, run_checks
 from marketplace_hub_core.settings import Settings, get_settings
+from redis import Redis
+
+from marketplace_hub_api.auth import create_auth_router
 
 
 def create_app(
     *,
     settings: Settings | None = None,
     readiness_checks: Mapping[str, Check] | None = None,
+    auth_service: AuthService | None = None,
 ) -> FastAPI:
     app_settings = settings or get_settings()
     checks = readiness_checks or {
@@ -22,15 +32,44 @@ def create_app(
         "redis": lambda: check_redis(app_settings),
     }
 
+    engine = None
+    redis_client = None
+    if auth_service is None:
+        engine = create_database_engine(app_settings)
+        redis_client = Redis.from_url(
+            app_settings.redis_url.get_secret_value(), decode_responses=True
+        )
+        auth_service = AuthService(
+            SqlAuthRepository(engine),
+            RedisLoginRateLimiter(redis_client),
+            session_ttl=timedelta(hours=app_settings.session_ttl_hours),
+            login_attempt_limit=app_settings.login_attempt_limit,
+            login_window_seconds=app_settings.login_window_seconds,
+        )
+
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        yield
+        try:
+            yield
+        finally:
+            if redis_client is not None:
+                redis_client.close()
+            if engine is not None:
+                engine.dispose()
 
     app = FastAPI(
         title=app_settings.app_name,
         version=app_settings.version,
         lifespan=lifespan,
     )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=app_settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST"],
+        allow_headers=["content-type", "x-request-id"],
+    )
+    app.include_router(create_auth_router(auth_service, app_settings))
 
     @app.middleware("http")
     async def request_context(request: Request, call_next: Any) -> Response:

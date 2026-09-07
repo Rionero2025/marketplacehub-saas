@@ -47,8 +47,11 @@ services:
     dockerContext: .
     healthCheckPath: /health
     envVars:
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
+      - key: INTERNAL_API_URL
+        fromService:
+          name: marketplacehub-v2-api-staging
+          type: web
+          property: hostport
 
   - type: web
     name: marketplacehub-v2-marketing-staging

@@ -25,6 +25,19 @@ class Settings(BaseSettings):
     db_pool_size: int = 5
     db_max_overflow: int = 10
     readiness_timeout_seconds: float = 2.0
+    session_cookie_name: str = "mh_session"
+    session_ttl_hours: int = 12
+    login_attempt_limit: int = 5
+    login_window_seconds: int = 900
+    allowed_origins: str = "http://localhost:3000"
+
+    @property
+    def secure_cookies(self) -> bool:
+        return self.environment in {"staging", "production"}
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
     @field_validator("database_url", mode="before")
     @classmethod

@@ -24,3 +24,13 @@ Il ramo `archive/pre-rebuild-2026-09-07` conserva la precedente implementazione.
 4. Aprire `http://localhost:3000` per l'app, `http://localhost:3001` per il sito pubblico e `http://localhost:8000/docs` per l'API.
 
 Il controllo rapido locale è `python tools/verify_foundation.py`. I test Python si eseguono con `pytest` e quelli frontend con `pnpm test`.
+
+## Accessi disponibili
+
+- `/login/seller` — accesso Seller;
+- `/login/agency` — accesso Agenzia;
+- `/system-admin/login` — accesso interno Platform, non collegato dalle pagine pubbliche.
+
+Il primo amministratore interno si crea, dopo la migrazione, con
+`marketplace-hub-create-platform-admin LOGIN --display-name "Nome"`; la password viene richiesta due
+volte in modo interattivo e non passa nella riga di comando.

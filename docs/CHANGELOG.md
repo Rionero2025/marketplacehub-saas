@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-07 — Blocco 3: autenticazione e accessi
+
+- creati accessi visibili Seller e Agenzia e percorso interno Platform;
+- protette le tre destinazioni tramite verifica server-side del realm;
+- introdotti utenti, realm e sessioni persistenti con migrazione reversibile;
+- aggiunti Argon2id, token opachi, revoca, scadenza e rate limit Redis;
+- aggiunti cookie protetti, CORS restrittivo, validazione API e BFF Next.js;
+- aggiunto comando interattivo per creare il primo Platform Admin;
+- superati test, lint, typecheck, build e prova migrazione.
+
 ## 2026-09-07 — Blocco 2: fondazione tecnica
 
 - creati workspace Next.js per sito pubblico e applicazione SaaS;

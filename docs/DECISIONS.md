@@ -31,3 +31,7 @@ Seller, Agency e Platform condividono componenti e token; cambiano navigazione, 
 ## D-008 — Fondazione separata per processo
 
 La fondazione usa Next.js/TypeScript per le superfici web e Python/FastAPI per conservare la portabilità delle logiche originali. API e worker sono processi diversi; PostgreSQL conserva i dati durevoli e Redis supporta coda, lock e stato temporaneo.
+
+## D-009 — Identità separata dal tenant
+
+L'autenticazione B03 stabilisce chi è l'utente e quale portale può aprire. Organizzazioni, membership, ruoli e seller scope appartengono al modello B04 e saranno sempre risolti dal backend. In questo modo una scelta del browser non può concedere accesso a un realm o a un tenant.

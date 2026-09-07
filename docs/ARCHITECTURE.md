@@ -45,9 +45,9 @@ Vincoli:
 - API e job idempotenti quando una ripetizione può creare duplicati;
 - osservabilità con correlation ID, audit trail ed errori utilizzabili dall'operatore.
 
-## Fondazione implementata
+## Fondazione e autenticazione implementate
 
-Il Blocco B02 rende eseguibile questa separazione: `marketing-web`, `app-web`, API FastAPI, worker RQ, core Python, PostgreSQL, Redis e Alembic hanno processi e configurazioni distinti. Il modello di dominio, l'autenticazione e le integrazioni verranno aggiunti nei blocchi dedicati.
+Il Blocco B02 rende eseguibile questa separazione: `marketing-web`, `app-web`, API FastAPI, worker RQ, core Python, PostgreSQL, Redis e Alembic hanno processi e configurazioni distinti. Il Blocco B03 aggiunge autenticazione persistente e tre realm di accesso verificati dall'API. Il modello organizzativo e l'isolamento tenant restano nel blocco successivo.
 
 ## Sequenza di migrazione
 

@@ -42,4 +42,4 @@ L'elenco esatto e i file che dichiarano ogni tabella sono ricavabili dal manifes
 
 ## Stato della nuova base dati
 
-Il Blocco B02 ha introdotto PostgreSQL, pool configurabile e la catena Alembic `20260907_0001`. La migrazione iniziale non crea entità di dominio: stabilisce un punto di upgrade/downgrade prima del modello multi-tenant.
+Il Blocco B02 ha introdotto PostgreSQL, pool configurabile e la catena Alembic `20260907_0001`. B03 aggiunge `auth_users`, `auth_user_realms` e `auth_sessions` con `20260907_0002`. Le sessioni sono revocabili e conservano solo l'hash del token. Queste tabelle descrivono l'identità e il portale autorizzato; il modello organizzativo multi-tenant viene aggiunto separatamente.

@@ -1,38 +1,249 @@
 {
   "criteria": [
-    {"id":"MASTER-0633","block":"B01","evidence":"docs/CURRENT_STATE_AUDIT.md"},
-    {"id":"MASTER-0634","block":"B01","evidence":"docs/CURRENT_STATE_AUDIT.md"},
-    {"id":"MASTER-0635","block":"B01","evidence":"docs/CURRENT_STATE_AUDIT.md"},
-    {"id":"MASTER-0636","block":"B01","evidence":"docs/DATABASE.md"},
-    {"id":"MASTER-0637","block":"B01","evidence":"docs/MODULES.md"},
-    {"id":"MASTER-0638","block":"B01","evidence":"docs/INTEGRATIONS.md"},
-    {"id":"MASTER-0639","block":"B01","evidence":"docs/CURRENT_STATE_AUDIT.md"},
-    {"id":"MASTER-0640","block":"B01","evidence":"docs/CURRENT_STATE_AUDIT.md"},
-    {"id":"MASTER-0641","block":"B01","evidence":"docs/KNOWN_ISSUES.md"},
-    {"id":"MASTER-0642","block":"B01","evidence":"docs/KNOWN_ISSUES.md"},
-    {"id":"MASTER-0643","block":"B01","evidence":"docs/KNOWN_ISSUES.md"},
-    {"id":"MASTER-0644","block":"B01","evidence":"docs/KNOWN_ISSUES.md"},
-    {"id":"MASTER-0645","block":"B01","evidence":"docs/reference/streamlit-v271-manifest.json"},
-    {"id":"MASTER-0646","block":"B01","evidence":"docs/CURRENT_STATE_AUDIT.md"},
-    {"id":"MASTER-0647","block":"B01","evidence":"docs/ARCHITECTURE.md"},
-    {"id":"MASTER-0648","block":"B01","evidence":"docs/MODULES.md"},
-    {"id":"MASTER-0649","block":"B01","evidence":"docs/INTEGRATIONS.md"},
-    {"id":"MASTER-0650","block":"B01","evidence":"docs/KNOWN_ISSUES.md"},
-    {"id":"MASTER-0916","block":"B01","evidence":"docs/ARCHITECTURE.md"},
-    {"id":"MASTER-0917","block":"B01","evidence":"docs/MODULES.md"},
-    {"id":"MASTER-0918","block":"B01","evidence":"docs/DATABASE.md"},
-    {"id":"MASTER-0919","block":"B01","evidence":"docs/INTEGRATIONS.md"},
-    {"id":"MASTER-0920","block":"B01","evidence":"docs/DECISIONS.md"},
-    {"id":"MASTER-0921","block":"B01","evidence":"docs/KNOWN_ISSUES.md"},
-    {"id":"MASTER-0922","block":"B01","evidence":"docs/CHANGELOG.md"},
-    {"id":"MASTER-0923","block":"B01","evidence":"docs/CURRENT_STATE_AUDIT.md"},
-    {"id":"MASTER-0558","block":"B02","evidence":"services/api/src/marketplace_hub_api/main.py"},
-    {"id":"MASTER-0559","block":"B02","evidence":"migrations/versions/20260907_0001_foundation.py"},
-    {"id":"MASTER-0560","block":"B02","evidence":"docs/blocks/B02_FOUNDATION.md"},
-    {"id":"MASTER-0561","block":"B02","evidence":".env.example"},
-    {"id":"MASTER-0562","block":"B02","evidence":"packages/core/src/marketplace_hub_core/database.py"},
-    {"id":"MASTER-0563","block":"B02","evidence":"Dockerfile.worker"},
-    {"id":"MASTER-0564","block":"B02","evidence":"pnpm-lock.yaml and requirements.lock"},
-    {"id":"MASTER-0565","block":"B02","evidence":"tests/test_foundation_repository.py"}
+    {
+      "id": "MASTER-0633",
+      "block": "B01",
+      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+    },
+    {
+      "id": "MASTER-0634",
+      "block": "B01",
+      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+    },
+    {
+      "id": "MASTER-0635",
+      "block": "B01",
+      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+    },
+    {
+      "id": "MASTER-0636",
+      "block": "B01",
+      "evidence": "docs/DATABASE.md"
+    },
+    {
+      "id": "MASTER-0637",
+      "block": "B01",
+      "evidence": "docs/MODULES.md"
+    },
+    {
+      "id": "MASTER-0638",
+      "block": "B01",
+      "evidence": "docs/INTEGRATIONS.md"
+    },
+    {
+      "id": "MASTER-0639",
+      "block": "B01",
+      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+    },
+    {
+      "id": "MASTER-0640",
+      "block": "B01",
+      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+    },
+    {
+      "id": "MASTER-0641",
+      "block": "B01",
+      "evidence": "docs/KNOWN_ISSUES.md"
+    },
+    {
+      "id": "MASTER-0642",
+      "block": "B01",
+      "evidence": "docs/KNOWN_ISSUES.md"
+    },
+    {
+      "id": "MASTER-0643",
+      "block": "B01",
+      "evidence": "docs/KNOWN_ISSUES.md"
+    },
+    {
+      "id": "MASTER-0644",
+      "block": "B01",
+      "evidence": "docs/KNOWN_ISSUES.md"
+    },
+    {
+      "id": "MASTER-0645",
+      "block": "B01",
+      "evidence": "docs/reference/streamlit-v271-manifest.json"
+    },
+    {
+      "id": "MASTER-0646",
+      "block": "B01",
+      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+    },
+    {
+      "id": "MASTER-0647",
+      "block": "B01",
+      "evidence": "docs/ARCHITECTURE.md"
+    },
+    {
+      "id": "MASTER-0648",
+      "block": "B01",
+      "evidence": "docs/MODULES.md"
+    },
+    {
+      "id": "MASTER-0649",
+      "block": "B01",
+      "evidence": "docs/INTEGRATIONS.md"
+    },
+    {
+      "id": "MASTER-0650",
+      "block": "B01",
+      "evidence": "docs/KNOWN_ISSUES.md"
+    },
+    {
+      "id": "MASTER-0916",
+      "block": "B01",
+      "evidence": "docs/ARCHITECTURE.md"
+    },
+    {
+      "id": "MASTER-0917",
+      "block": "B01",
+      "evidence": "docs/MODULES.md"
+    },
+    {
+      "id": "MASTER-0918",
+      "block": "B01",
+      "evidence": "docs/DATABASE.md"
+    },
+    {
+      "id": "MASTER-0919",
+      "block": "B01",
+      "evidence": "docs/INTEGRATIONS.md"
+    },
+    {
+      "id": "MASTER-0920",
+      "block": "B01",
+      "evidence": "docs/DECISIONS.md"
+    },
+    {
+      "id": "MASTER-0921",
+      "block": "B01",
+      "evidence": "docs/KNOWN_ISSUES.md"
+    },
+    {
+      "id": "MASTER-0922",
+      "block": "B01",
+      "evidence": "docs/CHANGELOG.md"
+    },
+    {
+      "id": "MASTER-0923",
+      "block": "B01",
+      "evidence": "docs/CURRENT_STATE_AUDIT.md"
+    },
+    {
+      "id": "MASTER-0558",
+      "block": "B02",
+      "evidence": "services/api/src/marketplace_hub_api/main.py"
+    },
+    {
+      "id": "MASTER-0559",
+      "block": "B02",
+      "evidence": "migrations/versions/20260907_0001_foundation.py"
+    },
+    {
+      "id": "MASTER-0560",
+      "block": "B02",
+      "evidence": "docs/blocks/B02_FOUNDATION.md"
+    },
+    {
+      "id": "MASTER-0561",
+      "block": "B02",
+      "evidence": ".env.example"
+    },
+    {
+      "id": "MASTER-0562",
+      "block": "B02",
+      "evidence": "packages/core/src/marketplace_hub_core/database.py"
+    },
+    {
+      "id": "MASTER-0563",
+      "block": "B02",
+      "evidence": "Dockerfile.worker"
+    },
+    {
+      "id": "MASTER-0564",
+      "block": "B02",
+      "evidence": "pnpm-lock.yaml and requirements.lock"
+    },
+    {
+      "id": "MASTER-0565",
+      "block": "B02",
+      "evidence": "tests/test_foundation_repository.py"
+    },
+    {
+      "id": "MASTER-0496",
+      "block": "B03",
+      "evidence": "docs/blocks/B03_AUTHENTICATION.md"
+    },
+    {
+      "id": "MASTER-0497",
+      "block": "B03",
+      "evidence": ".env.example"
+    },
+    {
+      "id": "MASTER-0499",
+      "block": "B03",
+      "evidence": "apps/app-web/app/api/auth/login/route.ts"
+    },
+    {
+      "id": "MASTER-0500",
+      "block": "B03",
+      "evidence": "tests/test_auth_core.py"
+    },
+    {
+      "id": "MASTER-0507",
+      "block": "B03",
+      "evidence": "tests/test_auth_core.py"
+    },
+    {
+      "id": "MASTER-0508",
+      "block": "B03",
+      "evidence": "packages/core/src/marketplace_hub_core/auth/passwords.py"
+    },
+    {
+      "id": "MASTER-0509",
+      "block": "B03",
+      "evidence": "packages/core/src/marketplace_hub_core/auth/rate_limit.py"
+    },
+    {
+      "id": "MASTER-0510",
+      "block": "B03",
+      "evidence": "tests/test_auth_api.py"
+    },
+    {
+      "id": "MASTER-0512",
+      "block": "B03",
+      "evidence": "services/api/src/marketplace_hub_api/main.py"
+    },
+    {
+      "id": "MASTER-0513",
+      "block": "B03",
+      "evidence": "services/api/src/marketplace_hub_api/auth.py"
+    },
+    {
+      "id": "MASTER-0514",
+      "block": "B03",
+      "evidence": "packages/core/src/marketplace_hub_core/auth/sql_repository.py"
+    },
+    {
+      "id": "MASTER-0516",
+      "block": "B03",
+      "evidence": "docs/blocks/B03_AUTHENTICATION.md"
+    },
+    {
+      "id": "MASTER-0667",
+      "block": "B03",
+      "evidence": "tests/test_auth_frontend_contract.py"
+    },
+    {
+      "id": "MASTER-0668",
+      "block": "B03",
+      "evidence": "tests/test_auth_frontend_contract.py"
+    },
+    {
+      "id": "MASTER-0669",
+      "block": "B03",
+      "evidence": "tests/test_auth_frontend_contract.py"
+    }
   ]
 }

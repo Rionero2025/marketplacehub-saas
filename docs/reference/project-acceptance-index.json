@@ -10,9 +10,9 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 34,
+    "verified": 49,
     "total": 2017,
-    "percent": 1.69
+    "percent": 2.43
   },
   "criteria": [
     {
@@ -12134,8 +12134,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1021",
       "section": "26. SICUREZZA",
       "requirement": "nessun segreto nel repository;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B03_AUTHENTICATION.md",
+      "block": "B03"
     },
     {
       "id": "MASTER-0497",
@@ -12143,8 +12144,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1022",
       "section": "26. SICUREZZA",
       "requirement": "`.env.example` senza valori reali;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": ".env.example",
+      "block": "B03"
     },
     {
       "id": "MASTER-0498",
@@ -12161,8 +12163,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1024",
       "section": "26. SICUREZZA",
       "requirement": "secrets solo backend;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "apps/app-web/app/api/auth/login/route.ts",
+      "block": "B03"
     },
     {
       "id": "MASTER-0500",
@@ -12170,8 +12173,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1025",
       "section": "26. SICUREZZA",
       "requirement": "autenticazione robusta;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "tests/test_auth_core.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0501",
@@ -12233,8 +12237,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1032",
       "section": "26. SICUREZZA",
       "requirement": "session expiration;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "tests/test_auth_core.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0508",
@@ -12242,8 +12247,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1033",
       "section": "26. SICUREZZA",
       "requirement": "password hashing robusto;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "packages/core/src/marketplace_hub_core/auth/passwords.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0509",
@@ -12251,8 +12257,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1034",
       "section": "26. SICUREZZA",
       "requirement": "login rate limit;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "packages/core/src/marketplace_hub_core/auth/rate_limit.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0510",
@@ -12260,8 +12267,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1035",
       "section": "26. SICUREZZA",
       "requirement": "secure cookies;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "tests/test_auth_api.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0511",
@@ -12278,8 +12286,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1037",
       "section": "26. SICUREZZA",
       "requirement": "CORS restrittivo;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "services/api/src/marketplace_hub_api/main.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0513",
@@ -12287,8 +12296,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1038",
       "section": "26. SICUREZZA",
       "requirement": "validazione input;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "services/api/src/marketplace_hub_api/auth.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0514",
@@ -12296,8 +12306,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1039",
       "section": "26. SICUREZZA",
       "requirement": "protezione SQL injection tramite ORM/query parametrizzate;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "packages/core/src/marketplace_hub_core/auth/sql_repository.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0515",
@@ -12314,8 +12325,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1041",
       "section": "26. SICUREZZA",
       "requirement": "log senza token o credenziali.",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B03_AUTHENTICATION.md",
+      "block": "B03"
     },
     {
       "id": "MASTER-0517",
@@ -13699,8 +13711,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1320",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "Platform access;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "tests/test_auth_frontend_contract.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0668",
@@ -13708,8 +13721,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1321",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "Agency access;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "tests/test_auth_frontend_contract.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0669",
@@ -13717,8 +13731,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:1322",
       "section": "35. PIANO DI IMPLEMENTAZIONE > FASE 2 — MODELLO SAAS MULTI-TENANT",
       "requirement": "Seller access.",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "tests/test_auth_frontend_contract.py",
+      "block": "B03"
     },
     {
       "id": "MASTER-0670",
