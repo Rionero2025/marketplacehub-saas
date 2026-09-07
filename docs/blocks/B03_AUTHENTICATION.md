@@ -39,7 +39,7 @@ blocchi successivi.
 
 ## Verifica
 
-- 19 test Python superati;
+- 20 test Python superati;
 - Ruff superato;
 - typecheck TypeScript superato;
 - build di produzione Next.js superata, con tutte le route previste;
