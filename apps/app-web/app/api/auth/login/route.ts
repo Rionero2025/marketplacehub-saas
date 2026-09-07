@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const configuredApiUrl =
-  process.env.INTERNAL_API_URL ??
-  process.env.MARKETPLACE_HUB_API_HOSTPORT ??
-  "http://localhost:8000";
-const apiUrl = configuredApiUrl.includes("://") ? configuredApiUrl : `http://${configuredApiUrl}`;
+import { apiUrl } from "../../../lib/api-url";
 
 export async function POST(request: NextRequest) {
   const upstream = await fetch(`${apiUrl}/v1/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: await request.text(), cache: "no-store" }).catch(() => null);
