@@ -9,7 +9,8 @@ def run() -> None:
     settings = get_settings()
     connection = Redis.from_url(settings.redis_url.get_secret_value())
     queue = Queue("marketplace-hub", connection=connection)
-    worker = Worker([queue], connection=connection, name="marketplace-hub-worker")
+    # RQ assigns a unique process name so old and new workers can overlap during deploys.
+    worker = Worker([queue], connection=connection)
     worker.work(with_scheduler=False)
 
 
