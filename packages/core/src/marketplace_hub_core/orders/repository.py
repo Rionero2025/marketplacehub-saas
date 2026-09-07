@@ -1,9 +1,12 @@
 import json
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Engine, func, select, tuple_
+from sqlalchemy import Engine, func, or_, select, tuple_
 
+from marketplace_hub_core.orders.filters import OrderFilters
+from marketplace_hub_core.orders.projections import project_order
 from marketplace_hub_core.orders.schema import order_lines as lines
 from marketplace_hub_core.orders.schema import order_sync_jobs as jobs
 
@@ -32,23 +35,45 @@ class SqlOrdersRepository:
         return (table.c.organization_id == organization_id, table.c.seller_id == seller_id,
                 table.c.account_id == account_id, table.c.environment == environment)
 
+    def refresh_projections(self, connection, scope):
+        # A previous worker version can still commit during a rolling deploy.
+        # Only stale projections are rebuilt; canonical/raw records stay untouched.
+        last_id = None
+        while True:
+            conditions = [*self._scope(lines, *scope), or_(
+                lines.c.projection_updated_at.is_(None),
+                lines.c.projection_updated_at != lines.c.updated_at,
+            )]
+            if last_id is not None:
+                conditions.append(lines.c.id > last_id)
+            rows = connection.execute(select(lines.c.id, lines.c.canonical_json,
+                                             lines.c.updated_at).where(*conditions)
+                                      .order_by(lines.c.id).limit(100)).mappings().all()
+            if not rows:
+                return
+            for row in rows:
+                connection.execute(lines.update().where(
+                    lines.c.id == row["id"], lines.c.updated_at == row["updated_at"],
+                ).values(**project_order(json.loads(row["canonical_json"])),
+                         projection_updated_at=row["updated_at"]))
+            last_id = rows[-1]["id"]
+
     def list(self, organization_id, seller_id, account_id, environment, *, page, page_size,
-             search="", status="", storefront="", date_from=None, date_to=None):
+             search="", status="", storefront="", date_from=None, date_to=None, criteria=None,
+             connection=None):
         scope = self._scope(lines, organization_id, seller_id, account_id, environment)
-        filters = list(scope)
-        if search:
-            filters.append(lines.c.search_text.contains(search.casefold(), autoescape=True))
-        if status:
-            filters.append(lines.c.status.in_([status] if isinstance(status, str) else status))
-        if storefront:
-            filters.append(lines.c.storefront.in_(
-                [storefront] if isinstance(storefront, str) else storefront,
-            ))
+        if criteria is None:
+            criteria = OrderFilters(search=search,
+                                    statuses=([status] if isinstance(status, str) else status)
+                                    or None, storefronts=([storefront]
+                                    if isinstance(storefront, str) else storefront) or None)
+        filters = [*scope, *self.filters(criteria)]
         if date_from:
             filters.append(lines.c.order_created_at >= date_from)
         if date_to:
             filters.append(lines.c.order_created_at < date_to)
-        with self.engine.connect() as connection:
+        with (nullcontext(connection) if connection is not None
+              else self.engine.connect()) as connection:
             total = connection.scalar(select(func.count()).select_from(lines).where(*filters))
             rows = connection.execute(select(lines).where(*filters).order_by(
                 lines.c.order_created_at.desc().nulls_last(), lines.c.order_id,
@@ -58,10 +83,49 @@ class SqlOrdersRepository:
                                           .order_by(lines.c.status)).all()
             storefronts = connection.scalars(select(lines.c.storefront).where(*scope).distinct()
                                              .order_by(lines.c.storefront)).all()
+            currencies = connection.scalars(select(lines.c.currency).where(*scope).distinct()
+                                             .order_by(lines.c.currency)).all()
+            carriers = connection.scalars(select(lines.c.carrier).where(*scope).distinct()
+                                           .order_by(lines.c.carrier)).all()
+            bounds = connection.execute(select(
+                func.min(lines.c.order_created_at), func.max(lines.c.order_created_at),
+                func.min(lines.c.sale_eur), func.max(lines.c.sale_eur),
+            ).where(*scope)).one()
             return [dict(row) for row in rows], total, {
                 "statuses": [s for s in statuses if s],
                 "storefronts": [s for s in storefronts if s],
+                "currencies": list(currencies), "carriers": [s for s in carriers if s],
+                "date_min": utc(bounds[0]).date().isoformat() if bounds[0] else None,
+                "date_max": utc(bounds[1]).date().isoformat() if bounds[1] else None,
+                "amount_min": f"{max(0, bounds[2]):.2f}" if bounds[2] is not None else None,
+                "amount_max": f"{max(0, bounds[3]):.2f}" if bounds[3] is not None else None,
             }
+
+    @staticmethod
+    def filters(criteria):
+        result = []
+        if criteria.search:
+            result.append(lines.c.search_text.contains(criteria.search, autoescape=True))
+        for name, values in (("status", criteria.statuses), ("storefront", criteria.storefronts),
+                             ("currency", criteria.currencies)):
+            if values is not None:
+                result.append(lines.c[name].in_(values))
+        if criteria.carriers:
+            result.append(lines.c.carrier.in_(criteria.carriers))
+        for field, value in (("has_tracking", criteria.tracking),
+                             ("has_commission", criteria.commission)):
+            if value != "all":
+                result.append(lines.c[field].is_(value == "present"))
+        start, end = criteria.dates()
+        if start:
+            result.append(lines.c.order_created_at >= start)
+        if end:
+            result.append(lines.c.order_created_at < end)
+        if criteria.amount_min is not None:
+            result.append(lines.c.sale_eur >= criteria.amount_min)
+        if criteria.amount_max is not None:
+            result.append(lines.c.sale_eur <= criteria.amount_max)
+        return result
 
     def item(self, organization_id, seller_id, account_id, environment, line_id):
         with self.engine.connect() as connection:
@@ -160,6 +224,7 @@ class SqlOrdersRepository:
                 public["details"] = details
                 previous[identity] = public
                 record = {
+                    **project_order(public),
                     "id": uuid4(), "organization_id": job["organization_id"],
                     "seller_id": job["seller_id"], "account_id": job["account_id"],
                     "environment": job["environment"], "marketplace": job["marketplace"],
@@ -177,6 +242,7 @@ class SqlOrdersRepository:
                     "raw_json": json.dumps(item.get("raw", {}), ensure_ascii=False,
                                            allow_nan=False),
                     "updated_at": now,
+                    "projection_updated_at": now,
                 }
                 statement = insert(lines).values(**record)
                 statement = statement.on_conflict_do_update(

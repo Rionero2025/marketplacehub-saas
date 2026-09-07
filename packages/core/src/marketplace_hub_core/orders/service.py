@@ -13,7 +13,10 @@ from marketplace_hub_core.marketplace_connections.repository import (
     settings_object,
 )
 from marketplace_hub_core.marketplace_connections.security import decrypt_credentials
+from marketplace_hub_core.orders.export import export_csv
+from marketplace_hub_core.orders.filters import OrderFilters
 from marketplace_hub_core.orders.repository import OrdersNotFoundError, SqlOrdersRepository, utc
+from marketplace_hub_core.orders.selection import SqlOrderSelections
 from marketplace_hub_core.seller_settings.repository import MarketplaceAccountNotFoundError
 from marketplace_hub_core.seller_settings.security import CredentialStorageUnavailableError
 from marketplace_hub_core.tenancy.service import (
@@ -111,6 +114,7 @@ class OrdersService:
                  fetcher=None):
         self.repository, self.workspace, self.accounts = repository, workspace, accounts
         self.queue, self.master_key, self.fetcher = queue, master_key, fetcher
+        self.selections = SqlOrderSelections(repository)
 
     def _scope(self, principal, seller_id, account_id, environment, *, write=False):
         seller = self.workspace.require_seller(principal, seller_id, permission="LOGISTICS",
@@ -149,8 +153,17 @@ class OrdersService:
         seller, organization_id, account = self._scope(
             principal, seller_id, account_id, environment,
         )
-        rows, total, options = self.repository.list(
-            organization_id, seller_id, account_id, environment, **filters,
+        criteria = filters.get("criteria") or OrderFilters(
+            search=filters.get("search", ""), statuses=filters.get("status") or None,
+            storefronts=filters.get("storefront") or None,
+        )
+        if filters.get("date_from"):
+            criteria.date_from = utc(filters["date_from"]).date()
+        if filters.get("date_to"):
+            criteria.date_to = (utc(filters["date_to"]) - timedelta(microseconds=1)).date()
+        rows, total, options, selection = self.selections.list(
+            principal.session_id, (organization_id, seller_id, account_id, environment),
+            criteria, filters["page"], filters["page_size"],
         )
         latest = self._recover(self.repository.latest_job(
             organization_id, seller_id, account_id, environment,
@@ -163,7 +176,36 @@ class OrdersService:
                 "can_sync": "LOGISTICS" in seller["write_permissions"] and account["active"]
                 and connected, "items": [item_payload(row) for row in rows], "total": total,
                 "page": filters["page"], "page_size": filters["page_size"],
-                "latest_job": job_payload(latest), "filters": options}
+                "latest_job": job_payload(latest), "filters": options, "selection": selection}
+
+    def select(self, principal, seller_id, account_id, environment, selection_id, filters,
+               action, line_id=None, selected=None):
+        _, organization_id, _ = self._scope(principal, seller_id, account_id, environment)
+        if action not in {"set", "clear", "select_all"} or (
+            action == "set" and (line_id is None or not isinstance(selected, bool))
+        ) or (action != "set" and (line_id is not None or selected is not None)):
+            raise OrdersValidationError("Azione di selezione non valida.")
+        return {"selection": self.selections.change(
+            principal.session_id, (organization_id, seller_id, account_id, environment),
+            filters, selection_id, action, line_id, selected,
+        )}
+
+    def export(self, principal, seller_id, account_id, environment, selection_id, filters,
+               kind, authenticate):
+        _, organization_id, _ = self._scope(principal, seller_id, account_id, environment)
+        scope = (organization_id, seller_id, account_id, environment)
+        self.selections.validate(principal.session_id, scope, filters, selection_id)
+        selection = self.selections.get(principal.session_id, scope, filters)
+        if not selection["selected_count"]:
+            raise OrdersValidationError("Seleziona almeno una riga prima di esportare.")
+
+        def guard():
+            current = authenticate()
+            if current.session_id != principal.session_id:
+                raise OrdersValidationError("Sessione non disponibile.")
+            self._scope(current, seller_id, account_id, environment)
+
+        return export_csv(self.selections.export_rows(scope, filters, selection_id, kind), guard)
 
     def item(self, principal, seller_id, account_id, environment, line_id):
         _, organization_id, _ = self._scope(principal, seller_id, account_id, environment)

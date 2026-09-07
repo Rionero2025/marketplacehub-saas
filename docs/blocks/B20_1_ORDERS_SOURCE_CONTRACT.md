@@ -134,7 +134,7 @@ Discrepanza concreta del sorgente: il filtro data usa il giorno **UTC**, mentre 
 
 La tabella include selezione, nazione, data, ordine, unità, SKU, EAN, nome, prezzo prodotto, spedizione, venduto, commissione, percentuale e fonte, da ricevere, costo, utile, percentuale utile, metodo/fonte/riferimento costo, EUR e valuta originale, stato, spedito/ricevuto, data e stato pagamento, regola, ritardo e ID ticket, fonti delle date, corriere e tracking.
 
-La selezione è legata alla firma di seller/account/ambiente/filtri. Inizialmente comprende tutte le righe filtrate; con un filtro nuovo mantiene soltanto la selezione ancora visibile. Riepiloghi e CSV lavorano sul blocco filtrato o sulla selezione corrente, senza includere righe nascoste.
+La selezione è legata alla firma di seller/account/ambiente/filtri. Ogni nuova firma inizializza tutte le sue righe filtrate; tornando a una firma già visitata recupera la scelta salvata e la interseca con le righe ancora visibili. Non eredita la selezione di un filtro diverso. Riepiloghi e CSV lavorano sul blocco filtrato o sulla selezione corrente, senza includere righe nascoste.
 
 Le ulteriori funzioni sono parti vere della pagina, non dettagli estetici:
 

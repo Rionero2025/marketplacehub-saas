@@ -121,7 +121,26 @@ percentuale di completamento del prodotto.
 
 ## Pubblicazione
 
-Stato: **da verificare**. Prima di dichiarare online il blocco occorre verificare il
-commit pubblicato e il rilascio di web, API e worker su Render, la migrazione Ordini e
-la readiness dei servizi. Commit e identificativi di deploy verranno aggiunti dopo
-il controllo. L'importazione con credenziali reali nello staging non è ancora attestata.
+Stato: **pubblicato e verificato sullo staging Render il 7 settembre 2026**.
+Il blocco funzionale è nel commit `5e088d6394835e81bc3e571702ab2cbb314d5584`;
+il commit finale `4fd69d622d19c6e6f1ed48f5d0cff9168cac3466` corregge anche il nome
+del worker durante i deploy sovrapposti. Branch: `rebuild/streamlit-parity-v2`.
+
+| Servizio | Deploy con esito Live verificato |
+| --- | --- |
+| Web | `dep-dafe7ss9v7es73c01t90` |
+| API | `dep-dafe7ss9v7es73c01tdg` |
+| Worker | `dep-dafe7ss9v7es73c01tn0` |
+
+La migrazione PostgreSQL `20260907_0005 -> 20260907_0006` è confermata nei log del
+deploy API `dep-dafe5ts9v7es73bvvnig`. Il worker finale ascolta la coda
+`marketplace-hub` usando il nome UUID assegnato da RQ. Sono stati verificati HTTP 200
+per `/health/ready` API (database e Redis), `/openapi.json` con le rotte Ordini e
+`/api/auth/readiness` web (`ready: true`). L'archivio senza sessione risponde HTTP 401;
+`/seller` reindirizza al login. Il verbale di verifica è
+`outputs/b20-1-release-2026-09-07.md` nel workspace di lavoro.
+
+La sessione staging disponibile al controllo risultava scollegata. Il collaudo
+autenticato descritto sopra usa dati sintetici locali; l'importazione degli ordini
+reali di Rionero nello staging **non è attestata**. La pubblicazione non aggiunge
+criteri al ledger e non completa i flussi ancora pendenti.

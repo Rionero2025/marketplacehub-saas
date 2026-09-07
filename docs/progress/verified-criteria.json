@@ -549,6 +549,36 @@
       "id": "LEGACY-UI-0264",
       "block": "B20.1/B21.1",
       "evidence": "docs/blocks/B20_1_ORDERS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0435",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0436",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0437",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0438",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0439",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0440",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
     }
   ]
 }

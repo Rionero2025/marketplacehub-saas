@@ -10,11 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 110,
+    "verified": 116,
     "baseline_total": 2017,
     "excluded": 6,
     "total": 2011,
-    "percent": 5.47
+    "percent": 5.77
   },
   "criteria": [
     {
@@ -3120,42 +3120,54 @@
       "kind": "legacy_regression",
       "source": "tests/test_order_selection.py:12",
       "requirement": "test_selects_and_deselects_only_the_filtered_block",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0436",
       "kind": "legacy_regression",
       "source": "tests/test_order_selection.py:16",
       "requirement": "test_manual_checkboxes_keep_hidden_selection",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0437",
       "kind": "legacy_regression",
       "source": "tests/test_order_selection.py:24",
       "requirement": "test_invalid_identifiers_are_ignored",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0438",
       "kind": "legacy_regression",
       "source": "tests/test_order_selection.py:27",
       "requirement": "test_editor_checkbox_click_is_saved_by_order_id",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0439",
       "kind": "legacy_regression",
       "source": "tests/test_order_selection.py:35",
       "requirement": "test_editor_changes_are_cumulative_and_can_deselect",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0440",
       "kind": "legacy_regression",
       "source": "tests/test_order_selection.py:48",
       "requirement": "test_editor_ignores_non_checkbox_and_invalid_rows",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.2/B21.2",
+      "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0441",

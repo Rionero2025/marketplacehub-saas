@@ -62,7 +62,7 @@ def test_migration_active_job_scope_restart_and_environment_isolation(legacy_dat
 def test_migrated_cache_matches_repository_upsert_key(legacy_database):
     config, engine = legacy_database
     seed_settings(engine)
-    command.upgrade(config, "20260907_0006")
+    command.upgrade(config, "20260907_0007")
     saved_account = read_rows(engine, "seller_marketplace_accounts")[0]
     job = {
         "seller_id": UUID(saved_account["seller_id"]),

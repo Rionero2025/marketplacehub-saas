@@ -27,25 +27,38 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B04 — Organizzazioni e negozio attivo | completato | 21 | **3,47%** |
 | B10.1 — Anagrafica e account Kaufland | completato; B10 resta parziale | 9 | **3,93%** |
 | B10.2 — Collega marketplace, Seller Enterprise | completato nel perimetro Kaufland/Worten; altri connettori pendenti | 8 | **4,33%** |
-| B20.1 / B21.1 — Archivio ordini Kaufland/Worten e navigazione Seller | collaudato; pubblicazione da verificare; moduli Ordini ancora parziali | 23 | **5,47%** |
+| B20.1 / B21.1 — Archivio ordini Kaufland/Worten e navigazione Seller | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 23 | **5,47%** |
+| B20.2 / B21.2 — Filtri, selezione, riepilogo e CSV ordini | verificati i sei comportamenti di selezione; verifica finale e pubblicazione in attesa | 6 | **5,77%** |
 
-Calcolo corrente: `110 / 2.011 = 5,470%`, mostrato con due decimali. I totali B01–B04 nella
+Calcolo corrente: `116 / 2.011 = 5,768%`, mostrato con due decimali. I totali B01–B04 nella
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
+
+B20.2/B21.2 aggiunge soltanto i sei criteri `LEGACY-TEST-0435`–`0440`: selezione per
+firma del filtro, ID stabili e persistenza tra pagine. Gli input malformati che l'helper
+Streamlit ignorava sono rifiutati dall'API con 422 senza alterare lo stato. Sono operativi
+filtri avanzati, totali economici del blocco selezionato e CSV selezionati/filtrati;
+nessun criterio generico di tabella completa, contabilità o Excel viene chiuso per questo.
+Verificati 99 test frontend, typecheck e QA API indipendente con 81 righe sintetiche:
+paginazione, selezioni, filtri, totali, CSV e isolamento. Suite completa, build, browser
+finale e pubblicazione restano da registrare in `docs/blocks/B20_2_ORDERS_RELEASE.md`.
 
 B20.1/B21.1 aggiunge 23 criteri di parità verificati: importazione multicanale in background,
 paginazione e stati Kaufland, archivio isolato e aggiornamento senza duplicati, dati prodotto,
 SKU/costo, commissioni, quantità Worten, cambi, tracking letto dalle API, ricerca e scelta
 account/ambiente. Verificati 266 test Python (85 Ordini), 80 test frontend e browser desktop
-e responsive; build produzione completata. La pubblicazione è da confermare nella scheda di rilascio.
+e responsive; build produzione completata. Il rilascio staging è verificato per web,
+API e worker sul commit `4fd69d622d19c6e6f1ed48f5d0cff9168cac3466`, con migrazione
+Ordini, readiness e protezione delle rotte confermate nella scheda di rilascio.
 La navigazione a macroaree/sottosezioni richiesta dall'utente non incrementa il ledger.
 Vedere `docs/blocks/B20_1_ORDERS_RELEASE.md`, contratto sorgente B20.1 e D-016.
 
 La copertura locale verificata è distinta dal rilascio online e dall'importazione di dati
-reali: lo staging non è ancora attestato per questo blocco. Listini e fallback costi,
-scadenziario, ticket, import/modifica tracking, selezioni contabili, CSV, filtri avanzati
-e connettori ulteriori restano pendenti. Il modulo Ordini non è dichiarato completo.
+reali: è attestato il rilascio staging B20.1, non un'importazione reale di Rionero né il
+rilascio B20.2. Listini e fallback costi, scadenziario, ticket e relativi filtri,
+import/modifica tracking, selezioni contabili complete e connettori ulteriori restano
+pendenti. Il modulo Ordini e tutte le colonne dell'export originale non sono dichiarati completi.
 
 B10.2 aggiunge 8 criteri effettivamente verificati: form/verifica Worten, account salvato,
 parser storefront originale, test connessione e metadata veri. La griglia di 28 marketplace

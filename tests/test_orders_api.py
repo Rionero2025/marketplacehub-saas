@@ -332,7 +332,11 @@ def test_filters_pagination_search_literal_and_original_utc_calendar_dates(confi
     assert read(client, seller, account_id, status="returned", storefront="at").json()["total"] == 1
     paged = read(client, seller, account_id, page=2, page_size=1).json()
     assert paged["total"] == 3 and len(paged["items"]) == 1
-    assert paged["filters"] == {"statuses": ["returned", "sent"], "storefronts": ["at", "de"]}
+    assert paged["filters"] == {
+        "statuses": ["returned", "sent"], "storefronts": ["at", "de"],
+        "currencies": ["EUR"], "carriers": [], "date_min": "2026-09-06",
+        "date_max": "2026-09-07", "amount_min": "20.00", "amount_max": "20.00",
+    }
     assert read(client, seller, account_id, page_size=1000).status_code == 422
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-07 — B20.2/B21.2: selezione ordini, riepilogo e CSV
+
+- filtri per stato/paese/valuta, corriere, tracking, commissione e venduto EUR;
+- selezione SQL per sessione, Seller, account, ambiente e firma del filtro;
+- checkbox stabili tra pagine, ripristino del filtro precedente e azioni su tutto il blocco;
+- totali selezionati secondo l'originale, cancellazioni e dati incompleti espliciti;
+- CSV selezionati/filtrati a blocchi, UTF-8 BOM, dati pubblici e protezione delle celle testuali;
+- QA API con 81 righe sintetiche, 99 test frontend e typecheck passati;
+- sei criteri di selezione verificati: 116/2.011 = 5,77%; protocollo API documentato;
+- verifiche finali e pubblicazione B20.2 in attesa; CSV completo di pagamenti/ticket ancora pendente;
+- corretta la documentazione B20.1 con i tre deploy Live e le verifiche online già attestate.
+
 ## 2026-09-07 — B20.1/B21.1: archivio ordini e navigazione Seller
 
 - aggiunta macroarea Ordini con importazione Kaufland/Worten dall'account collegato al Seller;
@@ -10,7 +22,7 @@
 - barra scura con macroaree e menu chiaro con sottosezioni dedicate, secondo D-016;
 - verificati 266 test Python (85 Ordini), 80 test frontend, build e browser desktop/responsive;
 - 23 criteri verificati aggiunti: 110/2.011 = 5,47%; nessun incremento per il solo restyling;
-- pubblicazione da confermare nella scheda B20.1; importazione reale staging non attestata;
+- pubblicazione staging verificata sul commit `4fd69d6`; importazione reale non attestata;
 - restano pendenti parità completa dei listini, pagamenti/ticket, tracking manuale e CSV.
 
 ## 2026-09-07 — B03: accesso durante il risveglio del backend

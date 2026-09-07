@@ -1,8 +1,11 @@
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from marketplace_hub_core.orders.filters import OrderFilters
 from marketplace_hub_core.orders.repository import OrdersNotFoundError
 from marketplace_hub_core.orders.service import (
     OrdersQueueUnavailableError,
@@ -11,7 +14,7 @@ from marketplace_hub_core.orders.service import (
 )
 from marketplace_hub_core.seller_settings.repository import MarketplaceAccountNotFoundError
 from marketplace_hub_core.tenancy.service import SellerNotAccessibleError, WorkspacePermissionError
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from marketplace_hub_api.seller_settings import SafeSettingsRoute
@@ -23,6 +26,26 @@ class OrdersSyncRequest(BaseModel):
     environment: Literal["live", "playground"] = "live"
     maximum: Literal[500, 1000, 5000] | None = 1000
     include_details: bool = True
+
+
+class OrdersSelectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    account_id: UUID
+    environment: Literal["live", "playground"] = "live"
+    selection_id: UUID
+    filters: OrderFilters
+    action: Literal["select_all", "clear", "set"]
+    line_id: UUID | None = None
+    selected: StrictBool | None = None
+
+
+class OrdersExportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    account_id: UUID
+    environment: Literal["live", "playground"] = "live"
+    selection_id: UUID
+    filters: OrderFilters
+    kind: Literal["selected", "filtered"]
 
 
 def create_orders_router(service: OrdersService, auth, settings):
@@ -45,6 +68,8 @@ def create_orders_router(service: OrdersService, auth, settings):
             raise HTTPException(403, str(exc)) from None
         except OrdersValidationError as exc:
             raise HTTPException(422, str(exc)) from None
+        except ValidationError:
+            raise HTTPException(422, "Filtri ordine non validi.") from None
         except OrdersQueueUnavailableError as exc:
             raise HTTPException(503, str(exc)) from None
         except SQLAlchemyError:
@@ -55,6 +80,26 @@ def create_orders_router(service: OrdersService, auth, settings):
         session = principal(request)
         return execute(lambda: service.sync(session, seller_id, **payload.model_dump()))
 
+    @router.post("/selection")
+    def change_selection(seller_id: UUID, payload: OrdersSelectionRequest, request: Request):
+        session = principal(request)
+        values = payload.model_dump(exclude={"filters"})
+        return execute(lambda: service.select(session, seller_id, filters=payload.filters,
+                                               **values))
+
+    @router.post("/export")
+    def export_orders(seller_id: UUID, payload: OrdersExportRequest, request: Request):
+        session = principal(request)
+        values = payload.model_dump(exclude={"filters"})
+        content = execute(lambda: service.export(
+            session, seller_id, filters=payload.filters,
+            authenticate=lambda: principal(request), **values,
+        ))
+        return StreamingResponse(content, media_type="text/csv; charset=utf-8", headers={
+            "Content-Disposition": f'attachment; filename="ordini-{payload.kind}.csv"',
+            "Cache-Control": "no-store",
+        })
+
     @router.get("")
     def list_orders(
         seller_id: UUID, account_id: UUID, request: Request,
@@ -63,20 +108,26 @@ def create_orders_router(service: OrdersService, auth, settings):
         search: str = Query("", max_length=200), status: list[str] = Query([], max_length=100),
         storefront: list[str] = Query([], max_length=100), date_from: date | None = None,
         date_to: date | None = None,
+        currency: list[str] = Query([], max_length=100),
+        carrier: list[str] = Query([], max_length=100),
+        status_selection: Literal["all", "selected"] = "all",
+        storefront_selection: Literal["all", "selected"] = "all",
+        currency_selection: Literal["all", "selected"] = "all",
+        tracking: Literal["all", "present", "missing"] = "all",
+        commission: Literal["all", "present", "missing"] = "all",
+        amount_min: Decimal | None = None, amount_max: Decimal | None = None,
     ):
         session = principal(request)
-        if date_from and date_to and date_from > date_to:
-            raise HTTPException(422, "La data iniziale deve precedere la data finale.")
-        # Match Streamlit's created.dt.date filter: UTC calendar days; the UI may
-        # format timestamps in Europe/Rome without shifting the filter boundaries.
-        start = datetime.combine(date_from, time.min, UTC) if date_from else None
-        if date_to == date.max:
-            raise HTTPException(422, "Data finale fuori intervallo.")
-        end = datetime.combine(date_to + timedelta(days=1), time.min, UTC) if date_to else None
+        criteria = execute(lambda: OrderFilters(
+            search=search, statuses=status if status or status_selection == "selected" else None,
+            storefronts=storefront if storefront or storefront_selection == "selected" else None,
+            currencies=currency if currency or currency_selection == "selected" else None,
+            carriers=carrier, tracking=tracking, commission=commission,
+            amount_min=amount_min, amount_max=amount_max, date_from=date_from, date_to=date_to,
+        ))
         return execute(lambda: service.list(
             session, seller_id, account_id, environment, page=page, page_size=page_size,
-            search=search.strip(), status=status, storefront=storefront,
-            date_from=start, date_to=end,
+            criteria=criteria,
         ))
 
     @router.get("/jobs/{job_id}")

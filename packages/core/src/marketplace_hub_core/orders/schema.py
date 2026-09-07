@@ -5,6 +5,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Table,
     Text,
@@ -33,6 +34,17 @@ order_lines = Table(
     Column("canonical_json", Text(), nullable=False),
     Column("raw_json", Text(), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+    Column("projection_updated_at", DateTime(timezone=True)),
+    Column("currency", String(16), nullable=False, server_default=""),
+    Column("carrier", Text(), nullable=False, server_default=""),
+    Column("has_tracking", Boolean(), nullable=False, server_default="false"),
+    Column("has_commission", Boolean(), nullable=False, server_default="false"),
+    Column("quantity", Integer(), nullable=False, server_default="1"),
+    Column("excluded", Boolean(), nullable=False, server_default="false"),
+    Column("catalog_cost", Boolean(), nullable=False, server_default="false"),
+    *[Column(name, Numeric(38, 8)) for name in (
+        "sale_eur", "commission_eur", "payout_eur", "purchase_eur", "profit_eur",
+    )],
     UniqueConstraint("seller_id", "account_id", "environment", "order_id", "external_line_id",
                      name="uq_order_line_scope"),
 )
@@ -68,3 +80,27 @@ Index("uq_order_active_sync", order_sync_jobs.c.seller_id, order_sync_jobs.c.acc
       order_sync_jobs.c.environment, unique=True, postgresql_where=active, sqlite_where=active)
 
 ORDER_TABLES = [order_lines, order_sync_jobs]
+
+order_selections = Table(
+    "seller_order_selections", metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column("session_id", Uuid(), ForeignKey("auth_sessions.id", ondelete="CASCADE"),
+           nullable=False),
+    Column("organization_id", Uuid(), ForeignKey("organizations.id"), nullable=False),
+    Column("seller_id", Uuid(), ForeignKey("seller_profiles.id"), nullable=False),
+    Column("account_id", Uuid(), nullable=False),
+    Column("environment", String(16), nullable=False),
+    Column("filter_hash", String(64), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("session_id", "seller_id", "account_id", "environment", "filter_hash",
+                     name="uq_order_selection_filter"),
+)
+order_selection_members = Table(
+    "seller_order_selection_members", metadata,
+    Column("selection_id", Uuid(), ForeignKey("seller_order_selections.id", ondelete="CASCADE"),
+           primary_key=True),
+    Column("line_id", Uuid(), ForeignKey("seller_order_lines.id", ondelete="CASCADE"),
+           primary_key=True),
+)
+SELECTION_TABLES = [order_selections, order_selection_members]
