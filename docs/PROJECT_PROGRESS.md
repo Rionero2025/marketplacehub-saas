@@ -23,6 +23,10 @@ Questa percentuale misura la copertura verificata del prodotto finale. Non è un
 
 Calcolo corrente: `70 / 2.017 = 3,471%`, mostrato con due decimali.
 
+Rifinitura grafica B04 del 7 settembre 2026: dashboard ispirata a Base.com, con navigazione
+compatta, pannelli e tabella autorizzazioni responsive. Nessun criterio operativo aggiuntivo:
+la copertura funzionale resta **70/2.017 (3,47%)**. Vedere decisione D-011.
+
 Correzione B03 del 7 settembre 2026: trasferimento delle identità precedenti e compatibilità con
 le password PBKDF2, mancanti nel primo rilascio. Il controllo iniziale di rifiuto credenziali non
 verificava l'accesso di un account esistente. La correzione non incrementa la copertura del prodotto;

@@ -44,3 +44,17 @@ Il login valido non concede un tenant. La membership diretta prevale sulle deleg
 lo scope personale resta un'intersezione. I nomi e le autorizzazioni mostrati provengono dal
 backend. Le funzioni di amministrazione delle assegnazioni e i controlli specifici dei moduli
 restano nei rispettivi blocchi: le etichette dei permessi non rappresentano funzioni già pronte.
+
+## D-011 — Dashboard ispirata a Base.com
+
+Il 7 settembre 2026 l’utente ha richiesto una dashboard molto simile a Base.com. La superficie
+B04 adotta una barra scura con icone, un secondo menu chiaro, una testata compatta e pannelli
+bianchi con tabelle dense. Il marchio resta Marketplace Hub. Seller, Agency e Platform condividono
+questi componenti. Sono presenti solo collegamenti a sezioni disponibili e conteggi restituiti
+dal workspace; non vengono introdotte metriche commerciali simulate.
+
+Riferimenti visivi pubblici: [lista ordini](https://www.base.com/en-EN/help/knowledgebase/order-list-how-to-use/)
+e [accesso rapido](https://base.com/en-EN/blog/quick-access-to-your-favorite-features-in-baselinker/).
+Le immagini pubblicate tra 2020 e 2024 sono riferimenti di impaginazione, non una verifica della
+dashboard privata corrente di Base.com. Il cambio grafico non modifica API, scope, formule o
+la fonte originale Streamlit e non incrementa da solo la copertura funzionale del progetto.
