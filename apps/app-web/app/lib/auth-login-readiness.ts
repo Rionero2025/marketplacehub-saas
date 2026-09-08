@@ -1,4 +1,5 @@
-const READINESS_BUDGET_MS = 90000;
+const READINESS_BUDGET_MS = 180000;
+const READINESS_REQUEST_MS = 65000;
 
 function cancelled(): Error { const error = new Error("Access cancelled"); error.name = "AbortError"; return error; }
 export function abortableDelay(milliseconds: number, signal: AbortSignal): Promise<void> {
@@ -21,7 +22,9 @@ export async function waitForLoginReadiness({ signal, onWaiting, fetcher = fetch
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     signal.addEventListener("abort", onAbort, { once: true });
-    const timeout = setTimeout(() => controller.abort(), Math.min(12000, deadline - now()));
+    // The BFF waits up to 60 seconds for a sleeping API; aborting the browser
+    // after 12 seconds could cut off the cold-start response before it arrived.
+    const timeout = setTimeout(() => controller.abort(), Math.min(READINESS_REQUEST_MS, deadline - now()));
     let ready = false;
     try {
       const response = await fetcher("/api/auth/readiness", { method: "GET", cache: "no-store", credentials: "omit", redirect: "error", signal: controller.signal });

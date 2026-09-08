@@ -37,7 +37,7 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       const ready = await waitForLoginReadiness({ signal: abort.signal, onWaiting: () => {
-        if (current()) setProgress("Avvio del servizio in corso. Il primo accesso può richiedere circa un minuto.");
+        if (current()) setProgress("Avvio del servizio in corso. Il primo accesso può richiedere anche più di un minuto.");
       } });
       if (!current()) return;
       if (!ready) { setError("Il servizio non è ancora pronto. Attendi qualche istante e riprova: le credenziali non sono state inviate."); return; }

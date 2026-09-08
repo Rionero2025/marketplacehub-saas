@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { apiUrl } from "../../../lib/api-url";
 
 export async function GET() {
-  const signal = AbortSignal.timeout(10000);
+  // Render free instances can need well over ten seconds to wake. Keep this
+  // read-only request connected long enough for the cold start to complete.
+  const signal = AbortSignal.timeout(60000);
   let ready = false;
   try {
     const upstream = await fetch(`${apiUrl}/health/ready`, { method: "GET", headers: { accept: "application/json" }, cache: "no-store", redirect: "error", signal });

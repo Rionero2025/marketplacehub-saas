@@ -43,6 +43,14 @@ test("readiness route returns only safe readiness and sends neither cookies nor 
   assert.equal(response.headers.get("cache-control"), "no-store"); assert.equal(options.method, "GET"); assert.equal(options.body, undefined); assert.equal(options.headers.cookie, undefined); assert.ok(options.signal instanceof AbortSignal);
 });
 
+test("readiness BFF keeps the upstream wake-up request open for 60 seconds", async () => {
+  let timeout; const signal = new AbortController().signal;
+  const { GET } = route("../app/api/auth/readiness/route.ts", async (_url, options) => {
+    assert.equal(options.signal, signal); return Response.json({ status: "ok" });
+  }, { AbortSignal: { timeout(milliseconds) { timeout = milliseconds; return signal; } } });
+  assert.equal((await GET()).status, 200); assert.equal(timeout, 60000);
+});
+
 test("readiness HTML, degraded service and network errors become safe not-ready responses", async () => {
   for (const result of [() => new Response("<html>secret infrastructure</html>", { status: 502 }), () => Response.json({ status: "degraded", password: "private" }), () => Response.json({ status: "ok" }, { status: 201 }), () => { throw new Error("private host"); }]) {
     const { GET } = route("../app/api/auth/readiness/route.ts", async () => result());
@@ -99,10 +107,35 @@ test("cold start polls only read-only readiness then stops immediately when read
   assert.equal(result, true); assert.equal(calls, 2); assert.equal(waiting, 1); assert.equal(clock, 2000);
 });
 
-test("readiness polling stops at 90 seconds without any credential submission", async () => {
+test("readiness polling keeps a cold-start request open and stops at 180 seconds without credentials", async () => {
   let clock = 0, calls = 0;
-  const result = await readiness.waitForLoginReadiness({ signal: new AbortController().signal, now: () => clock, pause: async (ms) => { clock += ms; }, onWaiting() {}, fetcher: async (url) => { calls++; assert.equal(url, "/api/auth/readiness"); clock += Math.min(10000, 90000 - clock); return Response.json({ ready: false }, { status: 503 }); } });
-  assert.equal(result, false); assert.equal(clock, 90000); assert.equal(calls, 8);
+  const result = await readiness.waitForLoginReadiness({ signal: new AbortController().signal, now: () => clock, pause: async (ms) => { clock += ms; }, onWaiting() {}, fetcher: async (url, options) => {
+    calls++; assert.equal(url, "/api/auth/readiness"); assert.equal(options.credentials, "omit");
+    clock += Math.min(60000, 180000 - clock); return Response.json({ ready: false }, { status: 503 });
+  } });
+  assert.equal(result, false); assert.equal(clock, 180000); assert.equal(calls, 3);
+});
+
+test("a 50 second Render cold start completes within one readiness request", async () => {
+  let clock = 0, calls = 0;
+  const result = await readiness.waitForLoginReadiness({ signal: new AbortController().signal, now: () => clock, pause: async (ms) => { clock += ms; }, onWaiting() {}, fetcher: async (_url, options) => {
+    calls++; assert.equal(options.credentials, "omit"); assert.equal(options.body, undefined); clock += 50000;
+    return Response.json({ ready: true });
+  } });
+  assert.equal(result, true); assert.equal(clock, 50000); assert.equal(calls, 1);
+});
+
+test("browser does not abort the BFF before its 60 second cold-start window", async () => {
+  const timers = [];
+  const coldStartReadiness = load("../app/lib/auth-login-readiness.ts", {
+    setTimeout(_callback, milliseconds) { timers.push(milliseconds); return timers.length; },
+    clearTimeout() {},
+  });
+  const result = await coldStartReadiness.waitForLoginReadiness({
+    signal: new AbortController().signal, now: () => 0, onWaiting() {},
+    fetcher: async () => Response.json({ ready: true }),
+  });
+  assert.equal(result, true); assert.equal(timers[0], 65000);
 });
 
 test("unmount cancellation aborts the current readiness request and prevents another poll", async () => {
