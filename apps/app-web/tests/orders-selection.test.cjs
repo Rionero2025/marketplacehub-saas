@@ -119,6 +119,7 @@ function component(fetchImpl) {
       if (name === "../lib/orders-types") return types;
       if (name === "../lib/marketplace-connections-types") return {};
       if (name === "./DashboardIcon") return { DashboardIcon: () => null };
+      if (name === "./OrderTrackingPanel") return { OrderTrackingPanel: () => null };
       if (name.endsWith(".module.css")) return { default: new Proxy({}, { get: (_target, key) => key }) };
       throw new Error(`Unexpected dependency ${name}`);
     },

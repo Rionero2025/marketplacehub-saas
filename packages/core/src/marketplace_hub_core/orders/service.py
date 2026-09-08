@@ -15,8 +15,29 @@ from marketplace_hub_core.marketplace_connections.repository import (
 from marketplace_hub_core.marketplace_connections.security import decrypt_credentials
 from marketplace_hub_core.orders.export import export_csv
 from marketplace_hub_core.orders.filters import OrderFilters
-from marketplace_hub_core.orders.repository import OrdersNotFoundError, SqlOrdersRepository, utc
+from marketplace_hub_core.orders.repository import (
+    OrdersAccountUnavailableError,
+    OrdersAmbiguousMatchError,
+    OrdersImportBusyError,
+    OrdersNotFoundError,
+    SqlOrdersRepository,
+    utc,
+)
 from marketplace_hub_core.orders.selection import SqlOrderSelections
+from marketplace_hub_core.orders.tracking import (
+    FORMATS,
+    MAX_CELL_LENGTH,
+    MAX_CELLS,
+    MAX_COLUMNS,
+    MAX_FILE_BYTES,
+    MAX_ROWS,
+    PREVIEW_ROWS,
+    clean,
+    mapped_tracking_rows,
+    normalize_tracking,
+    parse_tracking_file,
+    validate_mapping,
+)
 from marketplace_hub_core.seller_settings.repository import MarketplaceAccountNotFoundError
 from marketplace_hub_core.seller_settings.security import CredentialStorageUnavailableError
 from marketplace_hub_core.tenancy.service import (
@@ -45,6 +66,8 @@ PROGRESS_PATTERN = re.compile(
 ERROR_MESSAGES = {
     "permission_revoked": "Autorizzazione al negozio revocata. Sincronizzazione interrotta.",
     "account_unavailable": "Account marketplace non disponibile o da verificare.",
+    "account_busy": "Un’importazione tracking è in corso. "
+    "Riprova la sincronizzazione tra poco.",
     "credentials_unavailable": "Credenziali marketplace non disponibili per la sincronizzazione.",
     "invalid_credentials": "Il marketplace non ha accettato le credenziali API.",
     "permission_denied": "Le credenziali API non autorizzano la lettura degli ordini.",
@@ -133,6 +156,14 @@ class OrdersService:
             raise OrdersValidationError("Verifica il marketplace prima di sincronizzare.")
         return seller, organization_id, account
 
+    def _tracking_scope(self, principal, seller_id, account_id, environment, *, write=False):
+        scoped = self._scope(
+            principal, seller_id, account_id, environment, write=write,
+        )
+        if scoped[2]["marketplace"] != "kaufland":
+            raise OrdersValidationError("Il recupero tracking è disponibile solo per Kaufland.")
+        return scoped
+
     def _recover(self, job):
         if job is None or job["status"] not in {"queued", "running"}:
             return job
@@ -210,6 +241,91 @@ class OrdersService:
     def item(self, principal, seller_id, account_id, environment, line_id):
         _, organization_id, _ = self._scope(principal, seller_id, account_id, environment)
         return {"item": item_payload(self.repository.item(
+            organization_id, seller_id, account_id, environment, line_id,
+        ))}
+
+    def tracking_capabilities(self, principal, seller_id, account_id, environment):
+        seller, _, account = self._tracking_scope(
+            principal, seller_id, account_id, environment,
+        )
+        verification = settings_object(account["settings_json"]).get(VERIFICATION_KEY, {})
+        connected = (isinstance(verification, dict)
+                     and verification.get("connection_status") == "connected")
+        writable = ("LOGISTICS" in seller["write_permissions"]
+                    and bool(account["active"]) and connected)
+        return {"capabilities": {
+            "marketplace": "kaufland", "formats": list(FORMATS),
+            "max_bytes": MAX_FILE_BYTES, "max_rows": MAX_ROWS,
+            "max_columns": MAX_COLUMNS, "max_cells": MAX_CELLS,
+            "max_cell_length": MAX_CELL_LENGTH,
+            "preview_rows": PREVIEW_ROWS, "can_import": writable, "can_edit": writable,
+        }}
+
+    def authorize_tracking_upload(self, principal, seller_id, account_id, environment):
+        self._tracking_scope(principal, seller_id, account_id, environment, write=True)
+
+    def tracking_preview(self, principal, seller_id, account_id, environment, file_name, content):
+        self._tracking_scope(principal, seller_id, account_id, environment, write=True)
+        parsed = parse_tracking_file(file_name, content)
+        return {"status": "ready_for_mapping", "preview": {
+            **parsed, "rows": parsed["rows"][:PREVIEW_ROWS],
+        }}
+
+    def import_tracking(
+        self, principal, seller_id, account_id, environment, file_name, content, mapping,
+        authenticate,
+    ):
+        self._tracking_scope(
+            principal, seller_id, account_id, environment, write=True,
+        )
+        parsed = parse_tracking_file(file_name, content)
+        selected = validate_mapping(mapping, parsed["columns"])
+        unmatched = []
+        invalid = []
+        valid = []
+        # Materializing validates every bounded identifier before opening the
+        # transaction, so a later malformed row cannot leave a partial import.
+        records = list(mapped_tracking_rows(parsed["rows"], selected))
+        for record in records:
+            if not record["order_unit_id"] and not record["order_id"]:
+                invalid.append({"row": record["row"], "error": "Identificativo ordine assente"})
+                continue
+            if not record["carrier"] and not record["tracking"]:
+                invalid.append({"row": record["row"], "error": "Tracking/corriere assente"})
+                continue
+            valid.append(record)
+        current = authenticate()
+        if current.session_id != principal.session_id:
+            raise OrdersValidationError("La sessione è cambiata durante l'importazione.")
+        _, organization_id, _ = self._tracking_scope(
+            current, seller_id, account_id, environment, write=True,
+        )
+        imported = self.repository.import_tracking_batch(
+            organization_id, seller_id, account_id, environment, records=valid,
+            source="portal_import", actor_id=current.user_id,
+        )
+        unmatched.extend(imported["unmatched"])
+        status = "completed_with_warnings" if unmatched or invalid else "completed"
+        return {"status": status, "result": {
+            "updated": imported["updated"], "unmatched": unmatched, "invalid": invalid,
+        }}
+
+    def update_tracking(self, principal, seller_id, account_id, environment, line_id,
+                        carrier, tracking):
+        _, organization_id, _ = self._tracking_scope(
+            principal, seller_id, account_id, environment, write=True,
+        )
+        carrier_value, tracking_value = clean(carrier), normalize_tracking(tracking)
+        if not carrier_value and not tracking_value:
+            raise OrdersValidationError("Indica almeno il corriere oppure il tracking.")
+        found = self.repository.update_tracking(
+            organization_id, seller_id, account_id, environment, line_id=line_id,
+            carrier=carrier_value, tracking=tracking_value, source="manual",
+            actor_id=principal.user_id,
+        )
+        if not found:
+            raise OrdersNotFoundError("Riga ordine non disponibile.")
+        return {"updated": 1, "item": item_payload(self.repository.item(
             organization_id, seller_id, account_id, environment, line_id,
         ))}
 
@@ -312,9 +428,19 @@ class OrdersService:
         except (SellerNotAccessibleError, WorkspacePermissionError):
             self.repository.finish(job_id, error_code="permission_revoked",
                                    message=ERROR_MESSAGES["permission_revoked"])
-        except (MarketplaceAccountNotFoundError, OrdersValidationError):
+        except (
+            MarketplaceAccountNotFoundError,
+            OrdersAccountUnavailableError,
+            OrdersValidationError,
+        ):
             self.repository.finish(job_id, error_code="account_unavailable",
                                    message=ERROR_MESSAGES["account_unavailable"])
+        except OrdersImportBusyError:
+            self.repository.finish(job_id, error_code="account_busy",
+                                   message=ERROR_MESSAGES["account_busy"])
+        except OrdersAmbiguousMatchError:
+            self.repository.finish(job_id, error_code="invalid_response",
+                                   message=ERROR_MESSAGES["invalid_response"])
         except CredentialStorageUnavailableError:
             self.repository.finish(job_id, error_code="credentials_unavailable",
                                    message=ERROR_MESSAGES["credentials_unavailable"])

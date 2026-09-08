@@ -1,14 +1,23 @@
 import json
+from collections import defaultdict
 from contextlib import nullcontext
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Engine, func, or_, select, tuple_
+from sqlalchemy import Engine, bindparam, func, or_, select, tuple_
+from sqlalchemy.exc import OperationalError
 
+from marketplace_hub_core.marketplace_connections.repository import (
+    VERIFICATION_KEY,
+    settings_object,
+)
 from marketplace_hub_core.orders.filters import OrderFilters
 from marketplace_hub_core.orders.projections import project_order
 from marketplace_hub_core.orders.schema import order_lines as lines
 from marketplace_hub_core.orders.schema import order_sync_jobs as jobs
+from marketplace_hub_core.orders.schema import order_tracking_events as tracking_events
+from marketplace_hub_core.orders.tracking import MAX_TRACKING_TARGET_UNITS, TrackingLimitError
+from marketplace_hub_core.seller_settings.schema import seller_marketplace_accounts as accounts
 
 
 def utc(value):
@@ -26,6 +35,18 @@ class OrdersNotFoundError(ValueError):
     pass
 
 
+class OrdersAmbiguousMatchError(ValueError):
+    pass
+
+
+class OrdersImportBusyError(RuntimeError):
+    pass
+
+
+class OrdersAccountUnavailableError(ValueError):
+    pass
+
+
 class SqlOrdersRepository:
     def __init__(self, engine: Engine):
         self.engine = engine
@@ -34,6 +55,84 @@ class SqlOrdersRepository:
     def _scope(table, organization_id, seller_id, account_id, environment):
         return (table.c.organization_id == organization_id, table.c.seller_id == seller_id,
                 table.c.account_id == account_id, table.c.environment == environment)
+
+    @staticmethod
+    def _execute_tracking_locked(connection, statement):
+        statement = statement.with_for_update(
+            nowait=connection.dialect.name == "postgresql",
+        )
+        try:
+            return connection.execute(statement)
+        except OperationalError as exc:
+            if (
+                connection.dialect.name == "postgresql"
+                and getattr(exc.orig, "sqlstate", None) == "55P03"
+            ):
+                raise OrdersImportBusyError(
+                    "Un’altra importazione tracking è già in corso per questo account. "
+                    "Attendi e riprova."
+                ) from exc
+            raise
+
+    @staticmethod
+    def _lock_tracking_import(
+        connection, organization_id, seller_id, account_id, *, fail_fast=True,
+    ):
+        conditions = (
+            accounts.c.id == account_id,
+            accounts.c.organization_id == organization_id,
+            accounts.c.seller_id == seller_id,
+        )
+        if connection.dialect.name == "postgresql":
+            try:
+                locked = connection.execute(select(
+                    accounts.c.id, accounts.c.active, accounts.c.marketplace,
+                    accounts.c.settings_json,
+                ).where(
+                    *conditions,
+                ).with_for_update(nowait=fail_fast)).mappings().first()
+            except OperationalError as exc:
+                if getattr(exc.orig, "sqlstate", None) == "55P03":
+                    raise OrdersImportBusyError(
+                        "Un’altra importazione tracking è già in corso per questo account. "
+                        "Attendi e riprova."
+                    ) from exc
+                raise
+        else:
+            previous_timeout = None
+            if fail_fast:
+                previous_timeout = connection.exec_driver_sql("PRAGMA busy_timeout").scalar_one()
+                connection.exec_driver_sql("PRAGMA busy_timeout = 0")
+            try:
+                acquired = connection.execute(accounts.update().where(*conditions).values(
+                    updated_at=accounts.c.updated_at,
+                ))
+            except OperationalError as exc:
+                if "locked" in str(exc).casefold():
+                    raise OrdersImportBusyError(
+                        "Un’altra importazione tracking è già in corso per questo account. "
+                        "Attendi e riprova."
+                    ) from exc
+                raise
+            finally:
+                if previous_timeout is not None:
+                    connection.exec_driver_sql(f"PRAGMA busy_timeout = {int(previous_timeout)}")
+            locked = None if acquired.rowcount != 1 else connection.execute(select(
+                accounts.c.id, accounts.c.active, accounts.c.marketplace,
+                accounts.c.settings_json,
+            ).where(*conditions)).mappings().first()
+        if locked is None:
+            raise OrdersNotFoundError("Account marketplace non disponibile.")
+        verification = settings_object(locked["settings_json"]).get(VERIFICATION_KEY, {})
+        if (
+            not bool(locked["active"])
+            or locked["marketplace"] != "kaufland"
+            or not isinstance(verification, dict)
+            or verification.get("connection_status") != "connected"
+        ):
+            raise OrdersAccountUnavailableError(
+                "Verifica il marketplace prima di sincronizzare."
+            )
 
     def refresh_projections(self, connection, scope):
         # A previous worker version can still commit during a rolling deploy.
@@ -137,6 +236,244 @@ class SqlOrdersRepository:
                 raise OrdersNotFoundError("Riga ordine non disponibile.")
             return dict(row)
 
+    def update_tracking(
+        self, organization_id, seller_id, account_id, environment, *, carrier, tracking,
+        source, actor_id, line_id=None, external_line_id="", order_id="", connection=None,
+    ):
+        """Update one unit, or every unit in an order, under an exact tenant scope."""
+        conditions = list(self._scope(
+            lines, organization_id, seller_id, account_id, environment,
+        ))
+        if line_id is not None:
+            conditions.append(lines.c.id == line_id)
+        elif external_line_id:
+            conditions.append(lines.c.external_line_id == external_line_id)
+        elif order_id:
+            conditions.append(lines.c.order_id == order_id)
+        else:
+            raise OrdersNotFoundError("Indica una riga o un ordine da aggiornare.")
+        context = nullcontext(connection) if connection is not None else self.engine.begin()
+        with context as active:
+            self._lock_tracking_import(
+                active, organization_id, seller_id, account_id,
+            )
+            found = self._execute_tracking_locked(
+                active, select(lines).where(*conditions),
+            ).mappings().all()
+            if external_line_id and len(found) > 1:
+                raise OrdersAmbiguousMatchError(
+                    "L'ID unità ordine corrisponde a più righe. Nessun dato è stato modificato."
+                )
+            now = datetime.now(UTC)
+            for row in found:
+                public = json.loads(row["canonical_json"])
+                details = dict(public.get("details") or {})
+                previous_carrier = str(details.get("carrier") or "")
+                previous_tracking = str(details.get("tracking") or "")
+                changed = False
+                if carrier and (
+                    previous_carrier != carrier or details.get("carrier_source") != source
+                ):
+                    details["carrier"] = carrier
+                    details["carrier_source"] = source
+                    details["carrier_updated_at"] = now.isoformat()
+                    details["carrier_updated_by"] = str(actor_id)
+                    changed = True
+                if tracking and (
+                    previous_tracking != tracking or details.get("tracking_source") != source
+                ):
+                    details["tracking"] = tracking
+                    details["tracking_source"] = source
+                    details["tracking_updated_at"] = now.isoformat()
+                    details["tracking_updated_by"] = str(actor_id)
+                    changed = True
+                if not changed:
+                    continue
+                public["details"] = details
+                search_text = " ".join(str(public.get(key) or "") for key in (
+                    "order_id", "external_line_id", "product_name", "ean", "sku",
+                )).casefold() + " " + " ".join(str(details.get(key) or "") for key in (
+                    "tracking", "carrier",
+                )).casefold()
+                active.execute(lines.update().where(lines.c.id == row["id"]).values(
+                    **project_order(public), canonical_json=json.dumps(
+                        public, ensure_ascii=False, allow_nan=False,
+                    ), search_text=search_text, updated_at=now, projection_updated_at=now,
+                ))
+                active.execute(tracking_events.insert().values(
+                    id=uuid4(), organization_id=organization_id, seller_id=seller_id,
+                    account_id=account_id, environment=environment, line_id=row["id"],
+                    actor_id=actor_id, source=source, previous_carrier=previous_carrier,
+                    previous_tracking=previous_tracking,
+                    carrier=str(details.get("carrier") or ""),
+                    tracking=str(details.get("tracking") or ""), created_at=now,
+                ))
+            return [dict(row) for row in found]
+
+    def import_tracking_batch(
+        self, organization_id, seller_id, account_id, environment, *, records, source, actor_id,
+    ):
+        """Resolve an import once, then bulk-write each affected unit at most once.
+
+        Records are evaluated in source order. Repeated rows therefore use
+        last-non-empty-value-wins semantics while empty cells preserve prior values.
+        """
+        if not records:
+            return {"updated": 0, "unmatched": []}
+        unit_ids = {record["order_unit_id"] for record in records if record["order_unit_id"]}
+        order_ids = {
+            record["order_id"] for record in records
+            if not record["order_unit_id"] and record["order_id"]
+        }
+        lookup = []
+        if unit_ids:
+            lookup.append(lines.c.external_line_id.in_(unit_ids))
+        if order_ids:
+            lookup.append(lines.c.order_id.in_(order_ids))
+        if not lookup:
+            return {"updated": 0, "unmatched": []}
+
+        with self.engine.begin() as connection:
+            self._lock_tracking_import(
+                connection, organization_id, seller_id, account_id,
+            )
+            found = self._execute_tracking_locked(connection, select(
+                lines.c.id, lines.c.external_line_id, lines.c.order_id,
+                lines.c.canonical_json,
+            ).where(
+                *self._scope(lines, organization_id, seller_id, account_id, environment),
+                or_(*lookup),
+            ).order_by(lines.c.id).limit(
+                MAX_TRACKING_TARGET_UNITS + 1
+            )).mappings().all()
+            if len(found) > MAX_TRACKING_TARGET_UNITS:
+                raise TrackingLimitError(
+                    "L'import supera il limite di 10.000 unità ordine."
+                )
+
+            by_unit = defaultdict(list)
+            by_order = defaultdict(list)
+            original = {}
+            staged = {}
+            for row in found:
+                values = dict(row)
+                by_unit[str(row["external_line_id"])].append(values)
+                by_order[str(row["order_id"])].append(values)
+                public = json.loads(row["canonical_json"])
+                original[row["id"]] = public
+                staged[row["id"]] = {
+                    **public,
+                    "details": dict(public.get("details") or {}),
+                }
+
+            matched_ids = set()
+            unmatched = []
+            for record in records:
+                if record["order_unit_id"]:
+                    targets = by_unit.get(record["order_unit_id"], [])
+                    if len(targets) > 1:
+                        raise OrdersAmbiguousMatchError(
+                            "L'ID unità ordine corrisponde a più righe. "
+                            "Nessun dato è stato modificato."
+                        )
+                else:
+                    targets = by_order.get(record["order_id"], [])
+                if not targets:
+                    unmatched.append({
+                        "row": record["row"],
+                        "order_unit_id": record["order_unit_id"],
+                        "order_id": record["order_id"],
+                    })
+                    continue
+                for target in targets:
+                    line_id = target["id"]
+                    matched_ids.add(line_id)
+                    details = staged[line_id]["details"]
+                    if record["carrier"]:
+                        details["carrier"] = record["carrier"]
+                        details["carrier_source"] = source
+                    if record["tracking"]:
+                        details["tracking"] = record["tracking"]
+                        details["tracking_source"] = source
+
+            if len(matched_ids) > MAX_TRACKING_TARGET_UNITS:
+                raise TrackingLimitError(
+                    "L'import supera il limite di 10.000 unità ordine."
+                )
+
+            now = datetime.now(UTC)
+            updates = []
+            events = []
+            projection_keys = None
+            for line_id in matched_ids:
+                public = staged[line_id]
+                details = public["details"]
+                previous = original[line_id]
+                previous_details = previous.get("details") or {}
+                changed = False
+                for field in ("carrier", "tracking"):
+                    before_value = str(previous_details.get(field) or "")
+                    after_value = str(details.get(field) or "")
+                    before_source = previous_details.get(f"{field}_source")
+                    after_source = details.get(f"{field}_source")
+                    if (after_value, after_source) != (before_value, before_source):
+                        details[f"{field}_updated_at"] = now.isoformat()
+                        details[f"{field}_updated_by"] = str(actor_id)
+                        changed = True
+                if not changed:
+                    continue
+                public["details"] = details
+                projected = project_order(public)
+                projection_keys = projection_keys or tuple(projected)
+                updates.append({
+                    "_tracking_line_id": line_id,
+                    **{f"_tracking_{key}": value for key, value in projected.items()},
+                    "_tracking_canonical_json": json.dumps(
+                        public, ensure_ascii=False, allow_nan=False,
+                    ),
+                    "_tracking_search_text": " ".join(
+                        str(public.get(key) or "") for key in (
+                            "order_id", "external_line_id", "product_name", "ean", "sku",
+                        )
+                    ).casefold() + " " + " ".join(
+                        str(details.get(key) or "") for key in ("tracking", "carrier")
+                    ).casefold(),
+                    "_tracking_updated_at": now,
+                })
+                events.append({
+                    "id": uuid4(), "organization_id": organization_id,
+                    "seller_id": seller_id, "account_id": account_id,
+                    "environment": environment, "line_id": line_id,
+                    "actor_id": actor_id, "source": source,
+                    "previous_carrier": str(previous_details.get("carrier") or ""),
+                    "previous_tracking": str(previous_details.get("tracking") or ""),
+                    "carrier": str(details.get("carrier") or ""),
+                    "tracking": str(details.get("tracking") or ""), "created_at": now,
+                })
+
+            if updates:
+                values = {
+                    key: bindparam(f"_tracking_{key}") for key in projection_keys or ()
+                }
+                values.update({
+                    "canonical_json": bindparam("_tracking_canonical_json"),
+                    "search_text": bindparam("_tracking_search_text"),
+                    "updated_at": bindparam("_tracking_updated_at"),
+                    "projection_updated_at": bindparam("_tracking_updated_at"),
+                })
+                statement = lines.update().where(
+                    lines.c.id == bindparam("_tracking_line_id")
+                ).values(**values)
+                for offset in range(0, len(updates), 1_000):
+                    connection.execute(statement, updates[offset:offset + 1_000])
+                    connection.execute(
+                        tracking_events.insert(), events[offset:offset + 1_000],
+                    )
+
+            return {
+                "updated": len(updates), "unmatched": unmatched,
+            }
+
     def latest_job(self, organization_id, seller_id, account_id, environment, *, active=False):
         conditions = list(self._scope(jobs, organization_id, seller_id, account_id, environment))
         if active:
@@ -199,6 +536,39 @@ class SqlOrdersRepository:
             from sqlalchemy.dialects.sqlite import insert
         now = datetime.now(UTC)
         with self.engine.begin() as connection:
+            if job["marketplace"] == "kaufland":
+                self._lock_tracking_import(
+                    connection, job["organization_id"], job["seller_id"], job["account_id"],
+                    fail_fast=False,
+                )
+                incoming_units = defaultdict(set)
+                for item in items:
+                    incoming_units[str(item["external_line_id"])].add(str(item["order_id"]))
+                if any(len(order_ids) > 1 for order_ids in incoming_units.values()):
+                    raise OrdersAmbiguousMatchError(
+                        "L'ID unità ordine corrisponde a più ordini. "
+                        "Nessun dato è stato modificato."
+                    )
+                if incoming_units:
+                    saved_units = defaultdict(set)
+                    for saved in connection.execute(select(
+                        lines.c.external_line_id, lines.c.order_id,
+                    ).where(
+                        *self._scope(
+                            lines, job["organization_id"], job["seller_id"],
+                            job["account_id"], job["environment"],
+                        ),
+                        lines.c.external_line_id.in_(tuple(incoming_units)),
+                    ).order_by(lines.c.id).with_for_update()).mappings():
+                        saved_units[str(saved["external_line_id"])].add(str(saved["order_id"]))
+                    if any(
+                        saved_units[unit_id] - order_ids
+                        for unit_id, order_ids in incoming_units.items()
+                    ):
+                        raise OrdersAmbiguousMatchError(
+                            "L'ID unità ordine corrisponde a più ordini. "
+                            "Nessun dato è stato modificato."
+                        )
             identities = {(str(item["order_id"]), str(item["external_line_id"])) for item in items}
             previous = {
                 (row["order_id"], row["external_line_id"]): json.loads(row["canonical_json"])
@@ -208,7 +578,7 @@ class SqlOrdersRepository:
                     *self._scope(lines, job["organization_id"], job["seller_id"],
                                  job["account_id"], job["environment"]),
                     tuple_(lines.c.order_id, lines.c.external_line_id).in_(identities),
-                )).mappings()
+                ).with_for_update()).mappings()
             } if identities else {}
             for item in items:
                 public = {key: value for key, value in item.items() if key != "raw"}
@@ -221,6 +591,12 @@ class SqlOrdersRepository:
                 for key in ("tracking", "carrier", "detail_checked_at"):
                     if not details.get(key) and saved_details.get(key):
                         details[key] = saved_details[key]
+                        for suffix in ("source", "updated_at", "updated_by"):
+                            source_key = f"{key}_{suffix}"
+                            if saved_details.get(source_key):
+                                details[source_key] = saved_details[source_key]
+                    elif key in {"tracking", "carrier"} and details.get(key):
+                        details[f"{key}_source"] = details.get(f"{key}_source") or "api"
                 public["details"] = details
                 previous[identity] = public
                 record = {

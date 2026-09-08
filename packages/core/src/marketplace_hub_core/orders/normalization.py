@@ -815,6 +815,8 @@ def _kaufland_values(raw: dict) -> dict:
             "payout_source": payout_source,
             "carrier": carrier,
             "tracking": tracking,
+            "carrier_source": "api" if carrier else "",
+            "tracking_source": "api" if tracking else "",
             "received_at": received_at or None,
             "received_source": received_source,
             "shipped_at": shipped_at or None,

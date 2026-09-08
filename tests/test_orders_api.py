@@ -10,7 +10,11 @@ from marketplace_hub_api.main import create_app
 from marketplace_hub_core.marketplace_connections.repository import (
     SqlMarketplaceConnectionsRepository,
 )
-from marketplace_hub_core.orders.repository import SqlOrdersRepository
+from marketplace_hub_core.orders.repository import (
+    OrdersAccountUnavailableError,
+    OrdersImportBusyError,
+    SqlOrdersRepository,
+)
 from marketplace_hub_core.orders.schema import order_lines, order_sync_jobs
 from marketplace_hub_core.orders.service import OrdersService
 from marketplace_hub_core.seller_settings.security import encrypt_credentials
@@ -144,7 +148,7 @@ def test_queue_then_worker_persists_decimal_fields_and_never_public_raw(configur
     assert data["latest_job"]["progress"] == 100 and data["latest_job"]["processed"] == 1
     item = data["items"][0]
     assert item["sale_amount"] == item["sale_amount_eur"] == "20.00"
-    assert item["details"] == {"tracking": "tracking-test"}
+    assert item["details"] == {"tracking": "tracking-test", "tracking_source": "api"}
     assert "private-raw" not in response.text and "must-not-escape" not in response.text
     assert "secret-test" not in response.text and "client-test" not in response.text
     detail = client.get(path(seller, f"/{item['id']}"), params={"account_id": str(account_id)})
@@ -272,6 +276,32 @@ def test_deleted_account_stops_queued_job_and_hides_history(configured):
     assert read(client, seller, account_id).status_code == 404
     with configured.engine.connect() as connection:
         assert connection.execute(select(order_lines)).first() is not None
+
+
+@pytest.mark.parametrize(
+    ("failure", "error_code"),
+    [
+        (OrdersAccountUnavailableError("account changed under lock"), "account_unavailable"),
+        (OrdersImportBusyError("account lock busy"), "account_busy"),
+    ],
+)
+def test_account_lock_failures_have_stable_worker_errors(
+    configured, monkeypatch, failure, error_code,
+):
+    client, seller, organization, _, _ = owner(configured)
+    account_id = account(configured, seller, organization)
+    started = start(client, seller, account_id)
+
+    def fail_lock(*_args, **_kwargs):
+        raise failure
+
+    monkeypatch.setattr(configured.order_repository, "_lock_tracking_import", fail_lock)
+    job_id = run(configured, started)
+    job = configured.order_repository.job(job_id)
+    assert job["status"] == "error"
+    assert job["error_code"] == error_code
+    with configured.engine.connect() as connection:
+        assert connection.execute(select(order_lines)).first() is None
 
 
 def test_queue_failure_is_clear503_with_failed_durable_job(configured):

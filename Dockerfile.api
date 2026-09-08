@@ -7,7 +7,7 @@ COPY packages/core packages/core
 COPY services/api services/api
 COPY services/worker services/worker
 COPY migrations migrations
-RUN python -m pip install --upgrade pip==25.2 && \
+RUN python -m pip install --upgrade pip==26.2 && \
     python -m pip install -r requirements.lock && \
     python -m pip install --no-deps .
 

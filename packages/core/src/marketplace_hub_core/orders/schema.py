@@ -104,3 +104,24 @@ order_selection_members = Table(
            primary_key=True),
 )
 SELECTION_TABLES = [order_selections, order_selection_members]
+
+order_tracking_events = Table(
+    "seller_order_tracking_events", metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column("organization_id", Uuid(), ForeignKey("organizations.id"), nullable=False),
+    Column("seller_id", Uuid(), ForeignKey("seller_profiles.id"), nullable=False),
+    Column("account_id", Uuid(), nullable=False),
+    Column("environment", String(16), nullable=False),
+    Column("line_id", Uuid(), ForeignKey("seller_order_lines.id", ondelete="CASCADE"),
+           nullable=False),
+    Column("actor_id", Uuid(), ForeignKey("auth_users.id"), nullable=False),
+    Column("source", String(32), nullable=False),
+    Column("previous_carrier", Text(), nullable=False, server_default=""),
+    Column("previous_tracking", Text(), nullable=False, server_default=""),
+    Column("carrier", Text(), nullable=False, server_default=""),
+    Column("tracking", Text(), nullable=False, server_default=""),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+)
+Index("ix_order_tracking_events_scope_date", order_tracking_events.c.organization_id,
+      order_tracking_events.c.seller_id, order_tracking_events.c.account_id,
+      order_tracking_events.c.environment, order_tracking_events.c.created_at)

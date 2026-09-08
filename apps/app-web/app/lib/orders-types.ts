@@ -72,6 +72,7 @@ export const orderJobErrors: Record<string, string> = {
   timeout: "Tempo di sincronizzazione esaurito. Riprova.",
   queue_unavailable: "La sincronizzazione non può essere avviata in questo momento. Riprova.",
   worker_interrupted: "Sincronizzazione interrotta. Puoi avviarla di nuovo.",
+  account_busy: "Un’importazione tracking è in corso. Riprova la sincronizzazione tra poco.",
   sync_failed: "Sincronizzazione non completata. I dati già salvati restano disponibili.",
 };
 const progressMessages = new Set(["Sincronizzazione in coda.", "Download ordini in corso.", "Recupero dettagli ordini.", "Preparazione delle righe ordine.", "Salvataggio ordini.", "Il marketplace richiede un'attesa. Nuovo tentativo in corso.", "Sincronizzazione completata."]);

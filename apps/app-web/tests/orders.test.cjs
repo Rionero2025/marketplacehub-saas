@@ -63,6 +63,7 @@ test("job state validates identity, scope, environment and safe messages includi
   for (const message of ["Download ordini cancelled: 100", "Download ordini Worten: 200 ordini, 241 righe", "Sincronizzazione completata. 2 righe con avvisi: consulta i dettagli degli ordini. Dettagli verificati: 30."]) assert.equal(types.readOrderJob({ ...job(), message }, scope).message, message);
   assert.equal(types.readOrderJob({ ...job(), message: "secret-never-echo" }, scope).message, "Download ordini in corso.");
   assert.equal(types.readOrderJob({ ...job(), status: "error", error_code: "invalid_response", message: "raw response" }, scope).message, types.orderJobErrors.invalid_response);
+  assert.equal(types.readOrderJob({ ...job(), status: "error", error_code: "account_busy", message: "raw response" }, scope).message, types.orderJobErrors.account_busy);
   for (const change of [{ account_id: otherAccountId }, { environment: "playground" }, { progress: 101 }, { processed: -1 }, { maximum: 99 }, { error_code: "unknown-private-error" }, { started_at: "invalid" }]) assert.equal(types.readOrderJob({ ...job(), ...change }, scope), null);
   assert.equal(types.readOrderJob({ ...job(), marketplace: "worten", environment: "playground" }), null);
 });
