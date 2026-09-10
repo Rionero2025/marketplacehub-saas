@@ -104,28 +104,28 @@ test("cold start polls only read-only readiness then stops immediately when read
     calls++; assert.equal(url, "/api/auth/readiness"); assert.equal(options.method, "GET"); assert.equal(options.credentials, "omit"); assert.equal(options.body, undefined);
     return calls === 1 ? new Response("<html>waking</html>", { status: 503 }) : Response.json({ ready: true });
   } });
-  assert.equal(result, true); assert.equal(calls, 2); assert.equal(waiting, 1); assert.equal(clock, 2000);
+  assert.equal(result, true); assert.equal(calls, 2); assert.equal(waiting, 1); assert.equal(clock, 1500);
 });
 
-test("readiness polling keeps a cold-start request open and stops at 180 seconds without credentials", async () => {
+test("readiness polling retries fresh requests and releases the login after 60 seconds without credentials", async () => {
   let clock = 0, calls = 0;
   const result = await readiness.waitForLoginReadiness({ signal: new AbortController().signal, now: () => clock, pause: async (ms) => { clock += ms; }, onWaiting() {}, fetcher: async (url, options) => {
     calls++; assert.equal(url, "/api/auth/readiness"); assert.equal(options.credentials, "omit");
-    clock += Math.min(60000, 180000 - clock); return Response.json({ ready: false }, { status: 503 });
+    assert.equal(options.body, undefined); return Response.json({ ready: false }, { status: 503 });
   } });
-  assert.equal(result, false); assert.equal(clock, 180000); assert.equal(calls, 3);
+  assert.equal(result, false); assert.equal(clock, 60000); assert.equal(calls, 40);
 });
 
-test("a 50 second Render cold start completes within one readiness request", async () => {
+test("a ready response completes the current readiness request", async () => {
   let clock = 0, calls = 0;
   const result = await readiness.waitForLoginReadiness({ signal: new AbortController().signal, now: () => clock, pause: async (ms) => { clock += ms; }, onWaiting() {}, fetcher: async (_url, options) => {
-    calls++; assert.equal(options.credentials, "omit"); assert.equal(options.body, undefined); clock += 50000;
+    calls++; assert.equal(options.credentials, "omit"); assert.equal(options.body, undefined); clock += 5000;
     return Response.json({ ready: true });
   } });
-  assert.equal(result, true); assert.equal(clock, 50000); assert.equal(calls, 1);
+  assert.equal(result, true); assert.equal(clock, 5000); assert.equal(calls, 1);
 });
 
-test("browser does not abort the BFF before its 60 second cold-start window", async () => {
+test("browser bounds each readiness attempt so a stale request cannot block fresh polling", async () => {
   const timers = [];
   const coldStartReadiness = load("../app/lib/auth-login-readiness.ts", {
     setTimeout(_callback, milliseconds) { timers.push(milliseconds); return timers.length; },
@@ -135,7 +135,21 @@ test("browser does not abort the BFF before its 60 second cold-start window", as
     signal: new AbortController().signal, now: () => 0, onWaiting() {},
     fetcher: async () => Response.json({ ready: true }),
   });
-  assert.equal(result, true); assert.equal(timers[0], 65000);
+  assert.equal(result, true); assert.equal(timers[0], 8000);
+});
+
+test("a fetch that ignores abort times out, then polling observes a fresh ready response", async () => {
+  let calls = 0, staleSignal;
+  const result = await readiness.waitForLoginReadiness({
+    signal: new AbortController().signal, onWaiting() {}, budgetMs: 5000, requestTimeoutMs: 5, retryIntervalMs: 0,
+    pause: async () => undefined,
+    fetcher: async (url, options) => {
+      calls++; assert.equal(url, "/api/auth/readiness"); assert.equal(options.method, "GET"); assert.equal(options.credentials, "omit"); assert.equal(options.body, undefined);
+      if (calls === 1) { staleSignal = options.signal; return new Promise(() => {}); }
+      return Response.json({ ready: true });
+    },
+  });
+  assert.equal(result, true); assert.equal(calls, 2); assert.equal(staleSignal.aborted, true);
 });
 
 test("unmount cancellation aborts the current readiness request and prevents another poll", async () => {
@@ -153,7 +167,7 @@ test("default readiness polling clock is monotonic and has a Date fallback", asy
     signal: new AbortController().signal, onWaiting() {}, pause: async (milliseconds) => { clock += milliseconds; },
     fetcher: async () => { calls++; return Response.json({ ready: false }, { status: 503 }); },
   });
-  assert.equal(result, false); assert.equal(clock, 180000); assert.equal(calls, 90);
+  assert.equal(result, false); assert.equal(clock, 60000); assert.equal(calls, 40);
   assert.equal(fallback.monotonicNow(), 7654);
 });
 
@@ -172,20 +186,23 @@ test("recovery performs anonymous GET probes until ready", async () => {
 });
 
 function component(wait, fetchImpl, realm = "seller", readinessOverrides = {}) {
-  const states = [], refs = [], effects = [], calls = [], navigations = [];
-  let stateIndex, refIndex, effectIndex, pendingEffects, tree, refreshes = 0, formDataConstructions = 0;
-  class FakeInput { constructor(value) { this.value = value; } }
+  const states = [], refs = [], effects = [], layoutEffects = [], calls = [], navigations = [];
+  let stateIndex, refIndex, effectIndex, layoutEffectIndex, pendingEffects, pendingLayoutEffects, tree, refreshes = 0, formDataConstructions = 0;
+  class FakeInput { constructor(value) { this.value = value; this.disabled = false; this.readOnly = false; } }
+  const login = new FakeInput(credentials.login);
   const password = new FakeInput(credentials.password);
-  const form = { fields: { login: credentials.login, password: credentials.password }, elements: { namedItem: () => password } };
+  const controls = { login, password };
+  const form = { elements: { namedItem: (name) => controls[name] ?? null } };
   const defaultRecovery = ({ signal }) => new Promise((_resolve, reject) => {
     if (signal.aborted) { const error = new Error("aborted"); error.name = "AbortError"; reject(error); return; }
     signal.addEventListener("abort", () => { const error = new Error("aborted"); error.name = "AbortError"; reject(error); }, { once: true });
   });
-  const module = load("../app/components/LoginForm.tsx", { HTMLInputElement: FakeInput, FormData: class { constructor(value) { formDataConstructions++; this.fields = { ...value.fields }; } get(key) { return this.fields[key]; } }, fetch: async (...args) => { calls.push(args); return fetchImpl(...args); }, require(name) {
+  const module = load("../app/components/LoginForm.tsx", { HTMLInputElement: FakeInput, FormData: class { constructor(value) { formDataConstructions++; this.fields = {}; for (const name of ["login", "password"]) { const control = value.elements.namedItem(name); if (control && !control.disabled) this.fields[name] = control.value; } } get(key) { return this.fields[key] ?? null; } }, fetch: async (...args) => { calls.push(args); return fetchImpl(...args); }, require(name) {
     if (name === "react") return {
       useState(initial) { const index = stateIndex++; if (!(index in states)) states[index] = initial; return [states[index], (value) => { states[index] = value; }]; },
       useRef(initial) { const index = refIndex++; return refs[index] ?? (refs[index] = { current: initial }); },
       useEffect(create, dependencies) { const index = effectIndex++; if (!effects[index]) pendingEffects.push(() => { effects[index] = { cleanup: create(), dependencies }; }); },
+      useLayoutEffect(create, dependencies) { const index = layoutEffectIndex++; if (!layoutEffects[index]) pendingLayoutEffects.push(() => { layoutEffects[index] = { cleanup: create(), dependencies }; }); },
     };
     if (name === "react/jsx-runtime") return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
     if (name === "next/navigation") return { useRouter: () => ({ replace: (url) => navigations.push(url), refresh: () => refreshes++ }) };
@@ -199,19 +216,20 @@ function component(wait, fetchImpl, realm = "seller", readinessOverrides = {}) {
   } });
   const elements = (node) => !node || typeof node !== "object" ? [] : Array.isArray(node) ? node.flatMap(elements) : [node, ...elements(node.props?.children)];
   const text = (node) => typeof node === "string" ? node : Array.isArray(node) ? node.map(text).join("") : node?.props ? text(node.props.children) : "";
-  function render() { stateIndex = refIndex = effectIndex = 0; pendingEffects = []; tree = module.LoginForm({ realm, title: "Accesso", description: "Demo" }); pendingEffects.forEach((effect) => effect()); }
+  function render() { stateIndex = refIndex = effectIndex = layoutEffectIndex = 0; pendingEffects = []; pendingLayoutEffects = []; tree = module.LoginForm({ realm, title: "Accesso", description: "Demo" }); for (const node of elements(tree).filter((element) => element.type === "input")) { const control = form.elements.namedItem(node.props.name); if (control) { control.disabled = Boolean(node.props.disabled); control.readOnly = Boolean(node.props.readOnly); } } pendingLayoutEffects.forEach((effect) => effect()); pendingEffects.forEach((effect) => effect()); }
   render();
-  return { render, calls, navigations, password, form, formDataConstructions: () => formDataConstructions, refreshes: () => refreshes, text: () => text(tree),
+  return { render, calls, navigations, login, password, form, formDataConstructions: () => formDataConstructions, refreshes: () => refreshes, text: () => text(tree),
     async submit() { const run = elements(tree).find((node) => node.type === "form").props.onSubmit({ preventDefault() {}, currentTarget: form }); render(); await run; render(); },
     async flush() { await new Promise(setImmediate); render(); },
     pending: () => elements(tree).find((node) => node.type === "button").props.disabled,
-    unmount() { effects.forEach((effect) => effect?.cleanup?.()); },
+    hideAndReveal() { layoutEffects.forEach((effect) => effect?.cleanup?.()); effects.forEach((effect) => effect?.cleanup?.()); layoutEffects.length = 0; effects.length = 0; render(); },
+    unmount() { layoutEffects.forEach((effect) => effect?.cleanup?.()); effects.forEach((effect) => effect?.cleanup?.()); },
   };
 }
 
-test("login UI awaits readiness, blocks double submission, posts password once and clears it on confirmed success", async () => {
+test("login UI keeps pending credentials as read-only successful controls, posts once and clears the password on success", async () => {
   let ready; const panel = component(({ onWaiting }) => { onWaiting(); return new Promise((resolve) => { ready = resolve; }); }, async () => Response.json({ authenticated: true, realm: "seller" }));
-  const submitted = panel.submit(); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.equal(panel.pending(), true); assert.match(panel.text(), /Avvio del servizio in corso/);
+  const submitted = panel.submit(); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.equal(panel.pending(), true); assert.equal(panel.login.readOnly, true); assert.equal(panel.password.readOnly, true); assert.equal(panel.login.disabled, false); assert.equal(panel.password.disabled, false); assert.match(panel.text(), /Avvio del servizio in corso/);
   await panel.submit(); ready(true); await submitted;
   assert.equal(panel.formDataConstructions(), 1); assert.equal(panel.calls.length, 1); assert.equal(panel.calls[0][0], "/api/auth/login"); assert.equal(JSON.parse(panel.calls[0][1].body).password, credentials.password); assert.deepEqual(panel.navigations, ["/seller"]); assert.equal(panel.password.value, ""); panel.unmount();
 });
@@ -251,6 +269,27 @@ test("unmount aborts readiness recovery and ignores a late ready result", async 
   await panel.submit(); panel.unmount();
   assert.equal(recoverySignal.aborted, true); finishRecovery(); await panel.flush();
   assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.doesNotMatch(panel.text(), /Servizio pronto\. Premi Accedi\./);
+});
+
+test("a preserved login page releases an interrupted submit and ignores its late readiness result", async () => {
+  let finishReadiness, readinessSignal;
+  const panel = component(({ signal, onWaiting }) => {
+    readinessSignal = signal; onWaiting();
+    return new Promise((resolve) => { finishReadiness = () => resolve(true); });
+  }, async () => { throw new Error("must not send credentials"); });
+  const submitted = panel.submit();
+  assert.equal(panel.pending(), true); assert.match(panel.text(), /Riprovo automaticamente/); assert.equal(panel.formDataConstructions(), 0);
+  panel.hideAndReveal();
+  assert.equal(readinessSignal.aborted, true); assert.equal(panel.pending(), false); assert.doesNotMatch(panel.text(), /Riprovo automaticamente/);
+  finishReadiness(); await submitted;
+  assert.equal(panel.pending(), false); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.deepEqual(panel.navigations, []); panel.unmount();
+});
+
+test("a preserved login page clears a stale authentication error", async () => {
+  const panel = component(async () => true, async () => new Response(null, { status: 401 }));
+  await panel.submit(); assert.match(panel.text(), /Credenziali non valide/);
+  panel.hideAndReveal();
+  assert.doesNotMatch(panel.text(), /Credenziali non valide/); assert.equal(panel.pending(), false); panel.unmount();
 });
 
 test("authentication 401, rate-limit 429 and cold-service HTML remain distinct without automatic password retry", async () => {

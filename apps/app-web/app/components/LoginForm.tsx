@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isLoginSuccess, loginErrorMessage, type LoginRealm } from "../lib/auth-login-contract";
 import { probeLoginReadiness, recoverLoginReadiness, waitForLoginReadiness } from "../lib/auth-login-readiness";
@@ -20,19 +20,36 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
   const recoveryController = useRef<AbortController | null>(null);
   const readinessExpired = useRef(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     active.current = true;
+    return () => {
+      active.current = false;
+      const loginRequest = controller.current;
+      const prewarmRequest = prewarmController.current;
+      const recoveryRequest = recoveryController.current;
+      controller.current = null;
+      prewarmController.current = null;
+      recoveryController.current = null;
+      readinessExpired.current = false;
+      busy.current = false;
+      loginRequest?.abort();
+      prewarmRequest?.abort();
+      recoveryRequest?.abort();
+      setPending(false);
+      setProgress("");
+      setError("");
+    };
+  }, []);
+
+  useEffect(() => {
     const prewarm = new AbortController();
     prewarmController.current = prewarm;
     void probeLoginReadiness({ signal: prewarm.signal }).catch(() => undefined).finally(() => {
       if (prewarmController.current === prewarm) prewarmController.current = null;
     });
     return () => {
-      active.current = false;
-      controller.current?.abort();
-      prewarmController.current?.abort();
-      recoveryController.current?.abort();
-      busy.current = false;
+      prewarm.abort();
+      if (prewarmController.current === prewarm) prewarmController.current = null;
     };
   }, []);
 
@@ -70,7 +87,7 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       const ready = await waitForLoginReadiness({ signal: abort.signal, onWaiting: () => {
-        if (current()) setProgress("Avvio del servizio in corso. Il primo accesso può richiedere anche più di un minuto.");
+        if (current()) setProgress("Avvio del servizio in corso. Riprovo automaticamente; resta su questa pagina.");
       } });
       if (!current()) return;
       if (!ready) {
@@ -113,8 +130,8 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
       <section className="login-brand"><span className="brand-mark">MH</span><p className="eyebrow">MARKETPLACE HUB</p><h1>Operazioni marketplace, in un unico spazio.</h1></section>
       <section className="login-panel"><div className="login-box"><p className="eyebrow">ACCESSO RISERVATO</p><h2>{title}</h2><p>{description}</p>
         <form onSubmit={submit} aria-busy={pending}>
-          <label htmlFor="login">Email o username</label><input id="login" name="login" autoComplete="username" required maxLength={254} disabled={pending} />
-          <label htmlFor="password">Password</label><input id="password" name="password" type="password" autoComplete="current-password" required maxLength={1024} disabled={pending} />
+          <label htmlFor="login">Email o username</label><input id="login" name="login" autoComplete="username" required maxLength={254} readOnly={pending} />
+          <label htmlFor="password">Password</label><input id="password" name="password" type="password" autoComplete="current-password" required maxLength={1024} readOnly={pending} />
           {error ? <p className="form-error" role="alert">{error}</p> : null}
           {progress ? <p className="workspace-muted" role="status">{progress}</p> : null}
           <button type="submit" disabled={pending}>{pending ? "Attendi…" : "Accedi"}</button>
