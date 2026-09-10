@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isLoginSuccess, loginErrorMessage, type LoginRealm } from "../lib/auth-login-contract";
-import { waitForLoginReadiness } from "../lib/auth-login-readiness";
+import { probeLoginReadiness, recoverLoginReadiness, waitForLoginReadiness } from "../lib/auth-login-readiness";
 
 type Realm = LoginRealm;
 const destinations: Record<Realm, string> = { seller: "/seller", agency: "/agency", platform: "/system-admin" };
@@ -16,11 +16,40 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
   const active = useRef(true);
   const busy = useRef(false);
   const controller = useRef<AbortController | null>(null);
+  const prewarmController = useRef<AbortController | null>(null);
+  const recoveryController = useRef<AbortController | null>(null);
+  const readinessExpired = useRef(false);
 
   useEffect(() => {
     active.current = true;
-    return () => { active.current = false; controller.current?.abort(); busy.current = false; };
+    const prewarm = new AbortController();
+    prewarmController.current = prewarm;
+    void probeLoginReadiness({ signal: prewarm.signal }).catch(() => undefined).finally(() => {
+      if (prewarmController.current === prewarm) prewarmController.current = null;
+    });
+    return () => {
+      active.current = false;
+      controller.current?.abort();
+      prewarmController.current?.abort();
+      recoveryController.current?.abort();
+      busy.current = false;
+    };
   }, []);
+
+  function recoverReadiness() {
+    recoveryController.current?.abort();
+    const recovery = new AbortController();
+    recoveryController.current = recovery;
+    void recoverLoginReadiness({ signal: recovery.signal }).then(() => {
+      if (!active.current || recoveryController.current !== recovery) return;
+      recoveryController.current = null;
+      if (readinessExpired.current) {
+        readinessExpired.current = false;
+        setError("");
+        setProgress("Servizio pronto. Premi Accedi.");
+      }
+    }).catch(() => undefined);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,9 +57,13 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
     busy.current = true;
     const abort = new AbortController();
     controller.current = abort;
+    prewarmController.current?.abort();
+    prewarmController.current = null;
+    recoveryController.current?.abort();
+    recoveryController.current = null;
+    readinessExpired.current = false;
     const current = () => active.current && controller.current === abort;
     const formElement = event.currentTarget;
-    const form = new FormData(formElement);
     setPending(true);
     setError("");
     setProgress("Preparazione dell’accesso…");
@@ -40,8 +73,14 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
         if (current()) setProgress("Avvio del servizio in corso. Il primo accesso può richiedere anche più di un minuto.");
       } });
       if (!current()) return;
-      if (!ready) { setError("Il servizio non è ancora pronto. Attendi qualche istante e riprova: le credenziali non sono state inviate."); return; }
+      if (!ready) {
+        readinessExpired.current = true;
+        setError("Il servizio non è ancora pronto. Attendi qualche istante e riprova: le credenziali non sono state inviate.");
+        recoverReadiness();
+        return;
+      }
       setProgress("Accesso in corso…");
+      const form = new FormData(formElement);
       timeout = setTimeout(() => abort.abort(), 35000);
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -65,7 +104,7 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
       if (current()) setError(loginErrorMessage(abort.signal.aborted ? 504 : 503));
     } finally {
       clearTimeout(timeout);
-      if (current()) { busy.current = false; setPending(false); setProgress(""); }
+      if (current()) { busy.current = false; setPending(false); setProgress(""); controller.current = null; }
     }
   }
 

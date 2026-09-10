@@ -145,13 +145,43 @@ test("unmount cancellation aborts the current readiness request and prevents ano
   await assert.rejects(readiness.abortableDelay(2000, controller.signal), (error) => error.name === "AbortError");
 });
 
-function component(wait, fetchImpl, realm = "seller") {
+test("default readiness polling clock is monotonic and has a Date fallback", async () => {
+  let clock = 0, calls = 0;
+  const monotonic = load("../app/lib/auth-login-readiness.ts", { performance: { now: () => clock }, Date: { now: () => { throw new Error("wall clock must not be used"); } } });
+  const fallback = load("../app/lib/auth-login-readiness.ts", { performance: undefined, Date: { now: () => 7654 } });
+  const result = await monotonic.waitForLoginReadiness({
+    signal: new AbortController().signal, onWaiting() {}, pause: async (milliseconds) => { clock += milliseconds; },
+    fetcher: async () => { calls++; return Response.json({ ready: false }, { status: 503 }); },
+  });
+  assert.equal(result, false); assert.equal(clock, 180000); assert.equal(calls, 90);
+  assert.equal(fallback.monotonicNow(), 7654);
+});
+
+test("recovery performs anonymous GET probes until ready", async () => {
+  let calls = 0, pauses = 0;
+  await readiness.recoverLoginReadiness({
+    signal: new AbortController().signal,
+    pause: async (milliseconds) => { pauses++; assert.equal(milliseconds, 5000); },
+    fetcher: async (url, options) => {
+      calls++;
+      assert.equal(url, "/api/auth/readiness"); assert.equal(options.method, "GET"); assert.equal(options.credentials, "omit"); assert.equal(options.body, undefined);
+      return calls === 1 ? Response.json({ ready: false }, { status: 503 }) : Response.json({ ready: true });
+    },
+  });
+  assert.equal(calls, 2); assert.equal(pauses, 1);
+});
+
+function component(wait, fetchImpl, realm = "seller", readinessOverrides = {}) {
   const states = [], refs = [], effects = [], calls = [], navigations = [];
-  let stateIndex, refIndex, effectIndex, pendingEffects, tree, refreshes = 0;
+  let stateIndex, refIndex, effectIndex, pendingEffects, tree, refreshes = 0, formDataConstructions = 0;
   class FakeInput { constructor(value) { this.value = value; } }
   const password = new FakeInput(credentials.password);
   const form = { fields: { login: credentials.login, password: credentials.password }, elements: { namedItem: () => password } };
-  const module = load("../app/components/LoginForm.tsx", { HTMLInputElement: FakeInput, FormData: class { constructor(value) { this.fields = value.fields; } get(key) { return this.fields[key]; } }, fetch: async (...args) => { calls.push(args); return fetchImpl(...args); }, require(name) {
+  const defaultRecovery = ({ signal }) => new Promise((_resolve, reject) => {
+    if (signal.aborted) { const error = new Error("aborted"); error.name = "AbortError"; reject(error); return; }
+    signal.addEventListener("abort", () => { const error = new Error("aborted"); error.name = "AbortError"; reject(error); }, { once: true });
+  });
+  const module = load("../app/components/LoginForm.tsx", { HTMLInputElement: FakeInput, FormData: class { constructor(value) { formDataConstructions++; this.fields = { ...value.fields }; } get(key) { return this.fields[key]; } }, fetch: async (...args) => { calls.push(args); return fetchImpl(...args); }, require(name) {
     if (name === "react") return {
       useState(initial) { const index = stateIndex++; if (!(index in states)) states[index] = initial; return [states[index], (value) => { states[index] = value; }]; },
       useRef(initial) { const index = refIndex++; return refs[index] ?? (refs[index] = { current: initial }); },
@@ -160,15 +190,20 @@ function component(wait, fetchImpl, realm = "seller") {
     if (name === "react/jsx-runtime") return { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) };
     if (name === "next/navigation") return { useRouter: () => ({ replace: (url) => navigations.push(url), refresh: () => refreshes++ }) };
     if (name === "../lib/auth-login-contract") return contract;
-    if (name === "../lib/auth-login-readiness") return { waitForLoginReadiness: wait };
+    if (name === "../lib/auth-login-readiness") return {
+      waitForLoginReadiness: wait,
+      probeLoginReadiness: readinessOverrides.probe ?? (async () => false),
+      recoverLoginReadiness: readinessOverrides.recover ?? defaultRecovery,
+    };
     throw new Error(name);
   } });
   const elements = (node) => !node || typeof node !== "object" ? [] : Array.isArray(node) ? node.flatMap(elements) : [node, ...elements(node.props?.children)];
   const text = (node) => typeof node === "string" ? node : Array.isArray(node) ? node.map(text).join("") : node?.props ? text(node.props.children) : "";
   function render() { stateIndex = refIndex = effectIndex = 0; pendingEffects = []; tree = module.LoginForm({ realm, title: "Accesso", description: "Demo" }); pendingEffects.forEach((effect) => effect()); }
   render();
-  return { render, calls, navigations, password, refreshes: () => refreshes, text: () => text(tree),
+  return { render, calls, navigations, password, form, formDataConstructions: () => formDataConstructions, refreshes: () => refreshes, text: () => text(tree),
     async submit() { const run = elements(tree).find((node) => node.type === "form").props.onSubmit({ preventDefault() {}, currentTarget: form }); render(); await run; render(); },
+    async flush() { await new Promise(setImmediate); render(); },
     pending: () => elements(tree).find((node) => node.type === "button").props.disabled,
     unmount() { effects.forEach((effect) => effect?.cleanup?.()); },
   };
@@ -176,14 +211,46 @@ function component(wait, fetchImpl, realm = "seller") {
 
 test("login UI awaits readiness, blocks double submission, posts password once and clears it on confirmed success", async () => {
   let ready; const panel = component(({ onWaiting }) => { onWaiting(); return new Promise((resolve) => { ready = resolve; }); }, async () => Response.json({ authenticated: true, realm: "seller" }));
-  const submitted = panel.submit(); assert.equal(panel.calls.length, 0); assert.equal(panel.pending(), true); assert.match(panel.text(), /Avvio del servizio in corso/);
+  const submitted = panel.submit(); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.equal(panel.pending(), true); assert.match(panel.text(), /Avvio del servizio in corso/);
   await panel.submit(); ready(true); await submitted;
-  assert.equal(panel.calls.length, 1); assert.equal(panel.calls[0][0], "/api/auth/login"); assert.equal(JSON.parse(panel.calls[0][1].body).password, credentials.password); assert.deepEqual(panel.navigations, ["/seller"]); assert.equal(panel.password.value, ""); panel.unmount();
+  assert.equal(panel.formDataConstructions(), 1); assert.equal(panel.calls.length, 1); assert.equal(panel.calls[0][0], "/api/auth/login"); assert.equal(JSON.parse(panel.calls[0][1].body).password, credentials.password); assert.deepEqual(panel.navigations, ["/seller"]); assert.equal(panel.password.value, ""); panel.unmount();
 });
 
-test("readiness deadline never submits credentials and leaves a recoverable message", async () => {
-  const panel = component(async () => false, async () => { throw new Error("must not call"); }); await panel.submit();
-  assert.equal(panel.calls.length, 0); assert.match(panel.text(), /credenziali non sono state inviate/); assert.equal(panel.pending(), false); panel.unmount();
+test("mount prewarms anonymously and aborts that probe before a submitted readiness check", async () => {
+  let prewarmSignal, waitCalls = 0, probeCalls = 0;
+  const prewarmHelper = load("../app/lib/auth-login-readiness.ts", { fetch: async (url, options) => {
+    probeCalls++; assert.equal(url, "/api/auth/readiness"); assert.equal(options.method, "GET"); assert.equal(options.credentials, "omit"); assert.equal(options.body, undefined);
+    return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true }));
+  } });
+  const panel = component(async () => { waitCalls++; return false; }, async () => { throw new Error("must not call"); }, "seller", {
+    probe: ({ signal }) => { prewarmSignal = signal; return prewarmHelper.probeLoginReadiness({ signal }); },
+  });
+  assert.ok(prewarmSignal); assert.equal(prewarmSignal.aborted, false); assert.equal(probeCalls, 1); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0);
+  await panel.submit();
+  assert.equal(prewarmSignal.aborted, true); assert.equal(waitCalls, 1); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); panel.unmount();
+});
+
+test("readiness deadline recovers read-only, clears the stale error and requires a new submit", async () => {
+  let ready = false, finishRecovery, recoverySignal;
+  const panel = component(async () => ready, async () => Response.json({ authenticated: true, realm: "seller" }), "seller", {
+    recover: ({ signal }) => { recoverySignal = signal; return new Promise((resolve) => { finishRecovery = resolve; }); },
+  });
+  await panel.submit();
+  assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.match(panel.text(), /credenziali non sono state inviate/); assert.equal(panel.pending(), false); assert.equal(recoverySignal.aborted, false);
+  ready = true; finishRecovery(); await panel.flush();
+  assert.doesNotMatch(panel.text(), /credenziali non sono state inviate/); assert.match(panel.text(), /Servizio pronto\. Premi Accedi\./); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.deepEqual(panel.navigations, []);
+  await panel.submit();
+  assert.equal(panel.calls.length, 1); assert.equal(panel.calls[0][0], "/api/auth/login"); assert.equal(panel.formDataConstructions(), 1); assert.deepEqual(panel.navigations, ["/seller"]); panel.unmount();
+});
+
+test("unmount aborts readiness recovery and ignores a late ready result", async () => {
+  let finishRecovery, recoverySignal;
+  const panel = component(async () => false, async () => { throw new Error("must not call"); }, "seller", {
+    recover: ({ signal }) => { recoverySignal = signal; return new Promise((resolve) => { finishRecovery = resolve; }); },
+  });
+  await panel.submit(); panel.unmount();
+  assert.equal(recoverySignal.aborted, true); finishRecovery(); await panel.flush();
+  assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.doesNotMatch(panel.text(), /Servizio pronto\. Premi Accedi\./);
 });
 
 test("authentication 401, rate-limit 429 and cold-service HTML remain distinct without automatic password retry", async () => {
