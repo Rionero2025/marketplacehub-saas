@@ -1,7 +1,10 @@
-export type DashboardIconName = "home" | "store" | "building" | "shield" | "menu" | "close" | "exit" | "chevron" | "refresh" | "check" | "users" | "arrow" | "plug" | "search" | "orders" | "settings";
+export type DashboardIconName = "home" | "store" | "building" | "shield" | "menu" | "close" | "exit" | "chevron" | "refresh" | "check" | "users" | "arrow" | "plug" | "search" | "orders" | "settings" | "catalog" | "supplier" | "file";
 
 export function DashboardIcon({ name, size = 18 }: { name: DashboardIconName; size?: number }) {
   const paths: Record<DashboardIconName, ReactNode> = {
+    catalog: <><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" /></>,
+    supplier: <><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z" /><circle cx="7" cy="18" r="2" /><circle cx="17" cy="18" r="2" /></>,
+    file: <><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 12h6M9 16h6" /></>,
     settings: <><path d="m9 3-.7 2.4-2.2 1L3.7 6 2 9l1.8 1.8v2.4L2 15l1.7 3 2.4-.4 2.2 1L9 21h6l.7-2.4 2.2-1 2.4.4 1.7-3-1.8-1.8v-2.4L22 9l-1.7-3-2.4.4-2.2-1L15 3Z" /><circle cx="12" cy="12" r="3" /></>,
     orders: <><path d="M6 3h12l3 5v13H3V8Zm-3 5h18M8 12h8M8 16h5" /></>,
     plug: <><path d="M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-12 0Zm6 9v4" /></>,

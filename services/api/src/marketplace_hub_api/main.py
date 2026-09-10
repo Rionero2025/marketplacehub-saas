@@ -12,6 +12,8 @@ from fastapi.responses import JSONResponse
 from marketplace_hub_core.auth import AuthService
 from marketplace_hub_core.auth.rate_limit import RedisLoginRateLimiter
 from marketplace_hub_core.auth.sql_repository import SqlAuthRepository
+from marketplace_hub_core.catalogs.repository import SqlCatalogsRepository
+from marketplace_hub_core.catalogs.service import CatalogsService
 from marketplace_hub_core.database import create_database_engine
 from marketplace_hub_core.marketplace_connections.repository import (
     SqlMarketplaceConnectionsRepository,
@@ -29,6 +31,7 @@ from marketplace_hub_core.tenancy.service import WorkspaceService
 from redis import Redis
 
 from marketplace_hub_api.auth import create_auth_router
+from marketplace_hub_api.catalogs import create_catalogs_router
 from marketplace_hub_api.marketplace_connections import create_marketplace_connections_router
 from marketplace_hub_api.orders import create_orders_router
 from marketplace_hub_api.seller_settings import create_seller_settings_router
@@ -40,6 +43,7 @@ def create_app(
     settings: Settings | None = None,
     readiness_checks: Mapping[str, Check] | None = None,
     auth_service: AuthService | None = None,
+    catalogs_service: CatalogsService | None = None,
     workspace_service: WorkspaceService | None = None,
     seller_settings_service: SellerSettingsService | None = None,
     marketplace_connections_service: MarketplaceConnectionsService | None = None,
@@ -71,6 +75,11 @@ def create_app(
         if engine is None:
             engine = create_database_engine(app_settings)
         workspace_service = WorkspaceService(SqlWorkspaceRepository(engine))
+
+    if catalogs_service is None:
+        catalogs_service = CatalogsService(
+            SqlCatalogsRepository(workspace_service.repository.engine), workspace_service,
+        )
 
     if seller_settings_service is None:
         seller_settings_service = SellerSettingsService(
@@ -134,6 +143,7 @@ def create_app(
         auth_service, app_settings, after_login=login_maintenance,
     ))
     app.include_router(create_workspace_router(workspace_service, auth_service, app_settings))
+    app.include_router(create_catalogs_router(catalogs_service, auth_service, app_settings))
     app.include_router(create_seller_settings_router(
         seller_settings_service, auth_service, app_settings,
     ))
