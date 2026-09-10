@@ -39,3 +39,28 @@ def sync_orders(job_id: str) -> None:
     finally:
         connection.close()
         engine.dispose()
+
+
+def refresh_catalog(job_id: str) -> None:
+    """Refresh one durable catalog feed; RQ never receives source secrets."""
+    from uuid import UUID
+
+    from marketplace_hub_core.catalogs.repository import SqlCatalogsRepository
+    from marketplace_hub_core.catalogs.service import CatalogsService
+    from marketplace_hub_core.database import create_database_engine
+    from marketplace_hub_core.settings import get_settings
+    from marketplace_hub_core.tenancy.repository import SqlWorkspaceRepository
+    from marketplace_hub_core.tenancy.service import WorkspaceService
+
+    settings = get_settings()
+    engine = create_database_engine(settings)
+    try:
+        workspace = WorkspaceService(SqlWorkspaceRepository(engine))
+        service = CatalogsService(
+            SqlCatalogsRepository(engine),
+            workspace,
+            master_key=settings.master_key,
+        )
+        service.run_refresh_job(UUID(job_id))
+    finally:
+        engine.dispose()

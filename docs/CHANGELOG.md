@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-09-10 — B12.1b1: feed listino generici da URL HTTPS
+
+- aggiunta in Catalogo → Listini la scelta File/URL con feed HTTPS e HTTP Basic
+  facoltativo, modifica sicura e aggiornamento immediato;
+- aggiunti job durevoli, barra di avanzamento, versioni immutabili e attivazione
+  atomica, conservando lo snapshot precedente in caso di errore;
+- protetto il downloader da SSRF, DNS rebinding, redirect cross-origin, IP non pubblici,
+  risposte e file eccessivi; aggiunto fallback sicuro multi-IP entro deadline globale;
+- autenticazione e autorizzazione precedono tutti i body Catalogo, con limiti streaming;
+- bloccate modifiche ed eliminazioni durante job attivi con lock PostgreSQL coerenti;
+- migrazione 0011 con backfill `INSERT … SELECT` e trigger ponte per upload durante il
+  deploy progressivo;
+- superati 533/533 test Python, 132/132 test Catalogo, 153/153 test web, build 19/19,
+  Ruff, `pip check` e audit indipendente;
+- sette criteri restano candidati fino al collaudo staging: avanzamento invariato a
+  **147/2.011 = 7,31%**.
+
 ## 2026-09-10 — B20.4: scadenziario pagamenti e ritardi ticket
 
 - trasferite le regole Kaufland per rilascio effettivo, consegna +14 giorni e

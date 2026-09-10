@@ -10,6 +10,7 @@ const sellerId = "a1000000-0000-4000-8000-000000000001";
 const otherSellerId = "a1000000-0000-4000-8000-000000000002";
 const supplierId = "b1000000-0000-4000-8000-000000000001";
 const priceListId = "c1000000-0000-4000-8000-000000000001";
+const jobId = "d1000000-0000-4000-8000-000000000001";
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
 function load(relativePath, context = {}) {
@@ -32,7 +33,9 @@ const types = load("../app/lib/catalog-types.ts", {
 });
 
 const supplier = () => ({ id: supplierId, name: "Innpro", notes: "Feed principale", price_list_count: 1 });
-const priceList = () => ({ id: priceListId, supplier_id: supplierId, supplier_name: "Innpro", name: "Listino IT", source_type: "upload", file_name: "innpro.xlsx", file_format: "xlsx", row_count: 1, status: "ready", updated_at: "2026-09-10T08:00:00Z" });
+const job = () => ({ id: jobId, status: "queued", processed_bytes: 0, total_bytes: null, progress: null, message: "Aggiornamento listino in coda.", error_code: null, result_version: null, created_at: "2026-09-10T08:00:00Z", updated_at: "2026-09-10T08:00:00Z" });
+const priceList = () => ({ id: priceListId, supplier_id: supplierId, supplier_name: "Innpro", name: "Listino IT", source_type: "upload", file_name: "innpro.xlsx", file_format: "xlsx", row_count: 1, status: "ready", source_host: null, source_config_revision: 1, active_version_number: null, last_checked_at: null, last_success_at: null, latest_job: null, updated_at: "2026-09-10T08:00:00Z" });
+const urlPriceList = () => ({ ...priceList(), source_type: "url", file_name: null, file_format: null, row_count: null, status: "queued", source_host: "feeds.innpro.example", latest_job: job() });
 const dashboard = () => ({ seller_id: sellerId, can_manage: true, suppliers: [supplier()], price_lists: [priceList()] });
 const detail = () => ({ price_list: priceList(), row_count: 1, preview_count: 1, products: [{ ean: "8050000000001", sku: "SKU-1", name: "Prodotto", cost: "12.34", shipping_cost: "1.50", total_cost: "13.84", quantity: "4" }] });
 
@@ -45,6 +48,33 @@ test("catalog DTOs enforce Seller/resource identity and discard unknown upstream
   assert.equal(types.readCatalogDashboard({ ...dashboard(), seller_id: otherSellerId }, sellerId), null);
   assert.equal(types.readCatalogDashboard({ ...dashboard(), suppliers: [supplier(), supplier()] }, sellerId), null);
   assert.equal(types.readCatalogDashboard({ ...dashboard(), price_lists: [{ ...priceList(), supplier_id: otherSellerId }] }, sellerId), null);
+});
+
+test("URL list and job DTOs accept pending fields while stripping URL, credentials and internal scope", () => {
+  const remote = urlPriceList();
+  remote.last_checked_at = ""; remote.last_success_at = "";
+  remote.source_config_encrypted = "ciphertext";
+  remote.url = "https://feeds.innpro.example/list.csv?token=secret";
+  remote.latest_job = { ...job(), price_list_id: priceListId, organization_id: otherSellerId, source_config_revision: 3 };
+  const parsed = types.readCatalogDashboard({ ...dashboard(), price_lists: [remote] }, sellerId);
+  assert.deepEqual(plain(parsed.price_lists[0]), urlPriceList());
+  assert.equal(JSON.stringify(parsed).includes("token=secret"), false);
+  assert.equal(JSON.stringify(parsed).includes("ciphertext"), false);
+  assert.equal(JSON.stringify(parsed).includes("organization_id"), false);
+  const uploadWithEmptyHost = types.readCatalogDashboard({ ...dashboard(), price_lists: [{ ...priceList(), source_host: "" }] }, sellerId);
+  assert.equal(uploadWithEmptyHost.price_lists[0].source_host, null);
+  assert.equal(types.readCatalogDashboard({ ...dashboard(), price_lists: [{ ...urlPriceList(), source_host: "feeds.example/path?secret=1" }] }, sellerId), null);
+
+  const mutation = types.readCatalogFeedMutation({ price_list: remote, job: { ...job(), password: "secret" }, ignored: "secret" });
+  assert.equal(mutation.price_list.id, priceListId); assert.deepEqual(plain(mutation.job), job());
+  assert.equal(JSON.stringify(mutation).includes("password"), false);
+  assert.equal(types.readCatalogFeedMutation({ price_list: remote, job: { ...job(), price_list_id: otherSellerId } }), null);
+  assert.deepEqual(plain(types.readCatalogFeedJobResponse({ job: { ...job(), message: "Download https://secret.example/token" } }, jobId)), { ...job(), message: null });
+  assert.equal(types.readCatalogFeedJobResponse({ job: { ...job(), id: otherSellerId } }, jobId), null);
+  assert.equal(types.readCatalogFeedJobResponse({ job: { ...job(), price_list_id: otherSellerId } }, jobId, priceListId), null);
+  assert.deepEqual(plain(types.readCatalogPriceListMutation({ price_list: { ...remote, password: "secret" } }, priceListId)), urlPriceList());
+  assert.equal(types.readCatalogPriceListMutation({ price_list: { ...remote, id: otherSellerId } }, priceListId), null);
+  assert.equal(types.readCatalogPriceListMutation(remote, priceListId), null);
 });
 
 test("price-list detail accepts explicit nulls, limits preview to 200 rows and verifies list id", () => {
@@ -70,6 +100,40 @@ test("input readers trim allowed fields, enforce exact confirmations and reject 
   assert.equal(types.isAllowedPriceListFile(new File(["ean,cost"], "listino.CSV")), true);
   assert.equal(types.isAllowedPriceListFile(new File(["unsafe"], "listino.pkl")), false);
   assert.equal(types.isAllowedPriceListFile(new File([], "vuoto.csv")), false);
+  assert.deepEqual(plain(types.readUrlPriceListInput({ supplier_id: supplierId, name: "  Feed Innpro ", url: " https://feeds.innpro.example/list.csv?lang=it ", username: " user ", password: "p@ss", seller_id: otherSellerId })), {
+    supplier_id: supplierId, name: "Feed Innpro", url: "https://feeds.innpro.example/list.csv?lang=it", username: "user", password: "p@ss",
+  });
+  for (const invalid of [
+    { url: "http://feeds.innpro.example/list.csv", username: "", password: "" },
+    { url: "https://user:pass@feeds.innpro.example/list.csv", username: "", password: "" },
+    { url: "https://feeds.innpro.example/list.csv#secret", username: "", password: "" },
+    { url: "https://feeds.innpro.example/list.csv", username: "user", password: "" },
+  ]) assert.equal(types.readUrlPriceListInput({ supplier_id: supplierId, name: "Feed", ...invalid }), null);
+
+  assert.deepEqual(plain(types.readUpdateUrlPriceListInput({
+    url: " https://new-feeds.innpro.example/list.csv?token=opaque ", credentials_mode: "keep",
+    expected_config_revision: 1, username: "must-not-forward", password: "must-not-forward",
+  })), { url: "https://new-feeds.innpro.example/list.csv?token=opaque", credentials_mode: "keep", expected_config_revision: 1 });
+  assert.deepEqual(plain(types.readUpdateUrlPriceListInput({
+    url: "https://new-feeds.innpro.example/list.csv", credentials_mode: "replace",
+    expected_config_revision: 2, username: " api-user ", password: "new-password", ignored: "discard",
+  })), { url: "https://new-feeds.innpro.example/list.csv", credentials_mode: "replace", expected_config_revision: 2, username: "api-user", password: "new-password" });
+  assert.deepEqual(plain(types.readUpdateUrlPriceListInput({
+    url: "https://new-feeds.innpro.example/list.csv", credentials_mode: "remove",
+    expected_config_revision: 3, username: "discard", password: "discard",
+  })), { url: "https://new-feeds.innpro.example/list.csv", credentials_mode: "remove", expected_config_revision: 3 });
+  for (const invalid of [
+    { url: "http://feeds.example/list.csv", credentials_mode: "keep", expected_config_revision: 1 },
+    { url: "https://feeds.example/list.csv", credentials_mode: "unknown", expected_config_revision: 1 },
+    { url: "https://feeds.example/list.csv", credentials_mode: "keep", expected_config_revision: 0 },
+    { url: "https://feeds.example/list.csv", credentials_mode: "replace", expected_config_revision: 1, username: "", password: "secret" },
+    { url: "https://feeds.example/list.csv", credentials_mode: "replace", expected_config_revision: 1, username: "user", password: "" },
+  ]) assert.equal(types.readUpdateUrlPriceListInput(invalid), null);
+
+  assert.equal(types.urlFeedHostMatches("https://feeds.example/new.csv", "feeds.example"), true);
+  assert.equal(types.urlFeedHostMatches("https://FEEDS.EXAMPLE./new.csv", "feeds.example"), true);
+  assert.equal(types.urlFeedHostMatches("https://other.example/new.csv", "feeds.example"), false);
+  assert.equal(types.urlFeedHostMatches("not a URL", "feeds.example"), false);
 });
 
 function proxy(fetchImpl) {
@@ -129,6 +193,83 @@ test("JSON writes are same-origin, field-whitelisted and use exact deletion conf
   assert.deepEqual(JSON.parse(calls[2][1].body), { confirmation: "ELIMINA" });
   assert.equal((await run(jsonRequest({ confirmation: "elimina" }), sellerId, "delete-price-list", priceListId)).status, 422);
   assert.equal(calls.length, 3);
+});
+
+test("URL feed create, config update, refresh and job polling use fixed paths and sanitized public DTOs", async () => {
+  const calls = [];
+  const completedJob = { ...job(), status: "done", processed_bytes: 2048, total_bytes: 2048, progress: 100, message: "Listino aggiornato.", result_version: 2 };
+  const run = proxy(async (url, options) => {
+    calls.push([url, options]);
+    if (options.method === "GET" && url.endsWith(`/${sellerId}/catalogs`)) return Response.json(dashboard());
+    if (options.method === "GET") return Response.json({ job: { ...completedJob, source_config_revision: 8, url: "https://secret.example/?token=x" } });
+    if (url.endsWith(`/${priceListId}/url`)) return Response.json({ price_list: { ...urlPriceList(), source_host: "new-feeds.innpro.example", source_config_revision: 2, password: "never" } });
+    return Response.json({ price_list: { ...urlPriceList(), password: "never" }, job: { ...job(), organization_id: otherSellerId } }, { status: 202 });
+  });
+  const create = await run(jsonRequest({
+    supplier_id: supplierId, name: "  Feed estate  ", url: "https://feeds.innpro.example/list.csv?token=upstream",
+    username: " api-user ", password: "api-password", organization_id: otherSellerId, callback: "https://attacker.test",
+  }), sellerId, "create-price-list-url");
+  assert.equal(create.status, 202);
+  assert.deepEqual(JSON.parse(calls[1][1].body), {
+    supplier_id: supplierId, name: "Feed estate", url: "https://feeds.innpro.example/list.csv?token=upstream",
+    username: "api-user", password: "api-password",
+  });
+  assert.equal(calls[1][0], `http://api.test/v1/sellers/${sellerId}/catalogs/price-lists/url`);
+  const createText = await create.text();
+  assert.equal(createText.includes("token=upstream"), false); assert.equal(createText.includes("api-password"), false);
+
+  const update = await run(jsonRequest({
+    url: "https://new-feeds.innpro.example/list.csv?token=new-secret", credentials_mode: "replace",
+    expected_config_revision: 1, username: " new-user ", password: "new-password",
+    seller_id: otherSellerId, callback: "https://attacker.test",
+  }), sellerId, "update-price-list-url", priceListId);
+  assert.equal(update.status, 200); assert.equal(calls[3][0], `http://api.test/v1/sellers/${sellerId}/catalogs/price-lists/${priceListId}/url`);
+  assert.deepEqual(JSON.parse(calls[3][1].body), {
+    url: "https://new-feeds.innpro.example/list.csv?token=new-secret", credentials_mode: "replace",
+    expected_config_revision: 1, username: "new-user", password: "new-password",
+  });
+  const updateText = await update.text();
+  assert.equal(updateText.includes("token=new-secret"), false); assert.equal(updateText.includes("new-password"), false);
+  assert.equal(JSON.parse(updateText).price_list.source_host, "new-feeds.innpro.example");
+
+  const refresh = await run(jsonRequest({ url: "https://attacker.test", password: "never" }), sellerId, "refresh-price-list", priceListId);
+  assert.equal(refresh.status, 202); assert.equal(calls[5][0], `http://api.test/v1/sellers/${sellerId}/catalogs/price-lists/${priceListId}/refresh`);
+  assert.deepEqual(JSON.parse(calls[5][1].body), {});
+
+  const status = await run(getRequest(), sellerId, "job", priceListId, jobId);
+  assert.equal(status.status, 200); assert.equal(calls[6][0], `http://api.test/v1/sellers/${sellerId}/catalogs/price-lists/${priceListId}/jobs/${jobId}`);
+  assert.equal(calls[6][1].method, "GET"); assert.equal(status.headers.get("cache-control"), "no-store");
+  assert.deepEqual(JSON.parse(await status.text()), completedJob);
+});
+
+test("URL feed BFF authenticates before body reads, caps JSON and never echoes URL credentials", async () => {
+  const forged = jsonRequest({ supplier_id: supplierId, name: "Feed", url: "https://feeds.example/list.csv", username: "user", password: "secret" }, { cookie: "mh_session=forged" });
+  let calls = 0;
+  const reject = proxy(async () => { calls += 1; return new Response(null, { status: 401 }); });
+  const rejected = await reject(forged, sellerId, "create-price-list-url");
+  assert.equal(rejected.status, 401); assert.equal(forged.bodyUsed, false); assert.equal(calls, 1);
+
+  const oversized = {
+    url: "https://app.test/api/catalogs", body: null, signal: null,
+    headers: new Headers({ cookie: "mh_session=existing", origin: "https://app.test", host: "app.test", "content-type": "application/json", "content-length": String(16 * 1024 + 1) }),
+  };
+  const sizeRun = proxy(async (url, options) => options.method === "GET" ? Response.json(dashboard()) : (() => { throw new Error("must not forward"); })());
+  assert.equal((await sizeRun(oversized, sellerId, "create-price-list-url")).status, 413);
+
+  const secretRun = proxy(async (url, options) => options.method === "GET"
+    ? Response.json(dashboard())
+    : Response.json({ detail: "https://feeds.example/?token=secret password=hunter2" }, { status: 422 }));
+  const secretResponse = await secretRun(jsonRequest({ supplier_id: supplierId, name: "Feed", url: "https://feeds.example/list.csv", username: "", password: "" }), sellerId, "create-price-list-url");
+  const text = await secretResponse.text();
+  assert.equal(secretResponse.status, 422); assert.equal(text.includes("token=secret"), false); assert.equal(text.includes("hunter2"), false);
+
+  const forgedUpdate = jsonRequest({
+    url: "https://feeds.example/new.csv", credentials_mode: "replace", expected_config_revision: 1,
+    username: "user", password: "new-secret",
+  }, { cookie: "mh_session=forged" });
+  calls = 0;
+  const rejectedUpdate = await reject(forgedUpdate, sellerId, "update-price-list-url", priceListId);
+  assert.equal(rejectedUpdate.status, 401); assert.equal(forgedUpdate.bodyUsed, false); assert.equal(calls, 1);
 });
 
 test("multipart import forwards only supplier, name and an allowed file", async () => {
@@ -252,13 +393,17 @@ test("Next routes delegate resolved UUIDs and fixed operations to the shared pro
     ["../app/api/sellers/[sellerId]/catalogs/suppliers/route.ts", "POST", "create-supplier", undefined],
     ["../app/api/sellers/[sellerId]/catalogs/suppliers/[supplierId]/route.ts", "DELETE", "delete-supplier", supplierId],
     ["../app/api/sellers/[sellerId]/catalogs/price-lists/route.ts", "POST", "create-price-list", undefined],
+    ["../app/api/sellers/[sellerId]/catalogs/price-lists/url/route.ts", "POST", "create-price-list-url", undefined],
     ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/route.ts", "GET", "detail", priceListId],
     ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/route.ts", "DELETE", "delete-price-list", priceListId],
+    ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/url/route.ts", "POST", "update-price-list-url", priceListId],
+    ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/refresh/route.ts", "POST", "refresh-price-list", priceListId],
+    ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/jobs/[jobId]/route.ts", "GET", "job", priceListId, jobId],
   ];
-  for (const [file, method, operation, id] of routes) {
+  for (const [file, method, operation, id, secondId] of routes) {
     const route = load(file, { require: () => ({ catalogProxy: (...args) => { calls.push(args); return "ok"; } }) });
-    assert.equal(await route[method]("request", { params: Promise.resolve({ sellerId, supplierId, priceListId }) }), "ok");
-    assert.deepEqual(calls.at(-1).slice(1), id ? [sellerId, operation, id] : [sellerId, operation]);
+    assert.equal(await route[method]("request", { params: Promise.resolve({ sellerId, supplierId, priceListId, jobId }) }), "ok");
+    assert.deepEqual(calls.at(-1).slice(1), secondId ? [sellerId, operation, id, secondId] : id ? [sellerId, operation, id] : [sellerId, operation]);
   }
 });
 
@@ -270,4 +415,23 @@ test("Seller navigation exposes one Catalog macroarea with the two real routes",
     { page: "suppliers", href: "/seller/catalog/suppliers", label: "Fornitori", icon: "supplier" },
     { page: "price-lists", href: "/seller/catalog/price-lists", label: "Listini", icon: "file" },
   ]);
+});
+
+test("Seller catalog UI keeps feed secrets transient and cleans up real job polling", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../app/components/SellerCatalogPanel.tsx"), "utf8");
+  assert.match(source, /autoComplete="new-password"/);
+  assert.match(source, /setFeedPassword\(""\);\s*await enqueueFeed/);
+  assert.match(source, /setEditFeedUsername\(""\);\s*setEditFeedPassword\(""\);\s*await mutate/);
+  assert.match(source, /jobs\/\$\{item\.jobId\}/);
+  assert.match(source, /for \(const pollController of pollControllers\.current\) pollController\.abort\(\)/);
+  assert.match(source, /return \(\) => \{[\s\S]*?abort\.abort\(\);[\s\S]*?pollControllers\.current\.delete\(abort\)/);
+  assert.equal(/localStorage|sessionStorage/.test(source), false);
+  assert.match(source, /priceList\.source_host/);
+  assert.doesNotMatch(source, /priceList\.(?:url|password|username)/);
+  assert.match(source, /<progress aria-label=\{`Avanzamento aggiornamento \$\{priceListName\}`\}/);
+  assert.match(source, /value=\{job\.progress \?\? undefined\}/);
+  assert.match(source, /setEditFeedUrl\(""\)/);
+  assert.match(source, /credentials_mode: editCredentialMode/);
+  assert.match(source, /expected_config_revision: editPriceList\.source_config_revision/);
+  assert.match(source, /input\.credentials_mode === "keep" && !urlFeedHostMatches\(input\.url, edited\.source_host \?\? ""\)/);
 });

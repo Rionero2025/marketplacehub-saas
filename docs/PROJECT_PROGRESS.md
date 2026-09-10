@@ -27,6 +27,8 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B04 — Organizzazioni e negozio attivo | completato | 21 | **3,47%** |
 | B10.1 — Anagrafica e account Kaufland | completato; B10 resta parziale | 9 | **3,93%** |
 | B10.2 — Collega marketplace, Seller Enterprise | completato nel perimetro Kaufland/Worten; altri connettori pendenti | 8 | **4,33%** |
+| B12.1a — Fornitori e listini da file | implementato; collaudo funzionale staging pendente | 0 | **7,31%** |
+| B12.1b1 — Feed listino generici HTTPS | implementato e verificato localmente; collaudo funzionale staging pendente | 0 | **7,31%** |
 | B20.1 / B21.1 — Archivio ordini Kaufland/Worten e navigazione Seller | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 23 | **5,47%** |
 | B20.2 / B21.2 — Filtri, selezione, riepilogo e CSV ordini | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 6 | **5,77%** |
 | B20.3 — Importazione e correzione tracking | collaudato e pubblicato nello staging; invio ai marketplace escluso | 10 | **6,27%** |
@@ -36,6 +38,13 @@ Calcolo corrente: `147 / 2.011 = 7,3098%`, mostrato con due decimali. I totali B
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
+
+B12.1b1 trasferisce il feed HTTPS generico con credenziali cifrate, versioni immutabili,
+worker, avanzamento, modifica e aggiornamento manuale. Sono superati 533 test Python,
+132 test Catalogo, 153 test frontend, build 19/19, Ruff, dipendenze e migrazione 0011;
+l'audit indipendente ha dato GO. I sette criteri candidati restano pending fino al
+collaudo autenticato nello staging, quindi il totale certificato non cambia. Vedere
+`docs/blocks/B12_1B1_GENERIC_URL_FEEDS_RELEASE.md`.
 
 B20.4 aggiunge 21 criteri: eventi distinti di consegna, spedizione e rilascio, previsioni
 Kaufland +14/+21, countdown UTC, priorità della data effettiva, ritardi dei ticket senza

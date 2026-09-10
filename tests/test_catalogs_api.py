@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 import pytest
 import test_tenancy_api
 from fastapi.testclient import TestClient
+from marketplace_hub_api import catalogs as catalogs_api
 from marketplace_hub_api.main import create_app
 from marketplace_hub_core.catalogs.parsing import parse_catalog
 from marketplace_hub_core.catalogs.repository import SqlCatalogsRepository
@@ -93,6 +94,138 @@ def test_catalog_routes_authenticate_before_processing_upload(configured):
     )
     assert {response.status_code for response in requests} == {401}
     assert all(response.headers["cache-control"] == "no-store" for response in requests)
+
+
+@pytest.mark.parametrize(
+    ("method", "suffix"),
+    [
+        ("POST", "/suppliers"),
+        ("DELETE", f"/suppliers/{uuid4()}"),
+        ("DELETE", f"/price-lists/{uuid4()}"),
+    ],
+    ids=["create-supplier", "delete-supplier", "delete-price-list"],
+)
+def test_catalog_json_is_not_read_before_authentication_and_write_authorization(
+    configured, monkeypatch, method, suffix,
+):
+    _, seller, organization, _ = owner(configured)
+    read_only_user = configured.user()
+    configured.membership(
+        read_only_user,
+        organization,
+        "SELLER_USER",
+        permission_codes=("WORKSPACE_VIEW", "CATALOG"),
+        read_only=True,
+    )
+    read_only_client, _ = configured.session(read_only_user)
+    anonymous_client = TestClient(configured.app)
+    forged_client = TestClient(configured.app)
+    forged_client.cookies.set(configured.settings.session_cookie_name, "forged-session")
+    reads = 0
+
+    async def forbidden_reader(_request):
+        nonlocal reads
+        reads += 1
+        raise AssertionError("the JSON body must not be read before the preflight")
+
+    monkeypatch.setattr(catalogs_api, "read_catalog_json", forbidden_reader)
+    body = b'{"confirmation":"preflight-secret"'
+    headers = {"content-type": "application/json"}
+
+    responses = [
+        anonymous_client.request(
+            method, path(seller, suffix), content=body, headers=headers,
+        ),
+        forged_client.request(
+            method, path(seller, suffix), content=body, headers=headers,
+        ),
+        read_only_client.request(
+            method, path(seller, suffix), content=body, headers=headers,
+        ),
+    ]
+
+    assert [response.status_code for response in responses] == [401, 401, 403]
+    assert reads == 0
+    for response in responses:
+        assert response.headers["cache-control"] == "no-store"
+        assert "preflight-secret" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("method", "suffix"),
+    [
+        ("POST", "/suppliers"),
+        ("DELETE", f"/suppliers/{uuid4()}"),
+        ("DELETE", f"/price-lists/{uuid4()}"),
+    ],
+    ids=["create-supplier", "delete-supplier", "delete-price-list"],
+)
+def test_catalog_json_rejects_malformed_and_oversize_bodies_atomically(
+    configured, method, suffix,
+):
+    client, seller, _, _ = owner(configured)
+    before = client.get(path(seller)).json()
+    malformed_secret = "malformed-catalog-secret"
+
+    malformed = client.request(
+        method,
+        path(seller, suffix),
+        content=f'{{"confirmation":"{malformed_secret}"'.encode(),
+        headers={"content-type": "application/json"},
+    )
+    oversized_secret = b"oversized-catalog-secret"
+    oversized_body = b'{"confirmation":"' + oversized_secret + b"x" * (
+        catalogs_api.MAX_CATALOG_JSON_BYTES
+    ) + b'"}'
+    oversized = client.request(
+        method,
+        path(seller, suffix),
+        content=oversized_body,
+        headers={"content-type": "application/json", "content-length": "10"},
+    )
+
+    assert malformed.status_code == 422
+    assert malformed.json() == {
+        "detail": "Dati non validi. Controlla i campi inseriti."
+    }
+    assert malformed_secret not in malformed.text
+    assert oversized.status_code == 413
+    assert oversized.json() == {
+        "detail": "Il corpo JSON supera il limite consentito."
+    }
+    assert oversized_secret.decode() not in oversized.text
+    assert malformed.headers["cache-control"] == "no-store"
+    assert oversized.headers["cache-control"] == "no-store"
+    assert client.get(path(seller)).json() == before
+
+
+def test_bounded_catalog_json_routes_keep_valid_mutations(configured):
+    client, seller, _, _ = owner(configured)
+
+    created_supplier = client.post(
+        path(seller, "/suppliers"),
+        json={"name": "Fornitore JSON", "notes": "Feed principale"},
+    )
+    assert created_supplier.status_code == 201, created_supplier.text
+    supplier_id = created_supplier.json()["created_supplier_id"]
+    raw = b"ean;sku;name;cost\n0012345678901;A;Uno;1\n"
+    created_list = upload(client, seller, supplier_id, raw)
+    assert created_list.status_code == 201, created_list.text
+    price_list_id = created_list.json()["price_list"]["id"]
+
+    deleted_list = client.request(
+        "DELETE",
+        path(seller, f"/price-lists/{price_list_id}"),
+        json={"confirmation": "ELIMINA"},
+    )
+    assert deleted_list.status_code == 200, deleted_list.text
+    deleted_supplier = client.request(
+        "DELETE",
+        path(seller, f"/suppliers/{supplier_id}"),
+        json={"confirmation": "Fornitore JSON"},
+    )
+    assert deleted_supplier.status_code == 200, deleted_supplier.text
+    assert client.get(path(seller)).json()["suppliers"] == []
 
 
 def test_csv_upload_preserves_identifiers_decimals_artifact_and_public_dto(configured):

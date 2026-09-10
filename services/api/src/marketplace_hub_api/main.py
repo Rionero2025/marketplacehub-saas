@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from marketplace_hub_core.auth import AuthService
 from marketplace_hub_core.auth.rate_limit import RedisLoginRateLimiter
 from marketplace_hub_core.auth.sql_repository import SqlAuthRepository
+from marketplace_hub_core.catalogs.queue import RQCatalogsQueue
 from marketplace_hub_core.catalogs.repository import SqlCatalogsRepository
 from marketplace_hub_core.catalogs.service import CatalogsService
 from marketplace_hub_core.database import create_database_engine
@@ -57,7 +58,7 @@ def create_app(
 
     engine = None
     redis_client = None
-    orders_redis_client = None
+    background_redis_client = None
     if auth_service is None:
         engine = create_database_engine(app_settings)
         redis_client = Redis.from_url(
@@ -77,8 +78,16 @@ def create_app(
         workspace_service = WorkspaceService(SqlWorkspaceRepository(engine))
 
     if catalogs_service is None:
+        background_redis_client = Redis.from_url(
+            app_settings.redis_url.get_secret_value(),
+            socket_timeout=5,
+            socket_connect_timeout=5,
+        )
         catalogs_service = CatalogsService(
-            SqlCatalogsRepository(workspace_service.repository.engine), workspace_service,
+            SqlCatalogsRepository(workspace_service.repository.engine),
+            workspace_service,
+            RQCatalogsQueue(background_redis_client),
+            app_settings.master_key,
         )
 
     if seller_settings_service is None:
@@ -96,12 +105,16 @@ def create_app(
 
     if orders_service is None:
         # RQ stores binary payloads; never reuse the auth limiter's decoded Redis client.
-        orders_redis_client = Redis.from_url(app_settings.redis_url.get_secret_value(),
-                                             socket_timeout=5, socket_connect_timeout=5)
+        if background_redis_client is None:
+            background_redis_client = Redis.from_url(
+                app_settings.redis_url.get_secret_value(),
+                socket_timeout=5,
+                socket_connect_timeout=5,
+            )
         orders_service = OrdersService(
             SqlOrdersRepository(workspace_service.repository.engine), workspace_service,
             SqlMarketplaceConnectionsRepository(workspace_service.repository.engine),
-            RQOrdersQueue(orders_redis_client), app_settings.master_key,
+            RQOrdersQueue(background_redis_client), app_settings.master_key,
         )
 
     @asynccontextmanager
@@ -109,8 +122,8 @@ def create_app(
         try:
             yield
         finally:
-            if orders_redis_client is not None:
-                orders_redis_client.close()
+            if background_redis_client is not None:
+                background_redis_client.close()
             if redis_client is not None:
                 redis_client.close()
             if engine is not None:
