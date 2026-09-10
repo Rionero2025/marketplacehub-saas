@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-09-10 — B20.3: importazione e correzione tracking
+
+- trasferiti anteprima e importazione Kaufland da CSV, XLSX e XLS, con mappatura
+  automatica e correggibile dei campi;
+- aggiunti esiti parziali per unità aggiornate, righe non abbinate e righe non valide;
+- aggiunta correzione manuale per singola unità, con corriere e tracking precompilati e
+  conservazione dei valori omessi;
+- mantenuti i tracking locali quando una sincronizzazione API successiva restituisce
+  valori vuoti; i nuovi valori API non vuoti restano autorevoli;
+- applicati scope Seller/account/ambiente, permesso Logistica, audit, admission control,
+  timeout e limiti di file, righe, colonne, celle e contenuto;
+- superati 353/353 test Python e 120/120 test frontend al congelamento del blocco;
+  sul commit finale, dopo l'hotfix auth, 124/124 test frontend, typecheck e build con
+  17/17 pagine;
+- aggiunti 10 criteri verificati: 126/2.011 = 6,27%; nessun criterio aggiunto per
+  l'hotfix auth;
+- pubblicato nello staging con implementazione `e36a646` e commit finale `160fa00`:
+  Web, API e worker Live, migrazione 0008 applicata, health/readiness e quattro route
+  tracking protette verificate;
+- il collaudo non ha importato file tracking reali di Rionero e non invia tracking ai
+  marketplace.
+
+## 2026-09-10 — B03: recupero automatico dopo il cold start
+
+- avviato il risveglio anonimo dell'API all'apertura del login e ripetuta la readiness
+  prima di leggere o inviare le credenziali;
+- eliminato l'errore rimasto a schermo dopo il recupero del servizio e mostrato lo stato
+  pronto senza eseguire automaticamente il login;
+- pubblicato l'hotfix `160fa00` su Web, API e worker; nessun incremento della percentuale.
+
 ## 2026-09-07 — B20.2/B21.2: selezione ordini, riepilogo e CSV
 
 - filtri per stato/paese/valuta, corriere, tracking, commissione e venduto EUR;
@@ -7,9 +37,12 @@
 - checkbox stabili tra pagine, ripristino del filtro precedente e azioni su tutto il blocco;
 - totali selezionati secondo l'originale, cancellazioni e dati incompleti espliciti;
 - CSV selezionati/filtrati a blocchi, UTF-8 BOM, dati pubblici e protezione delle celle testuali;
-- QA API con 81 righe sintetiche, 99 test frontend e typecheck passati;
+- QA API con 81 righe sintetiche, 300 test Python, 99 test frontend al rilascio,
+  typecheck e build passati; suite frontend poi salita a 102/102 con l'hotfix auth;
 - sei criteri di selezione verificati: 116/2.011 = 5,77%; protocollo API documentato;
-- verifiche finali e pubblicazione B20.2 in attesa; CSV completo di pagamenti/ticket ancora pendente;
+- pubblicato nello staging con implementazione `34a7932` e correzione finale del pannello
+  `ccb19db`; Web, API, worker, migrazione 0007 e readiness verificati;
+- CSV completo di pagamenti/ticket ancora pendente;
 - corretta la documentazione B20.1 con i tre deploy Live e le verifiche online già attestate.
 
 ## 2026-09-07 — B20.1/B21.1: archivio ordini e navigazione Seller

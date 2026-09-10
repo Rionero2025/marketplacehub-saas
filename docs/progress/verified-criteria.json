@@ -579,6 +579,56 @@
       "id": "LEGACY-TEST-0440",
       "block": "B20.2/B21.2",
       "evidence": "docs/blocks/B20_2_ORDERS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0364",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0365",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0366",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0254",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0255",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0256",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0257",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0258",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0259",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0260",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     }
   ]
 }

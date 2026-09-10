@@ -10,11 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 116,
+    "verified": 126,
     "baseline_total": 2017,
     "excluded": 6,
     "total": 2011,
-    "percent": 5.77
+    "percent": 6.27
   },
   "criteria": [
     {
@@ -2613,21 +2613,27 @@
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:636",
       "requirement": "test_tracking_export_columns_and_combined_value_are_detected",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0365",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:655",
       "requirement": "test_manual_tracking_survives_a_later_api_sync",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0366",
       "kind": "legacy_regression",
       "source": "tests/test_kaufland_orders.py:683",
       "requirement": "test_portal_export_import_updates_all_units_of_an_order",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-TEST-0367",
@@ -6824,49 +6830,63 @@
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:407",
       "requirement": "file_uploader: \"Export ordini Kaufland (CSV o XLSX)\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0255",
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:448",
       "requirement": "selectbox: label",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0256",
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:491",
       "requirement": "button: \"Importa tracking nell’archivio\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0257",
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:547",
       "requirement": "selectbox: \"Ordine da completare\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0258",
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:553",
       "requirement": "text_input: \"Corriere\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0259",
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:562",
       "requirement": "text_input: \"Tracking\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0260",
       "kind": "legacy_interaction",
       "source": "pages/3_Ordini_Kaufland.py:571",
       "requirement": "button: \"Salva corriere e tracking\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B20.3",
+      "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
     },
     {
       "id": "LEGACY-UI-0261",

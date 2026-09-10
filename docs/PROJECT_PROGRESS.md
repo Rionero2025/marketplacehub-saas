@@ -28,21 +28,36 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B10.1 — Anagrafica e account Kaufland | completato; B10 resta parziale | 9 | **3,93%** |
 | B10.2 — Collega marketplace, Seller Enterprise | completato nel perimetro Kaufland/Worten; altri connettori pendenti | 8 | **4,33%** |
 | B20.1 / B21.1 — Archivio ordini Kaufland/Worten e navigazione Seller | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 23 | **5,47%** |
-| B20.2 / B21.2 — Filtri, selezione, riepilogo e CSV ordini | verificati i sei comportamenti di selezione; verifica finale e pubblicazione in attesa | 6 | **5,77%** |
+| B20.2 / B21.2 — Filtri, selezione, riepilogo e CSV ordini | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 6 | **5,77%** |
+| B20.3 — Importazione e correzione tracking | collaudato e pubblicato nello staging; invio ai marketplace escluso | 10 | **6,27%** |
 
-Calcolo corrente: `116 / 2.011 = 5,768%`, mostrato con due decimali. I totali B01–B04 nella
+Calcolo corrente: `126 / 2.011 = 6,2655%`, mostrato con due decimali. I totali B01–B04 nella
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
+
+B20.3 aggiunge 10 criteri: anteprima CSV/XLS/XLSX e mappatura correggibile, importazione
+parziale con conteggi espliciti, modifica manuale della singola unità e conservazione dei
+tracking locali durante sincronizzazioni API prive di nuovi valori. Il flusso resta nello
+scope di organizzazione, Seller, account ed ambiente, con permesso Logistica, audit e limiti
+di upload. Verificati 353 test Python e 120 test frontend al congelamento; dopo l'hotfix
+auth la suite finale è **124/124**, con typecheck, build e 17/17 pagine completati. Web,
+API e worker sono Live sul commit `160fa00`; implementazione tracking `e36a646`, migrazione
+`20260908_0008`, health/readiness e quattro route protette risultano pubblicati. Nessun file
+tracking reale di Rionero è stato importato nel collaudo. Vedere
+`docs/blocks/B20_3_TRACKING_RELEASE.md`.
 
 B20.2/B21.2 aggiunge soltanto i sei criteri `LEGACY-TEST-0435`–`0440`: selezione per
 firma del filtro, ID stabili e persistenza tra pagine. Gli input malformati che l'helper
 Streamlit ignorava sono rifiutati dall'API con 422 senza alterare lo stato. Sono operativi
 filtri avanzati, totali economici del blocco selezionato e CSV selezionati/filtrati;
 nessun criterio generico di tabella completa, contabilità o Excel viene chiuso per questo.
-Verificati 99 test frontend, typecheck e QA API indipendente con 81 righe sintetiche:
-paginazione, selezioni, filtri, totali, CSV e isolamento. Suite completa, build, browser
-finale e pubblicazione restano da registrare in `docs/blocks/B20_2_ORDERS_RELEASE.md`.
+Verificati 300 test Python, inclusi 16 focalizzati sul blocco, 99 test frontend al
+rilascio, typecheck, build e QA API indipendente con 81 righe sintetiche: paginazione,
+selezioni, filtri, totali, CSV e isolamento. La suite frontend è poi salita a 102/102
+per la correzione auth `95fe6b5`, senza nuovi criteri B20.2. Il blocco è online con
+implementazione `34a7932` e correzione finale del pannello `ccb19db`; Web, API, worker,
+migrazione `20260907_0007` e readiness sono attestati nella scheda di rilascio.
 
 B20.1/B21.1 aggiunge 23 criteri di parità verificati: importazione multicanale in background,
 paginazione e stati Kaufland, archivio isolato e aggiornamento senza duplicati, dati prodotto,
@@ -55,10 +70,10 @@ La navigazione a macroaree/sottosezioni richiesta dall'utente non incrementa il 
 Vedere `docs/blocks/B20_1_ORDERS_RELEASE.md`, contratto sorgente B20.1 e D-016.
 
 La copertura locale verificata è distinta dal rilascio online e dall'importazione di dati
-reali: è attestato il rilascio staging B20.1, non un'importazione reale di Rionero né il
-rilascio B20.2. Listini e fallback costi, scadenziario, ticket e relativi filtri,
-import/modifica tracking, selezioni contabili complete e connettori ulteriori restano
-pendenti. Il modulo Ordini e tutte le colonne dell'export originale non sono dichiarati completi.
+reali: sono attestati i rilasci staging B20.1 e B20.2, non un'importazione reale di Rionero.
+Listini e fallback costi, scadenziario, ticket e relativi filtri, invio tracking ai
+marketplace, selezioni contabili complete e connettori ulteriori restano pendenti. Il
+modulo Ordini e tutte le colonne dell'export originale non sono dichiarati completi.
 
 B10.2 aggiunge 8 criteri effettivamente verificati: form/verifica Worten, account salvato,
 parser storefront originale, test connessione e metadata veri. La griglia di 28 marketplace

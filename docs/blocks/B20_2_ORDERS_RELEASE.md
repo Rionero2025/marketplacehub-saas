@@ -89,8 +89,12 @@ incompleti e una è in perdita. Per Worten 3 righe sono azzerate dalle regole di
 e 2 hanno dati incompleti. I totali parziali restano espliciti. Le richieste e i worker
 del collaudo SQLite `StaticPool` sono stati eseguiti in sequenza.
 
-Suite Python completa, build di produzione e collaudo browser del candidato finale:
-**verifica finale in corso**, da registrare prima della pubblicazione.
+La verifica finale ha superato **300 test Python**, compresi i 16 test focalizzati sul
+blocco, i **99 test frontend** disponibili al rilascio, typecheck e build di produzione.
+Il collaudo browser ha verificato filtri, selezione tra pagine, riepilogo e download sul
+pannello Seller. La suite frontend del repository è poi salita a **102/102** per la
+correzione indipendente del cold start dell'accesso; questo aumento non aggiunge criteri
+funzionali a B20.2.
 
 ## Criteri verificati
 
@@ -123,7 +127,9 @@ ancora trasferiti. Restano pendenti listini, costi prioritari e fallback da list
 pubblicati, modifica/import tracking, altri connettori e contabilità completa. Il CSV
 usa i campi attualmente implementati e non inventa le informazioni mancanti.
 
-**Pubblicazione B20.2 in attesa.** Il precedente B20.1 è online sul commit `4fd69d6`;
-ciò non prova che questo blocco sia già distribuito. Commit, deploy web/API/worker,
-migrazione 0007 e readiness del candidato B20.2 devono essere attestati dopo il rilascio.
+**B20.2 è pubblicato nello staging.** L'implementazione è nel commit `34a7932`; la
+correzione finale della presentazione del pannello Ordini è nel commit `ccb19db`.
+Web, API e worker sono stati verificati `Live` sul ramo finale, la migrazione
+`20260907_0007` è stata applicata e readiness e protezione delle rotte sono risultate
+operative. Il successivo commit auth `95fe6b5` non modifica le funzioni di B20.2.
 Il collaudo usa dati sintetici: non attesta un'importazione reale di Rionero nello staging.
