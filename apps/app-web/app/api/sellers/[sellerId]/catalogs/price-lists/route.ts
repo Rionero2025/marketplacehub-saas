@@ -3,5 +3,7 @@ import { catalogProxy } from "../../../../../lib/catalog-proxy";
 
 type Context = { params: Promise<{ sellerId: string }> };
 export async function POST(request: NextRequest, { params }: Context) {
-  return catalogProxy(request, (await params).sellerId, "create-price-list");
+  const mediaType = request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+  const operation = mediaType === "application/json" ? "create-price-list-url" : "create-price-list";
+  return catalogProxy(request, (await params).sellerId, operation);
 }

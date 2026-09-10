@@ -9,6 +9,8 @@
 - protetto il downloader da SSRF, DNS rebinding, redirect cross-origin, IP non pubblici,
   risposte e file eccessivi; aggiunto fallback sicuro multi-IP entro deadline globale;
 - autenticazione e autorizzazione precedono tutti i body Catalogo, con limiti streaming;
+- unificato l'ingresso BFF di file e URL su `/price-lists`, distinguendo il contenuto
+  JSON dal multipart ed eliminando la collisione di routing osservata nello staging;
 - bloccate modifiche ed eliminazioni durante job attivi con lock PostgreSQL coerenti;
 - migrazione 0011 con backfill `INSERT … SELECT` e trigger ponte per upload durante il
   deploy progressivo;

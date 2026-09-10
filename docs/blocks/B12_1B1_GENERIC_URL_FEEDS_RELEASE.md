@@ -58,6 +58,9 @@ conserva il solo snapshot attivo rappresentabile dallo schema precedente.
 - limite download 20 MiB, timeout DNS/connessione/lettura/totale e nomi file sanificati;
 - autenticazione e permesso `CATALOG` in scrittura prima della lettura di ogni JSON o
   multipart; JSON limitato a 16 KiB anche senza `Content-Length` attendibile;
+- un solo endpoint BFF di collezione riceve gli inserimenti: `application/json` seleziona
+  il feed URL e `multipart/form-data` il file, senza segmenti statici sovrapposti a
+  `[priceListId]`;
 - un solo job attivo per listino e lock PostgreSQL ordinati `job → listino` prima di
   modifica, attivazione o cancellazione.
 
@@ -67,6 +70,8 @@ conserva il solo snapshot attivo rappresentabile dallo schema precedente.
 - suite Catalogo: **132/132 test superati**;
 - suite app-web: **153/153 test superati**, incluso TypeScript;
 - build Next.js produzione: **superata, 19/19 pagine generate**;
+- smoke test HTTP sul server standalone: POST JSON e multipart alla collezione Listini
+  raggiungono entrambi il BFF e, senza sessione, rispondono `401` anziché `405`;
 - Ruff, `pip check`, `git diff --check` e unica head Alembic
   **`20260910_0011`**: superati;
 - audit indipendente su SSRF, segreti, tenancy, transazioni/job, API/BFF/UI e

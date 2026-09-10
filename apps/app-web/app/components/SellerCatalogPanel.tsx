@@ -419,7 +419,7 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
       const password = feedPassword;
       setFeedPassword("");
       await enqueueFeed({
-        operation: "create-price-list-url", url: `${baseUrl}/price-lists/url`,
+        operation: "create-price-list-url", url: `${baseUrl}/price-lists`,
         payload: { supplier_id: selectedSupplierId, name, url, username, password },
         message: `Feed ${name} registrato. L’importazione è in corso.`, reset: resetPriceList,
       });

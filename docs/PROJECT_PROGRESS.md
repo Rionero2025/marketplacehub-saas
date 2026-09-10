@@ -42,8 +42,10 @@ non viene conteggiata come nuova funzione completata.
 B12.1b1 trasferisce il feed HTTPS generico con credenziali cifrate, versioni immutabili,
 worker, avanzamento, modifica e aggiornamento manuale. Sono superati 533 test Python,
 132 test Catalogo, 153 test frontend, build 19/19, Ruff, dipendenze e migrazione 0011;
-l'audit indipendente ha dato GO. I sette criteri candidati restano pending fino al
-collaudo autenticato nello staging, quindi il totale certificato non cambia. Vedere
+l'audit indipendente ha dato GO. Il BFF usa una sola rotta di collezione per file e URL,
+verificata anche sul server standalone con POST reali, così il segmento `url` non può
+essere interpretato come ID. I sette criteri candidati restano pending fino al collaudo
+autenticato nello staging, quindi il totale certificato non cambia. Vedere
 `docs/blocks/B12_1B1_GENERIC_URL_FEEDS_RELEASE.md`.
 
 B20.4 aggiunge 21 criteri: eventi distinti di consegna, spedizione e rilascio, previsioni

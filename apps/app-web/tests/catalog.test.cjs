@@ -392,17 +392,19 @@ test("Next routes delegate resolved UUIDs and fixed operations to the shared pro
     ["../app/api/sellers/[sellerId]/catalogs/route.ts", "GET", "dashboard", undefined],
     ["../app/api/sellers/[sellerId]/catalogs/suppliers/route.ts", "POST", "create-supplier", undefined],
     ["../app/api/sellers/[sellerId]/catalogs/suppliers/[supplierId]/route.ts", "DELETE", "delete-supplier", supplierId],
-    ["../app/api/sellers/[sellerId]/catalogs/price-lists/route.ts", "POST", "create-price-list", undefined],
-    ["../app/api/sellers/[sellerId]/catalogs/price-lists/url/route.ts", "POST", "create-price-list-url", undefined],
+    ["../app/api/sellers/[sellerId]/catalogs/price-lists/route.ts", "POST", "create-price-list", undefined, undefined,
+      new Request("https://app.test/api/catalogs", { method: "POST", headers: { "content-type": "multipart/form-data; boundary=x" } })],
+    ["../app/api/sellers/[sellerId]/catalogs/price-lists/route.ts", "POST", "create-price-list-url", undefined, undefined,
+      new Request("https://app.test/api/catalogs", { method: "POST", headers: { "content-type": "application/json; charset=utf-8" } })],
     ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/route.ts", "GET", "detail", priceListId],
     ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/route.ts", "DELETE", "delete-price-list", priceListId],
     ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/url/route.ts", "POST", "update-price-list-url", priceListId],
     ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/refresh/route.ts", "POST", "refresh-price-list", priceListId],
     ["../app/api/sellers/[sellerId]/catalogs/price-lists/[priceListId]/jobs/[jobId]/route.ts", "GET", "job", priceListId, jobId],
   ];
-  for (const [file, method, operation, id, secondId] of routes) {
+  for (const [file, method, operation, id, secondId, request = "request"] of routes) {
     const route = load(file, { require: () => ({ catalogProxy: (...args) => { calls.push(args); return "ok"; } }) });
-    assert.equal(await route[method]("request", { params: Promise.resolve({ sellerId, supplierId, priceListId, jobId }) }), "ok");
+    assert.equal(await route[method](request, { params: Promise.resolve({ sellerId, supplierId, priceListId, jobId }) }), "ok");
     assert.deepEqual(calls.at(-1).slice(1), secondId ? [sellerId, operation, id, secondId] : id ? [sellerId, operation, id] : [sellerId, operation]);
   }
 });
@@ -424,6 +426,8 @@ test("Seller catalog UI keeps feed secrets transient and cleans up real job poll
   assert.match(source, /setEditFeedUsername\(""\);\s*setEditFeedPassword\(""\);\s*await mutate/);
   assert.match(source, /jobs\/\$\{item\.jobId\}/);
   assert.match(source, /for \(const pollController of pollControllers\.current\) pollController\.abort\(\)/);
+  assert.doesNotMatch(source, /`\$\{baseUrl\}\/price-lists\/url`/);
+  assert.match(source, /operation: "create-price-list-url", url: `\$\{baseUrl\}\/price-lists`/);
   assert.match(source, /return \(\) => \{[\s\S]*?abort\.abort\(\);[\s\S]*?pollControllers\.current\.delete\(abort\)/);
   assert.equal(/localStorage|sessionStorage/.test(source), false);
   assert.match(source, /priceList\.source_host/);
