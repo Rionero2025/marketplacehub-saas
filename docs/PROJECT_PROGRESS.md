@@ -30,11 +30,22 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B20.1 / B21.1 — Archivio ordini Kaufland/Worten e navigazione Seller | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 23 | **5,47%** |
 | B20.2 / B21.2 — Filtri, selezione, riepilogo e CSV ordini | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 6 | **5,77%** |
 | B20.3 — Importazione e correzione tracking | collaudato e pubblicato nello staging; invio ai marketplace escluso | 10 | **6,27%** |
+| B20.4 — Scadenziario pagamenti e ritardi ticket | collaudato e pubblicato nello staging per Kaufland; settlement escluso | 21 | **7,31%** |
 
-Calcolo corrente: `126 / 2.011 = 6,2655%`, mostrato con due decimali. I totali B01–B04 nella
+Calcolo corrente: `147 / 2.011 = 7,3098%`, mostrato con due decimali. I totali B01–B04 nella
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
+
+B20.4 aggiunge 21 criteri: eventi distinti di consegna, spedizione e rilascio, previsioni
+Kaufland +14/+21, countdown UTC, priorità della data effettiva, ritardi dei ticket senza
+doppio conteggio, riparazione delle righe precedenti, filtro pagamento e seconda selezione
+persistente con riepilogo disponibile/in attesa. Marketplace privi di adattatore verificato
+non ricevono regole Kaufland. Verificati 401 test Python, 136 test frontend, typecheck, build
+17/17, migrazione 0009 e protezioni live. Web, API e worker sono `Live` sul commit
+`ca7eb3651f19118ae43eda21b66032bbd3dd8ec4`; health/readiness e PostgreSQL/Redis sono attivi.
+Il collaudo automatico non ha trasmesso credenziali né modificato dati reali di Rionero.
+Vedere `docs/blocks/B20_4_PAYMENTS_RELEASE.md`.
 
 B20.3 aggiunge 10 criteri: anteprima CSV/XLS/XLSX e mappatura correggibile, importazione
 parziale con conteggi espliciti, modifica manuale della singola unità e conservazione dei
@@ -70,10 +81,11 @@ La navigazione a macroaree/sottosezioni richiesta dall'utente non incrementa il 
 Vedere `docs/blocks/B20_1_ORDERS_RELEASE.md`, contratto sorgente B20.1 e D-016.
 
 La copertura locale verificata è distinta dal rilascio online e dall'importazione di dati
-reali: sono attestati i rilasci staging B20.1 e B20.2, non un'importazione reale di Rionero.
-Listini e fallback costi, scadenziario, ticket e relativi filtri, invio tracking ai
-marketplace, selezioni contabili complete e connettori ulteriori restano pendenti. Il
-modulo Ordini e tutte le colonne dell'export originale non sono dichiarati completi.
+reali: sono attestati i rilasci staging B20.1–B20.4, non un'importazione automatica di
+fixture nell'account Rionero. Listini e fallback costi, settlement/booking report, invio
+tracking ai marketplace, selezioni contabili complete e connettori ulteriori restano
+pendenti. Il modulo Ordini e tutte le colonne dell'export originale non sono dichiarati
+completi.
 
 B10.2 aggiunge 8 criteri effettivamente verificati: form/verifica Worten, account salvato,
 parser storefront originale, test connessione e metadata veri. La griglia di 28 marketplace

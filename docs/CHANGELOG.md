@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-10 — B20.4: scadenziario pagamenti e ritardi ticket
+
+- trasferite le regole Kaufland per rilascio effettivo, consegna +14 giorni e
+  spedizione +21 giorni, senza applicarle agli altri marketplace;
+- aggiunti countdown UTC, priorità della data effettiva e rinvio per ticket aperti o
+  chiusi con unione degli intervalli sovrapposti;
+- aggiunti filtro pagamento, campi pagamento/ticket in lista, dettaglio e CSV, seconda
+  selezione persistente e riepilogo disponibile/in attesa;
+- aggiunti snapshot ticket isolati per Seller/account/ambiente e migrazione 0009 con
+  backfill, compatibilità progressiva e downgrade verificato;
+- separati visivamente incassi marketplace e margine calcolabile; copertura del margine,
+  righe escluse e perdite sono ora espliciti;
+- superati 401/401 test Python e 136/136 test frontend, typecheck e build con 17/17
+  pagine; migrazione e route protette verificate nello staging;
+- aggiunti 21 criteri verificati: 147/2.011 = 7,31%; `LEGACY-TEST-0375` resta pendente;
+- pubblicato con implementazione `e83bc32` e correzione finale `ca7eb36`: Web, API e
+  worker Live sullo stesso commit, health/readiness e PostgreSQL/Redis attivi;
+- nessuna credenziale reale trasmessa e nessuna modifica automatica ai dati di Rionero
+  durante il collaudo.
+
 ## 2026-09-10 — B20.3: importazione e correzione tracking
 
 - trasferiti anteprima e importazione Kaufland da CSV, XLSX e XLS, con mappatura

@@ -629,6 +629,111 @@
       "id": "LEGACY-UI-0260",
       "block": "B20.3",
       "evidence": "docs/blocks/B20_3_TRACKING_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0348",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0349",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0350",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0351",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0352",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0353",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0354",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0355",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0356",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0357",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0358",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0359",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0361",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0370",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0371",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0372",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0373",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-TEST-0374",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0263",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "MASTER-0366",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "MASTER-0821",
+      "block": "B20.4",
+      "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
     }
   ]
 }

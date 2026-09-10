@@ -4,12 +4,12 @@ Data: 10 settembre 2026. Perimetro: pannello Seller Enterprise, senza limiti
 commerciali di pacchetto. Il programma Streamlit originale resta in sola lettura.
 Contratto sorgente: `B20_4_PAYMENTS_SOURCE_CONTRACT.md`.
 
-Stato del documento: **BOZZA — NON PUBBLICATO E NON COLLAUDATO NELLO STAGING**.
+Stato del documento: **PUBBLICATO E COLLAUDATO NELLO STAGING**.
 
-Questo documento descrive il candidato al rilascio locale. Non autorizza ancora
-l'aggiornamento del ledger e non dichiara operative le funzioni su Render.
+Questo documento attesta il rilascio del blocco, le verifiche locali, il collaudo su
+Render e l'aggiornamento del ledger.
 
-## Funzioni trasferite nel candidato locale
+## Funzioni trasferite
 
 La macroarea **Ordini** estende l'archivio server-side con lo scadenziario Kaufland
 originale:
@@ -34,12 +34,12 @@ dei ticket nei cinque stati previsti. L'errore dei ticket non annulla la sincron
 ordini e conserva lo snapshot precedente. La sostituzione di uno snapshot completo è
 atomica e limitata a organizzazione, Seller, account e ambiente.
 
-Per gli altri marketplace il candidato non applica le scadenze Kaufland: espone che il
+Per gli altri marketplace il blocco non applica le scadenze Kaufland: espone che il
 programma pagamenti non è disponibile finché non viene definito il relativo adattatore.
 
 ## Persistenza e compatibilità
 
-La migrazione candidata `20260910_0009_order_payments.py` aggiunge alle righe ordine le
+La migrazione `20260910_0009_order_payments.py` aggiunge alle righe ordine le
 proiezioni per data, disponibilità, definitività, ticket aperto e durata del ritardo.
 Crea inoltre `seller_order_payment_tickets`, con chiave univoca nello scope
 Seller/account/ambiente e indice comprensivo dell'organizzazione.
@@ -60,11 +60,11 @@ SQLite usa trigger equivalenti installati prima del backfill, senza ricreare la 
 senza perdere righe figlie. Un vecchio worker successivo alla migrazione viene quindi
 rifiutato atomicamente, mentre il nuovo worker continua a scrivere sullo schema 0008.
 
-## Interfaccia Seller candidata
+## Interfaccia Seller pubblicata
 
-Stato frontend locale: **CONGELATO E VERIFICATO; COLLAUDO LIVE ANCORA DA ESEGUIRE**.
+Stato frontend: **CONGELATO, PUBBLICATO E VERIFICATO**.
 
-Il rilascio dovrà mostrare nell'archivio Ordini:
+Il rilascio mostra nell'archivio Ordini:
 
 - il filtro «Stato pagamento»;
 - la sezione «Date previste di pagamento» con le colonne di evento, stima, importi e
@@ -77,12 +77,12 @@ Il rilascio dovrà mostrare nell'archivio Ordini:
   disponibile;
 - comportamento responsive e accessibile verificato prima della pubblicazione.
 
-Conteggio test frontend: **135/135 superati**. Il controllo TypeScript è incluso nella
+Conteggio test frontend: **136/136 superati**. Il controllo TypeScript è incluso nella
 suite ed è superato. Build Next.js produzione: **superata, 17/17 pagine generate**.
 
 ## Verifiche locali acquisite
 
-Risultati acquisiti sul candidato backend corrente:
+Risultati acquisiti sul backend pubblicato:
 
 - suite Python completa: **401/401 test superati**;
 - suite pertinente a pagamenti, connettori, Ordini, selezioni, tracking e migrazione:
@@ -91,7 +91,7 @@ Risultati acquisiti sul candidato backend corrente:
 
 Altri gate locali acquisiti:
 
-- suite frontend completa: **135/135 test superati**;
+- suite frontend completa: **136/136 test superati**;
 - controllo TypeScript e build Next.js: **superati; 17/17 pagine generate**;
 - `pip check` e `git diff --check`: **superati**; `pip-audit` sul lock e `pnpm audit`:
   **nessuna vulnerabilità nota**;
@@ -102,67 +102,75 @@ Altri gate locali acquisiti:
   Il resto dell'albero Streamlit presenta modifiche esterne al perimetro B20.4 e non viene
   riscritto né dichiarato invariato da questo rilascio.
 
-Commit implementazione congelato: **[DA COMPILARE]**.
+Commit implementazione congelato: **`e83bc3209c8ae5bab0b58fb9edf8c777f0df08f1`**.
+Correzione finale della leggibilità economica: **`ca7eb3651f19118ae43eda21b66032bbd3dd8ec4`**.
 
-## Collaudo staging ancora necessario
+## Collaudo staging completato
 
-Pubblicazione Render: **NON ESEGUITA / NON CONFERMATA IN QUESTA BOZZA**.
+Pubblicazione Render: **COMPLETATA E VERIFICATA**.
 
-Prima di pubblicare il documento occorre verificare sullo stesso commit:
+Il collaudo del 10 settembre 2026 ha verificato sul commit finale:
 
-1. Web, API e worker nello stato `Live`;
-2. migrazione Alembic `20260910_0009` applicata;
-3. health Web/API HTTP 200 e readiness con PostgreSQL e Redis attivi;
-4. archivio Ordini e filtro pagamento raggiungibili nello scope Seller;
-5. dati pagamento/ticket presenti nel DTO, nel dettaglio, nella selezione e nel CSV;
-6. route protette senza sessione con 401/403, mai 404 o 5xx inattesi;
-7. ricalcolo temporale senza nuova sincronizzazione e isolamento fra tenant/account/
-   ambiente;
-8. nessun uso di credenziali reali nel collaudo automatico.
+1. Web, API e worker nello stato `Live` sul medesimo hash completo;
+2. comando `alembic upgrade head` concluso prima dell'avvio API e head
+   `20260910_0009` applicata;
+3. health Web HTTP 200 e readiness API HTTP 200 con PostgreSQL e Redis `up`;
+4. archivio Ordini, filtro pagamento e nuova lettura dei totali economici raggiungibili
+   nello scope Seller; il controllo visivo è stato confermato dal Seller;
+5. dati pagamento/ticket verificati nel DTO, nel dettaglio, nelle due selezioni e nel
+   CSV dalle prove di accettazione pubblicate sullo stesso commit;
+6. lista, dettaglio, sincronizzazione, selezione, export e capability tracking protetti:
+   le prove anonime live restituiscono HTTP 401, mai 404 o 5xx inattesi;
+7. ricalcolo temporale senza nuova sincronizzazione e isolamento fra tenant, account e
+   ambiente coperti dalle prove backend complete;
+8. nessuna credenziale reale trasmessa e nessuna scrittura sui dati di Rionero durante
+   il collaudo automatico.
 
-Commit pubblicato: **[DA COMPILARE]**. Hash completo verificato da Web/API/worker:
-**[DA COMPILARE]**. Data e ora del collaudo: **[DA COMPILARE]**.
+Commit pubblicato e verificato da Web, API e worker:
+**`ca7eb3651f19118ae43eda21b66032bbd3dd8ec4`**. Collaudo concluso il
+**10 settembre 2026 alle 18:18 CEST**.
 
-## Criteri candidati, non ancora chiusi
+## Criteri verificati
 
-I 21 criteri candidati restano `pending`; non sono stati scritti nel ledger da questa
-bozza.
+I 21 criteri sono verificati individualmente e registrati nel ledger con questo
+documento come evidenza.
 
-| ID | Evidenza richiesta prima della chiusura | Stato bozza |
+| ID | Evidenza acquisita | Stato rilascio |
 | --- | --- | --- |
-| `LEGACY-TEST-0348` | Consegna +14 con tracking e importi invariati | `pending` |
-| `LEGACY-TEST-0349` | Ricezione esplicita distinta dall'aggiornamento/rilascio | `pending` |
-| `LEGACY-TEST-0350` | Autopaid con timestamp effettivo, fonte e disponibilità | `pending` |
-| `LEGACY-TEST-0351` | Nessun uso del timestamp generico come ricezione | `pending` |
-| `LEGACY-TEST-0352` | Riparazione completa del vecchio fallback dal payload archiviato | `pending` |
-| `LEGACY-TEST-0353` | Countdown futuro/oggi/disponibile su calendario UTC | `pending` |
-| `LEGACY-TEST-0354` | Priorità della data effettiva sulla stima | `pending` |
-| `LEGACY-TEST-0355` | Spedizione +21 senza tracking | `pending` |
-| `LEGACY-TEST-0356` | Attesa della consegna quando il tracking è presente | `pending` |
-| `LEGACY-TEST-0357` | Rinvio per durata del ticket chiuso | `pending` |
-| `LEGACY-TEST-0358` | Ticket aperto, data provvisoria e netto non disponibile | `pending` |
-| `LEGACY-TEST-0359` | Durata/conteggio di ticket aperti e chiusi, intervalli uniti | `pending` |
-| `LEGACY-TEST-0361` | Arricchimento completo della riga legacy, inclusa commissione, senza dipendere dalle nuove colonne | `pending` |
-| `LEGACY-TEST-0370` | Ultima data del blocco e cancellazioni escluse | `pending` |
-| `LEGACY-TEST-0371` | Segnalazione delle righe prive di data | `pending` |
-| `LEGACY-TEST-0372` | Blocco autopaid interamente disponibile | `pending` |
-| `LEGACY-TEST-0373` | Totali delle sole unità scelte, disponibile/attesa separati | `pending` |
-| `LEGACY-TEST-0374` | Cancellazioni escluse e costo sconosciuto esplicito | `pending` |
-| `LEGACY-UI-0263` | Tabella selezionabile con campi pagamento/ticket e riepilogo coerente | `pending` |
-| `MASTER-0366` | Date previste di pagamento operative e comprensibili | `pending` |
-| `MASTER-0821` | Regola di previsione vincolata al marketplace verificato | `pending` |
+| `LEGACY-TEST-0348` | Consegna +14 con tracking e importi invariati | `verified` |
+| `LEGACY-TEST-0349` | Ricezione esplicita distinta dall'aggiornamento/rilascio | `verified` |
+| `LEGACY-TEST-0350` | Autopaid con timestamp effettivo, fonte e disponibilità | `verified` |
+| `LEGACY-TEST-0351` | Nessun uso del timestamp generico come ricezione | `verified` |
+| `LEGACY-TEST-0352` | Riparazione completa del vecchio fallback dal payload archiviato | `verified` |
+| `LEGACY-TEST-0353` | Countdown futuro/oggi/disponibile su calendario UTC | `verified` |
+| `LEGACY-TEST-0354` | Priorità della data effettiva sulla stima | `verified` |
+| `LEGACY-TEST-0355` | Spedizione +21 senza tracking | `verified` |
+| `LEGACY-TEST-0356` | Attesa della consegna quando il tracking è presente | `verified` |
+| `LEGACY-TEST-0357` | Rinvio per durata del ticket chiuso | `verified` |
+| `LEGACY-TEST-0358` | Ticket aperto, data provvisoria e netto non disponibile | `verified` |
+| `LEGACY-TEST-0359` | Durata/conteggio di ticket aperti e chiusi, intervalli uniti | `verified` |
+| `LEGACY-TEST-0361` | Arricchimento completo della riga legacy, inclusa commissione, senza dipendere dalle nuove colonne | `verified` |
+| `LEGACY-TEST-0370` | Ultima data del blocco e cancellazioni escluse | `verified` |
+| `LEGACY-TEST-0371` | Segnalazione delle righe prive di data | `verified` |
+| `LEGACY-TEST-0372` | Blocco autopaid interamente disponibile | `verified` |
+| `LEGACY-TEST-0373` | Totali delle sole unità scelte, disponibile/attesa separati | `verified` |
+| `LEGACY-TEST-0374` | Cancellazioni escluse e costo sconosciuto esplicito | `verified` |
+| `LEGACY-UI-0263` | Tabella selezionabile con campi pagamento/ticket e riepilogo coerente | `verified` |
+| `MASTER-0366` | Date previste di pagamento operative e comprensibili | `verified` |
+| `MASTER-0821` | Regola di previsione vincolata al marketplace verificato | `verified` |
 
-Il ledger ufficiale resta quindi a **126/2.011 = 6,27%**. La percentuale potrà cambiare
-soltanto dopo congelamento, test completi, pubblicazione, collaudo e valutazione
-individuale delle 21 evidenze.
+Il blocco porta il ledger da 126 a 147 criteri verificati su 2.011 attivi:
+`147 / 2.011 × 100 = 7,3098%`, arrotondato a **7,31%**.
 
-## Limiti della bozza
+## Limiti del rilascio
 
-Il candidato non riconcilia il booking report, non conferma l'accredito bancario e non
+Il blocco non riconcilia il booking report, non conferma l'accredito bancario e non
 gestisce regole di pagamento di marketplace diversi da Kaufland. Le date stimate
 dipendono dalla qualità degli eventi e dei ticket ricevuti dall'API. Uno snapshot ticket
 non aggiornato viene dichiarato nel job e può rendere temporaneamente superata la stima
 finché la sincronizzazione successiva non riesce.
 
-**B20.4 non è ancora pubblicato.** Questa frase deve essere sostituita soltanto dopo il
-collaudo staging e l'aggiornamento contestuale del ledger e dei documenti di avanzamento.
+**B20.4 è pubblicato nello staging.** Implementazione: `e83bc32`; correzione finale della
+leggibilità economica: `ca7eb36`. Web, API e worker sono stati verificati `Live` sul commit
+`ca7eb3651f19118ae43eda21b66032bbd3dd8ec4`; migrazione `20260910_0009`, readiness e
+protezioni delle route Ordini sono operative.
