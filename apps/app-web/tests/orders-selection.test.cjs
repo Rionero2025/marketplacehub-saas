@@ -70,7 +70,7 @@ test("payment program shows available, waiting, unknown, open-ticket and cancell
     { ...item(ids[3]), details: { ...item(ids[3]).details, payment_due_at: "2026-10-05T10:00:00Z", payment_days_remaining: 9, payment_status: "Ticket aperto · data in aggiornamento", payment_rule: "Con tracking: consegna + 14 giorni", payment_source: "Con tracking: consegna + 14 giorni", ticket_delay_days: 5, ticket_open: true, ticket_count: 1, open_ticket_count: 1, ticket_ids: ["T-OPEN"] } },
     { ...item(ids[4]), status: "cancelled", status_label: "Cancellato", payout_amount_eur: "999", purchase_cost_eur: "999", profit_amount_eur: "999", details: { ...item(ids[4]).details, excluded_from_totals: true, payment_due_at: "2026-10-06T10:00:00Z", payment_days_remaining: 10, payment_status: "Ticket aperto · data in aggiornamento", payment_rule: "Con tracking: consegna + 14 giorni", payment_source: "Con tracking: consegna + 14 giorni", ticket_delay_days: 6, ticket_open: true, ticket_count: 2, open_ticket_count: 1, ticket_ids: ["T-CANCEL"] } },
   ];
-  const selectedSummary = { ...economicSummary(5), cancelled_rows: 1, sale_amount_eur: "80", commission_amount_eur: "8", payout_amount_eur: "72", purchase_cost_eur: "30", profit_amount_eur: "24", known_cost_rows: 3, missing_cost_rows: 1, sku_cost_rows: 3 };
+  const selectedSummary = { ...economicSummary(5), cancelled_rows: 1, sale_amount_eur: "80", commission_amount_eur: "8", payout_amount_eur: "72", purchase_cost_eur: "30", profit_amount_eur: "24", profit_pct: "80", known_cost_rows: 3, missing_cost_rows: 1, sku_cost_rows: 3 };
   const value = { ...list(new Set(ids.slice(0, 5))), total: 5, items: paymentItems, latest_job: null,
     selection: { id: selectionId, purpose: "orders", selected_ids: ids.slice(0, 5), selected_count: 5, filtered_count: 5, summary: selectedSummary },
     payment_selection: { id: paymentSelectionId, purpose: "payments", selected_ids: ids.slice(0, 5), selected_count: 5, filtered_count: 5,
@@ -84,6 +84,13 @@ test("payment program shows available, waiting, unknown, open-ticket and cancell
   assert.match(panel.text(), /Data da definire/);
   assert.match(panel.text(), /Ticket aperto/);
   assert.match(panel.text(), /Netto disponibile18,00/);
+  assert.match(panel.text(), /Dal venduto al netto/);
+  assert.match(panel.text(), /Vendite conteggiate80,00.*meno.*Commissioni marketplace8,00.*porta al.*Netto da ricevere72,00/);
+  assert.match(panel.text(), /Margine calcolabile/);
+  assert.match(panel.text(), /3 di 4 righe non cancellate entrano nel calcolo di costo e utile/);
+  assert.match(panel.text(), /1 riga non ha costo e utile entrambi calcolabili: è esclusa dal margine/);
+  assert.match(panel.text(), /Utile calcolato24,00.*Utile sui costi inclusi: 80%/);
+  assert.match(panel.text(), /non vanno confrontati direttamente con il netto complessivo/);
   assert.match(panel.text(), /Righe scelte5/);
   assert.match(panel.text(), /Netto totale72,00/);
   assert.match(panel.text(), /Costo rilevato30,00/);
@@ -194,11 +201,21 @@ test("first successful import replaces empty-archive bounds instead of leaving a
 });
 
 test("incomplete EUR amounts are not mislabeled as a missing EUR exchange rate and cancelled rows are not labeled complete active rows", async () => {
-  const value = list(); value.selection.summary = { ...value.selection.summary, complete_economic_rows: 50, cancelled_rows: 9, missing_economic_rows: 1, missing_currencies: ["EUR"] };
+  const value = list(); value.selection.summary = { ...value.selection.summary, complete_economic_rows: 50, cancelled_rows: 9, missing_economic_rows: 1, known_cost_rows: 41, missing_cost_rows: 1, sku_cost_rows: 41, missing_currencies: ["EUR"] };
   const panel = component(async () => Response.json(value)); await panel.settle();
   assert.match(panel.text(), /Valute delle righe con importi incompleti: EUR/);
   assert.equal(panel.text().includes("Cambio EUR non disponibile"), false);
-  assert.match(panel.text(), /41 righe non cancellate con dati economici completi/); panel.unmount();
+  assert.match(panel.text(), /41 righe con vendita, commissione e netto completi/);
+  assert.match(panel.text(), /41 di 42 righe non cancellate entrano nel calcolo di costo e utile/);
+  assert.match(panel.text(), /1 riga non ha costo e utile entrambi calcolabili: è esclusa dal margine/); panel.unmount();
+});
+
+test("a negative selected total is identified explicitly as a loss", async () => {
+  const value = list(); value.selection.summary = { ...value.selection.summary, purchase_cost_eur: "100", profit_amount_eur: "-20", profit_pct: "-20", loss_rows: 1 };
+  const panel = component(async () => Response.json(value)); await panel.settle();
+  assert.match(panel.text(), /Perdita calcolata-20,00/);
+  assert.match(panel.text(), /Utile sui costi inclusi: -20%/);
+  assert.match(panel.text(), /1 riga in perdita è inclusa nel totale dell’utile/); panel.unmount();
 });
 
 test("summary and page selection reject foreign IDs, malformed counts and private fields", () => {
@@ -237,7 +254,7 @@ function component(fetchImpl, selectedAccount = account) {
   let stateIndex, refIndex, effectIndex, callbackIndex, pendingEffects, tree, timerId = 0;
   const nodes = (node) => !node || typeof node !== "object" ? [] : Array.isArray(node) ? node.flatMap(nodes) : [node, ...nodes(node.props?.children)];
   const text = (node) => typeof node === "string" ? node : typeof node === "number" ? String(node) : Array.isArray(node) ? node.map(text).join("") : node?.props ? text(node.props.children) : "";
-  const element = (type, props) => typeof type === "function" && ["FilterChoices", "OrdersTotals", "PaymentSchedule", "PaymentScheduleRow", "PaymentSelectionSummary", "PaymentCell", "TicketCell", "OrderDetail"].includes(type.name) ? type(props) : ({ type, props });
+  const element = (type, props) => typeof type === "function" && ["FilterChoices", "MoneyMetric", "OrdersTotals", "PaymentSchedule", "PaymentScheduleRow", "PaymentSelectionSummary", "PaymentCell", "TicketCell", "OrderDetail"].includes(type.name) ? type(props) : ({ type, props });
   const router = { replace: (url) => navigations.push(url), refresh() {} };
   const browserDocument = { body: { appendChild() {} }, createElement() { const anchor = { href: "", download: "", click() { downloads.push({ href: this.href, filename: this.download }); }, remove() {} }; return anchor; } };
   class DownloadURL extends URL { static createObjectURL() { return "blob:orders-test"; } static revokeObjectURL(url) { revoked.push(url); } }
