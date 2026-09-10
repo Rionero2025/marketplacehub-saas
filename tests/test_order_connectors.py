@@ -83,7 +83,7 @@ def test_kaufland_reads_every_status_then_applies_global_recent_cap_and_deduplic
         return httpx.Response(200, json={"data": rows, "pagination": {"total": len(rows)}})
 
     _, calls, batches, _, _ = run(handler, maximum=2)
-    requests = [call for call in calls if call.url.host != "www.ecb.europa.eu"]
+    requests = [call for call in calls if call.url.path == "/v2/order-units"]
     assert [parse_qs(call.url.query.decode())["status"][0] for call in requests] == list(
         ORDER_STATUSES
     )
@@ -137,6 +137,8 @@ def test_duplicate_full_page_aborts_instead_of_looping_forever():
 
 def test_detail_merge_and_order_fallback_preserve_list_fields_and_exact_unit():
     def handler(request):
+        if request.url.path == "/v2/tickets":
+            return httpx.Response(200, json={"data": []})
         if request.url.path == "/v2/order-units":
             status = parse_qs(request.url.query.decode())["status"][0]
             return httpx.Response(200, json={"data": [unit(1, "sent")] if status == "sent" else []})
@@ -213,8 +215,9 @@ def test_transient_read_retry_rechecks_authorization():
         )
 
     _, _, _, _, pauses = run(handler, before_request=guard)
-    assert len(attempts) == 9
-    assert len(checks) == 10  # one initial gate plus every authenticated attempt
+    assert len([call for call in attempts if call.url.path == "/v2/order-units"]) == 9
+    assert len([call for call in attempts if call.url.path == "/v2/tickets"]) == 5
+    assert len(checks) == 15  # one initial gate plus every authenticated attempt
     assert any(delay >= 1 for delay in pauses)
 
 
@@ -239,6 +242,71 @@ def test_playground_uses_its_own_host_and_worten_rejects_playground():
     }
     with pytest.raises(OrdersFetchError):
         run(lambda request: None, marketplace="worten", environment="playground")
+
+
+def test_kaufland_reads_all_ticket_statuses_and_returns_complete_snapshot():
+    seen = []
+
+    def handler(request):
+        query = parse_qs(request.url.query.decode())
+        if request.url.path == "/v2/tickets":
+            status = query["status"][0]
+            seen.append(status)
+            rows = [{
+                "id_ticket": f"T-{status}", "ids_order_units": ["1"],
+                "ts_created_iso": "2026-09-01T00:00:00Z",
+                "ts_updated_iso": "2026-09-02T00:00:00Z", "status": status,
+            }]
+            return httpx.Response(200, json={"data": rows, "pagination": {"total": 1}})
+        return httpx.Response(200, json={"data": []})
+
+    result, _, _, _, _ = run(handler)
+    assert seen == [
+        "opened", "buyer_closed", "seller_closed", "both_closed",
+        "customer_service_closed_final",
+    ]
+    assert {ticket["id_ticket"] for ticket in result["tickets_snapshot"]} == {
+        f"T-{status}" for status in seen
+    }
+
+
+def test_kaufland_ticket_snapshot_paginates_thirty_rows_per_status():
+    offsets = []
+
+    def handler(request):
+        if request.url.path != "/v2/tickets":
+            return httpx.Response(200, json={"data": []})
+        query = parse_qs(request.url.query.decode())
+        status, offset = query["status"][0], int(query["offset"][0])
+        offsets.append((status, offset))
+        total = 31 if status == "opened" else 0
+        rows = [{
+            "id_ticket": f"T-{index}", "ids_order_units": [str(index)],
+            "ts_created_iso": "2026-09-01T00:00:00Z",
+            "ts_updated_iso": "2026-09-02T00:00:00Z", "status": status,
+        } for index in range(offset, min(offset + 30, total))]
+        return httpx.Response(200, json={"data": rows, "pagination": {"total": total}})
+
+    result, _, _, _, _ = run(handler)
+    assert offsets[:2] == [("opened", 0), ("opened", 30)]
+    assert offsets[2:] == [
+        ("buyer_closed", 0), ("seller_closed", 0), ("both_closed", 0),
+        ("customer_service_closed_final", 0),
+    ]
+    assert len(result["tickets_snapshot"]) == 31
+
+
+def test_ticket_endpoint_failure_is_best_effort_and_orders_still_complete():
+    def handler(request):
+        if request.url.path == "/v2/tickets":
+            return httpx.Response(503)
+        status = parse_qs(request.url.query.decode())["status"][0]
+        rows = [unit(1, "sent")] if status == "sent" else []
+        return httpx.Response(200, json={"data": rows})
+
+    result, _, batches, _, _ = run(handler)
+    assert result["tickets_warning"] is True
+    assert batches[0][0][0]["external_line_id"] == "1"
 
 
 def test_worten_reads_line_quantities_and_major_currency_without_offer_filter():

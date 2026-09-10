@@ -227,11 +227,20 @@ function component(wait, fetchImpl, realm = "seller", readinessOverrides = {}) {
   };
 }
 
-test("login UI keeps pending credentials as read-only successful controls, posts once and clears the password on success", async () => {
+test("login UI captures the explicit submit before readiness, posts once and clears the password on success", async () => {
   let ready; const panel = component(({ onWaiting }) => { onWaiting(); return new Promise((resolve) => { ready = resolve; }); }, async () => Response.json({ authenticated: true, realm: "seller" }));
-  const submitted = panel.submit(); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.equal(panel.pending(), true); assert.equal(panel.login.readOnly, true); assert.equal(panel.password.readOnly, true); assert.equal(panel.login.disabled, false); assert.equal(panel.password.disabled, false); assert.match(panel.text(), /Avvio del servizio in corso/);
+  const submitted = panel.submit(); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 1); assert.equal(panel.pending(), true); assert.equal(panel.login.readOnly, true); assert.equal(panel.password.readOnly, true); assert.equal(panel.login.disabled, false); assert.equal(panel.password.disabled, false); assert.match(panel.text(), /Avvio del servizio in corso/);
   await panel.submit(); ready(true); await submitted;
   assert.equal(panel.formDataConstructions(), 1); assert.equal(panel.calls.length, 1); assert.equal(panel.calls[0][0], "/api/auth/login"); assert.equal(JSON.parse(panel.calls[0][1].body).password, credentials.password); assert.deepEqual(panel.navigations, ["/seller"]); assert.equal(panel.password.value, ""); panel.unmount();
+});
+
+test("readiness cannot erase or disable the credentials captured by the submit", async () => {
+  let ready; const panel = component(() => new Promise((resolve) => { ready = resolve; }), async () => Response.json({ authenticated: true, realm: "seller" }));
+  const submitted = panel.submit();
+  panel.login.value = ""; panel.password.value = ""; panel.login.disabled = true; panel.password.disabled = true;
+  ready(true); await submitted;
+  const body = JSON.parse(panel.calls[0][1].body);
+  assert.equal(body.login, credentials.login); assert.equal(body.password, credentials.password); assert.deepEqual(panel.navigations, ["/seller"]); panel.unmount();
 });
 
 test("mount prewarms anonymously and aborts that probe before a submitted readiness check", async () => {
@@ -245,7 +254,7 @@ test("mount prewarms anonymously and aborts that probe before a submitted readin
   });
   assert.ok(prewarmSignal); assert.equal(prewarmSignal.aborted, false); assert.equal(probeCalls, 1); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0);
   await panel.submit();
-  assert.equal(prewarmSignal.aborted, true); assert.equal(waitCalls, 1); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); panel.unmount();
+  assert.equal(prewarmSignal.aborted, true); assert.equal(waitCalls, 1); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 1); panel.unmount();
 });
 
 test("readiness deadline recovers read-only, clears the stale error and requires a new submit", async () => {
@@ -254,11 +263,11 @@ test("readiness deadline recovers read-only, clears the stale error and requires
     recover: ({ signal }) => { recoverySignal = signal; return new Promise((resolve) => { finishRecovery = resolve; }); },
   });
   await panel.submit();
-  assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.match(panel.text(), /credenziali non sono state inviate/); assert.equal(panel.pending(), false); assert.equal(recoverySignal.aborted, false);
+  assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 1); assert.match(panel.text(), /credenziali non sono state inviate/); assert.equal(panel.pending(), false); assert.equal(recoverySignal.aborted, false);
   ready = true; finishRecovery(); await panel.flush();
-  assert.doesNotMatch(panel.text(), /credenziali non sono state inviate/); assert.match(panel.text(), /Servizio pronto\. Premi Accedi\./); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.deepEqual(panel.navigations, []);
+  assert.doesNotMatch(panel.text(), /credenziali non sono state inviate/); assert.match(panel.text(), /Servizio pronto\. Premi Accedi\./); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 1); assert.deepEqual(panel.navigations, []);
   await panel.submit();
-  assert.equal(panel.calls.length, 1); assert.equal(panel.calls[0][0], "/api/auth/login"); assert.equal(panel.formDataConstructions(), 1); assert.deepEqual(panel.navigations, ["/seller"]); panel.unmount();
+  assert.equal(panel.calls.length, 1); assert.equal(panel.calls[0][0], "/api/auth/login"); assert.equal(panel.formDataConstructions(), 2); assert.deepEqual(panel.navigations, ["/seller"]); panel.unmount();
 });
 
 test("unmount aborts readiness recovery and ignores a late ready result", async () => {
@@ -268,7 +277,7 @@ test("unmount aborts readiness recovery and ignores a late ready result", async 
   });
   await panel.submit(); panel.unmount();
   assert.equal(recoverySignal.aborted, true); finishRecovery(); await panel.flush();
-  assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.doesNotMatch(panel.text(), /Servizio pronto\. Premi Accedi\./);
+  assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 1); assert.doesNotMatch(panel.text(), /Servizio pronto\. Premi Accedi\./);
 });
 
 test("a preserved login page releases an interrupted submit and ignores its late readiness result", async () => {
@@ -278,11 +287,11 @@ test("a preserved login page releases an interrupted submit and ignores its late
     return new Promise((resolve) => { finishReadiness = () => resolve(true); });
   }, async () => { throw new Error("must not send credentials"); });
   const submitted = panel.submit();
-  assert.equal(panel.pending(), true); assert.match(panel.text(), /Riprovo automaticamente/); assert.equal(panel.formDataConstructions(), 0);
+  assert.equal(panel.pending(), true); assert.match(panel.text(), /Riprovo automaticamente/); assert.equal(panel.formDataConstructions(), 1);
   panel.hideAndReveal();
   assert.equal(readinessSignal.aborted, true); assert.equal(panel.pending(), false); assert.doesNotMatch(panel.text(), /Riprovo automaticamente/);
   finishReadiness(); await submitted;
-  assert.equal(panel.pending(), false); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 0); assert.deepEqual(panel.navigations, []); panel.unmount();
+  assert.equal(panel.pending(), false); assert.equal(panel.calls.length, 0); assert.equal(panel.formDataConstructions(), 1); assert.deepEqual(panel.navigations, []); panel.unmount();
 });
 
 test("a preserved login page clears a stale authentication error", async () => {

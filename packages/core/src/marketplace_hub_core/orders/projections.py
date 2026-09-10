@@ -1,5 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
+from marketplace_hub_core.orders.payments import parse_timestamp
+
 
 def number(value):
     try:
@@ -26,4 +28,9 @@ def project_order(item):
         or bool(details.get("excluded_from_totals")),
         "catalog_cost": str(item.get("purchase_cost_source") or "").startswith(
             "Listino pubblicato"),
+        "payment_due_at": parse_timestamp(details.get("payment_due_at")),
+        "payment_available": bool(details.get("payment_available")),
+        "payment_date_final": bool(details.get("payment_date_final")),
+        "payment_ticket_open": bool(details.get("ticket_open")),
+        "payment_ticket_delay_days": number(details.get("ticket_delay_days")) or Decimal("0"),
     }

@@ -57,6 +57,8 @@ class OrdersSelectionRequest(BaseModel):
     account_id: UUID
     environment: Literal["live", "playground"] = "live"
     selection_id: UUID
+    purpose: Literal["orders", "payments"] = "orders"
+    orders_selection_id: UUID | None = None
     filters: OrderFilters
     action: Literal["select_all", "clear", "set"]
     line_id: UUID | None = None
@@ -298,6 +300,7 @@ def create_orders_router(service: OrdersService, auth, settings):
         currency_selection: Literal["all", "selected"] = "all",
         tracking: Literal["all", "present", "missing"] = "all",
         commission: Literal["all", "present", "missing"] = "all",
+        payment: Literal["all", "available", "waiting", "unknown", "ticket_open"] = "all",
         amount_min: Decimal | None = None, amount_max: Decimal | None = None,
     ):
         session = principal(request)
@@ -305,7 +308,7 @@ def create_orders_router(service: OrdersService, auth, settings):
             search=search, statuses=status if status or status_selection == "selected" else None,
             storefronts=storefront if storefront or storefront_selection == "selected" else None,
             currencies=currency if currency or currency_selection == "selected" else None,
-            carriers=carrier, tracking=tracking, commission=commission,
+            carriers=carrier, tracking=tracking, commission=commission, payment=payment,
             amount_min=amount_min, amount_max=amount_max, date_from=date_from, date_to=date_to,
         ))
         return execute(lambda: service.list(

@@ -55,7 +55,8 @@ export async function ordersActionsProxy(request: NextRequest, sellerId: string,
   }
 
   const raw: unknown = await upstream.json().catch(() => null);
-  const selection = readOrderSelection(raw && typeof raw === "object" && "selection" in raw ? raw.selection : null);
+  const expectedPurpose = "purpose" in input ? input.purpose : "orders";
+  const selection = readOrderSelection(raw && typeof raw === "object" && "selection" in raw ? raw.selection : null, expectedPurpose);
   if (!selection || selection.id !== input.selection_id) return failure(
     "Selezione non confermata. Aggiorna gli ordini.", 502);
   return NextResponse.json({ selection }, { headers: { "cache-control": "no-store" } });

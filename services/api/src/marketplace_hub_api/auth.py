@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import timedelta
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
 from marketplace_hub_core.auth import AuthRealm, AuthService
 from marketplace_hub_core.auth.service import InvalidCredentialsError, LoginRateLimitError
 from marketplace_hub_core.settings import Settings
@@ -33,12 +34,30 @@ def session_payload(principal) -> SessionResponse:
     )
 
 
-def create_auth_router(service: AuthService, settings: Settings) -> APIRouter:
+def _best_effort(operation: Callable[[], object]) -> None:
+    try:
+        operation()
+    except Exception:
+        # UI-state maintenance must never alter an authentication result.
+        pass
+
+
+def create_auth_router(
+    service: AuthService,
+    settings: Settings,
+    *,
+    after_login: Callable[[], object] | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/v1/auth", tags=["authentication"])
     cookie = settings.session_cookie_name
 
     @router.post("/login", response_model=SessionResponse)
-    def login(payload: LoginRequest, request: Request, response: Response) -> SessionResponse:
+    def login(
+        payload: LoginRequest,
+        request: Request,
+        response: Response,
+        background_tasks: BackgroundTasks,
+    ) -> SessionResponse:
         client_key = request.client.host if request.client else "unknown"
         try:
             issued = service.login(
@@ -51,6 +70,9 @@ def create_auth_router(service: AuthService, settings: Settings) -> APIRouter:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc)) from exc
         except LoginRateLimitError as exc:
             raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, str(exc)) from exc
+
+        if after_login is not None:
+            background_tasks.add_task(_best_effort, after_login)
 
         response.set_cookie(
             key=cookie,

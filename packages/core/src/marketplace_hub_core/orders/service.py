@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from pydantic import SecretStr
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from marketplace_hub_core.auth.models import AuthenticatedSession, AuthRealm
 from marketplace_hub_core.marketplace_connections.repository import (
@@ -92,6 +92,42 @@ class OrdersQueueUnavailableError(RuntimeError):
     pass
 
 
+class _ExportStream:
+    """Own the temporary export until normal completion, failure or cancellation."""
+
+    def __init__(self, rows, guard):
+        self._rows = rows
+        self._output = export_csv(rows, guard)
+        self._closed = False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._closed:
+            raise StopIteration
+        try:
+            return next(self._output)
+        except BaseException:
+            self.close()
+            raise
+
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._output.close()
+        finally:
+            self._rows.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+
 def job_payload(job):
     if job is None:
         return None
@@ -164,6 +200,13 @@ class OrdersService:
             raise OrdersValidationError("Il recupero tracking è disponibile solo per Kaufland.")
         return scoped
 
+    @staticmethod
+    def _validate_payment_filter(account, criteria):
+        if account["marketplace"] != "kaufland" and criteria.payment != "all":
+            raise OrdersValidationError(
+                "Il filtro pagamenti è disponibile solo per Kaufland."
+            )
+
     def _recover(self, job):
         if job is None or job["status"] not in {"queued", "running"}:
             return job
@@ -192,9 +235,11 @@ class OrdersService:
             criteria.date_from = utc(filters["date_from"]).date()
         if filters.get("date_to"):
             criteria.date_to = (utc(filters["date_to"]) - timedelta(microseconds=1)).date()
-        rows, total, options, selection = self.selections.list(
+        self._validate_payment_filter(account, criteria)
+        payments_enabled = account["marketplace"] == "kaufland"
+        rows, total, options, selection, payment_selection = self.selections.list(
             principal.session_id, (organization_id, seller_id, account_id, environment),
-            criteria, filters["page"], filters["page_size"],
+            criteria, filters["page"], filters["page_size"], payments=payments_enabled,
         )
         latest = self._recover(self.repository.latest_job(
             organization_id, seller_id, account_id, environment,
@@ -202,32 +247,55 @@ class OrdersService:
         verification = settings_object(account["settings_json"]).get(VERIFICATION_KEY, {})
         connected = (isinstance(verification, dict)
                      and verification.get("connection_status") == "connected")
-        return {"seller_id": str(seller_id), "account_id": str(account_id),
+        result = {"seller_id": str(seller_id), "account_id": str(account_id),
                 "marketplace": account["marketplace"], "environment": environment,
                 "can_sync": "LOGISTICS" in seller["write_permissions"] and account["active"]
                 and connected, "items": [item_payload(row) for row in rows], "total": total,
                 "page": filters["page"], "page_size": filters["page_size"],
                 "latest_job": job_payload(latest), "filters": options, "selection": selection}
+        if payments_enabled:
+            result["payment_selection"] = payment_selection
+        return result
 
     def select(self, principal, seller_id, account_id, environment, selection_id, filters,
-               action, line_id=None, selected=None):
-        _, organization_id, _ = self._scope(principal, seller_id, account_id, environment)
+               action, line_id=None, selected=None, purpose="orders", orders_selection_id=None):
+        _, organization_id, account = self._scope(
+            principal, seller_id, account_id, environment,
+        )
+        self._validate_payment_filter(account, filters)
         if action not in {"set", "clear", "select_all"} or (
             action == "set" and (line_id is None or not isinstance(selected, bool))
         ) or (action != "set" and (line_id is not None or selected is not None)):
             raise OrdersValidationError("Azione di selezione non valida.")
+        if purpose not in {"orders", "payments"} or (
+            purpose == "payments" and orders_selection_id is None
+        ) or (purpose == "orders" and orders_selection_id is not None):
+            raise OrdersValidationError("Scopo della selezione non valido.")
+        payments_enabled = account["marketplace"] == "kaufland"
+        if purpose == "payments" and not payments_enabled:
+            raise OrdersValidationError("Selezione pagamenti disponibile solo per Kaufland.")
+        self.selections.purge_stale(exclude_session_id=principal.session_id)
         return {"selection": self.selections.change(
             principal.session_id, (organization_id, seller_id, account_id, environment),
-            filters, selection_id, action, line_id, selected,
+            filters, selection_id, action, line_id, selected, purpose=purpose,
+            orders_selection_id=orders_selection_id, payments_enabled=payments_enabled,
         )}
 
     def export(self, principal, seller_id, account_id, environment, selection_id, filters,
                kind, authenticate):
-        _, organization_id, _ = self._scope(principal, seller_id, account_id, environment)
+        _, organization_id, account = self._scope(principal, seller_id, account_id, environment)
+        self._validate_payment_filter(account, filters)
         scope = (organization_id, seller_id, account_id, environment)
-        self.selections.validate(principal.session_id, scope, filters, selection_id)
-        selection = self.selections.get(principal.session_id, scope, filters)
-        if not selection["selected_count"]:
+        current_time = datetime.now(UTC)
+        self.selections.purge_stale(
+            current_time=current_time, exclude_session_id=principal.session_id,
+        )
+        rows = self.selections.export_rows(
+            principal.session_id, scope, filters, selection_id, kind,
+            current_time=current_time,
+        )
+        if not rows.selected_count:
+            rows.close()
             raise OrdersValidationError("Seleziona almeno una riga prima di esportare.")
 
         def guard():
@@ -236,7 +304,7 @@ class OrdersService:
                 raise OrdersValidationError("Sessione non disponibile.")
             self._scope(current, seller_id, account_id, environment)
 
-        return export_csv(self.selections.export_rows(scope, filters, selection_id, kind), guard)
+        return _ExportStream(rows, guard)
 
     def item(self, principal, seller_id, account_id, environment, line_id):
         _, organization_id, _ = self._scope(principal, seller_id, account_id, environment)
@@ -415,6 +483,17 @@ class OrdersService:
             )
             await authorized()
             summary = summary if isinstance(summary, dict) else {}
+            tickets_warning = bool(summary.get("tickets_warning"))
+            if "tickets_snapshot" in summary:
+                try:
+                    self.repository.upsert_payment_ticket_snapshot(
+                        job, summary["tickets_snapshot"],
+                    )
+                except SQLAlchemyError:
+                    # Orders are already durable.  A ticket-only schema/storage
+                    # failure keeps the previous atomic snapshot and is visible
+                    # as a warning, without converting the order job to failed.
+                    tickets_warning = True
             detail_warnings = summary.get("warning_count", 0)
             if isinstance(detail_warnings, int) and not isinstance(detail_warnings, bool):
                 warning_rows = max(warning_rows, detail_warnings)
@@ -424,6 +503,8 @@ class OrdersService:
             checked = summary.get("details_checked", 0)
             if isinstance(checked, int) and not isinstance(checked, bool) and checked > 0:
                 message += f" Dettagli verificati: {checked}."
+            if tickets_warning:
+                message += " Ticket non aggiornati; conservato l’ultimo snapshot disponibile."
             self.repository.finish(job_id, message=message)
         except (SellerNotAccessibleError, WorkspacePermissionError):
             self.repository.finish(job_id, error_code="permission_revoked",

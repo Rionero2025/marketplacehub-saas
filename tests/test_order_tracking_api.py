@@ -6,7 +6,7 @@ import threading
 import zipfile
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import httpx
@@ -39,7 +39,11 @@ from marketplace_hub_core.orders.repository import (
     OrdersImportBusyError,
     SqlOrdersRepository,
 )
-from marketplace_hub_core.orders.schema import order_lines, order_tracking_events
+from marketplace_hub_core.orders.schema import (
+    order_lines,
+    order_tracking_events,
+    payment_tickets,
+)
 from marketplace_hub_core.orders.tracking import (
     TrackingLimitError,
     TrackingValidationError,
@@ -79,6 +83,38 @@ def upload(client, seller, account_id, suffix, content, mapping=None, file_name=
         files={"file": (file_name, content, "application/octet-stream")},
         data=data,
     )
+
+
+def stale_payment_order(tracking_workspace, client, seller, account_id):
+    received_at = (datetime.now(UTC) - timedelta(days=20)).replace(microsecond=0)
+    tracking_workspace.fetcher.items = [row(
+        "payment-unit", status="received", details={"carrier": "", "tracking": ""},
+        raw={"order_received_timestamp_iso": received_at.isoformat()},
+    )]
+    run(tracking_workspace, start(client, seller, account_id))
+    with tracking_workspace.engine.begin() as connection:
+        saved = connection.execute(select(order_lines).where(
+            order_lines.c.account_id == account_id,
+        )).mappings().one()
+        canonical = json.loads(saved["canonical_json"])
+        canonical["details"].update({
+            "received_at": "2099-01-01T00:00:00+00:00",
+            "received_source": "stale-worker",
+            "payment_due_at": "",
+            "payment_days_remaining": None,
+            "payment_available": False,
+            "payment_date_final": False,
+            "payment_status": "stale-worker",
+        })
+        connection.execute(order_lines.update().where(
+            order_lines.c.id == saved["id"],
+        ).values(
+            canonical_json=json.dumps(canonical, ensure_ascii=False),
+            payment_due_at=None,
+            payment_available=False,
+            payment_date_final=False,
+        ))
+    return saved["id"], received_at
 
 
 def test_original_column_detection_combined_split_and_xlsx_parser():
@@ -752,6 +788,104 @@ def test_manual_patch_preserves_blank_field_and_survives_resync(tracking_workspa
         "account_id": str(account_id), "line_id": item["id"],
         "carrier": "DHL\u0000", "tracking": "TRACK",
     }).status_code == 422
+
+
+def test_manual_tracking_recalculates_and_persists_payment_projection(
+    tracking_workspace, monkeypatch,
+):
+    client, seller, organization, _, _ = owner(tracking_workspace)
+    account_id = account(tracking_workspace, seller, organization)
+    line_id, received_at = stale_payment_order(
+        tracking_workspace, client, seller, account_id,
+    )
+    expected_due_at = received_at + timedelta(days=14)
+    contexts = []
+    original_payment_context = tracking_workspace.order_repository.payment_context
+
+    def counted_payment_context(connection, scope, *, current_time=None):
+        contexts.append((connection, tuple(scope)))
+        return original_payment_context(connection, scope, current_time=current_time)
+
+    monkeypatch.setattr(
+        tracking_workspace.order_repository, "payment_context", counted_payment_context,
+    )
+    response = client.patch(tracking_path(seller, "manual"), json={
+        "account_id": str(account_id), "environment": "live", "line_id": str(line_id),
+        "carrier": "", "tracking": "MANUAL-TRACK",
+    })
+    assert response.status_code == 200 and response.json()["updated"] == 1
+    assert len(contexts) == 2
+    assert len({id(connection) for connection, _scope in contexts}) == 2
+    assert {scope for _connection, scope in contexts} == {
+        (organization, seller, account_id, "live"),
+    }
+
+    with tracking_workspace.engine.connect() as connection:
+        saved = connection.execute(select(order_lines).where(
+            order_lines.c.id == line_id,
+        )).mappings().one()
+    details = json.loads(saved["canonical_json"])["details"]
+    assert details["tracking"] == "MANUAL-TRACK"
+    assert details["received_at"] == received_at.isoformat(timespec="seconds")
+    assert details["received_source"] == (
+        "API Kaufland: order_received_timestamp_iso"
+    )
+    assert details["payment_due_at"] == expected_due_at.isoformat(timespec="seconds")
+    assert details["payment_available"] is True
+    assert details["payment_date_final"] is True
+    assert saved["has_tracking"] is True
+    assert saved["payment_available"] is True
+    assert saved["payment_date_final"] is True
+    assert saved["payment_due_at"].replace(tzinfo=UTC) == expected_due_at
+
+
+def test_batch_tracking_recalculates_and_persists_payment_projection(
+    tracking_workspace, monkeypatch,
+):
+    client, seller, organization, _, _ = owner(tracking_workspace)
+    account_id = account(tracking_workspace, seller, organization)
+    line_id, received_at = stale_payment_order(
+        tracking_workspace, client, seller, account_id,
+    )
+    expected_due_at = received_at + timedelta(days=14)
+    write_contexts = []
+    original_payment_context = tracking_workspace.order_repository.payment_context
+
+    def counted_payment_context(connection, scope, *, current_time=None):
+        if current_time is not None:
+            write_contexts.append(tuple(scope))
+        return original_payment_context(connection, scope, current_time=current_time)
+
+    monkeypatch.setattr(
+        tracking_workspace.order_repository, "payment_context", counted_payment_context,
+    )
+    response = upload(
+        client, seller, account_id, "import",
+        b"Unita;Tracking\npayment-unit;BATCH-TRACK\n",
+        {"id_order_unit": "Unita", "tracking_numbers": "Tracking"},
+    )
+    assert response.status_code == 200
+    assert response.json()["result"]["updated"] == 1
+    assert write_contexts == [(organization, seller, account_id, "live")]
+
+    with tracking_workspace.engine.connect() as connection:
+        saved = connection.execute(select(order_lines).where(
+            order_lines.c.id == line_id,
+        )).mappings().one()
+    details = json.loads(saved["canonical_json"])["details"]
+    assert details["tracking"] == "BATCH-TRACK"
+    assert details["tracking_source"] == "portal_import"
+    assert details["received_at"] == received_at.isoformat(timespec="seconds")
+    assert details["received_source"] == (
+        "API Kaufland: order_received_timestamp_iso"
+    )
+    assert details["payment_due_at"] == expected_due_at.isoformat(timespec="seconds")
+    assert details["payment_available"] is True
+    assert details["payment_date_final"] is True
+    assert saved["has_tracking"] is True
+    assert saved["payment_available"] is True
+    assert saved["payment_date_final"] is True
+    assert saved["payment_due_at"].replace(tzinfo=UTC) == expected_due_at
 
 
 def test_tracking_scope_isolates_environment_and_seller(tracking_workspace):
@@ -1502,6 +1636,7 @@ def test_tracking_import_scope_lock_fails_fast_and_commits_nothing_when_busy(tmp
     engine = create_engine(f"sqlite:///{tmp_path / 'tracking-lock.sqlite3'}")
     order_lines.create(engine)
     order_tracking_events.create(engine)
+    payment_tickets.create(engine)
     seller_marketplace_accounts.create(engine)
     repository = SqlOrdersRepository(engine)
     now = datetime.now(UTC)

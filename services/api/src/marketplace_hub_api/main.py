@@ -119,7 +119,20 @@ def create_app(
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["content-type", "x-request-id"],
     )
-    app.include_router(create_auth_router(auth_service, app_settings))
+    auth_engine = getattr(auth_service.repository, "engine", None)
+    orders_engine = orders_service.repository.engine
+
+    def purge_stale_order_selections():
+        return orders_service.selections.purge_stale(limit=50, member_limit=1_000)
+
+    login_maintenance = (
+        purge_stale_order_selections
+        if auth_engine is orders_engine
+        else None
+    )
+    app.include_router(create_auth_router(
+        auth_service, app_settings, after_login=login_maintenance,
+    ))
     app.include_router(create_workspace_router(workspace_service, auth_service, app_settings))
     app.include_router(create_seller_settings_router(
         seller_settings_service, auth_service, app_settings,

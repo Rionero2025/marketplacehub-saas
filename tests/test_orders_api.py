@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -15,13 +16,20 @@ from marketplace_hub_core.orders.repository import (
     OrdersImportBusyError,
     SqlOrdersRepository,
 )
-from marketplace_hub_core.orders.schema import order_lines, order_sync_jobs
+from marketplace_hub_core.orders.schema import (
+    order_lines,
+    order_selection_members,
+    order_selections,
+    order_sync_jobs,
+    payment_tickets,
+)
 from marketplace_hub_core.orders.service import OrdersService
 from marketplace_hub_core.seller_settings.security import encrypt_credentials
 from marketplace_hub_core.settings import Settings
 from marketplace_hub_core.tenancy.schema import memberships
 from pydantic import SecretStr
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from test_seller_settings_api import TEST_MASTER
 from test_seller_settings_api import owner as settings_owner
 
@@ -121,6 +129,19 @@ def run(configured, response):
     return job_id
 
 
+def change_payment(client, seller, account_id, page, *, action="set", line_id=None,
+                   selected=True, filters=None):
+    payload = {
+        "account_id": str(account_id), "purpose": "payments",
+        "orders_selection_id": page["selection"]["id"],
+        "selection_id": page["payment_selection"]["id"],
+        "filters": filters or {}, "action": action,
+    }
+    if action == "set":
+        payload.update(line_id=line_id or page["items"][0]["id"], selected=selected)
+    return client.post(path(seller, "/selection"), json=payload)
+
+
 def test_all_orders_routes_require_auth_without_dispatch(configured):
     client = TestClient(configured.app)
     seller, account_id = uuid4(), uuid4()
@@ -148,7 +169,11 @@ def test_queue_then_worker_persists_decimal_fields_and_never_public_raw(configur
     assert data["latest_job"]["progress"] == 100 and data["latest_job"]["processed"] == 1
     item = data["items"][0]
     assert item["sale_amount"] == item["sale_amount_eur"] == "20.00"
-    assert item["details"] == {"tracking": "tracking-test", "tracking_source": "api"}
+    assert item["details"]["tracking"] == "tracking-test"
+    assert item["details"]["tracking_source"] == "api"
+    assert item["details"]["payment_status"] == (
+        "Tracking presente · consegna non ancora rilevata"
+    )
     assert "private-raw" not in response.text and "must-not-escape" not in response.text
     assert "secret-test" not in response.text and "client-test" not in response.text
     detail = client.get(path(seller, f"/{item['id']}"), params={"account_id": str(account_id)})
@@ -204,6 +229,42 @@ def test_limits_and_environment_are_original_options_and_isolate_cache(configure
 def test_worten_live_only_and_unverified_accounts_cannot_dispatch(configured):
     client, seller, organization, _, _ = owner(configured)
     account_id = account(configured, seller, organization, "worten")
+    page = read(client, seller, account_id).json()
+    assert "payment_selection" not in page
+    with configured.engine.connect() as connection:
+        before = connection.execute(select(
+            order_selections.c.id,
+            order_selections.c.default_selected,
+            order_selections.c.updated_at,
+        )).all()
+        before_members = connection.scalar(
+            select(func.count()).select_from(order_selection_members)
+        )
+    assert read(client, seller, account_id, payment="waiting").status_code == 422
+    assert client.post(path(seller, "/selection"), json={
+        "account_id": str(account_id), "selection_id": page["selection"]["id"],
+        "filters": {"payment": "waiting"}, "action": "clear",
+    }).status_code == 422
+    assert client.post(path(seller, "/export"), json={
+        "account_id": str(account_id), "selection_id": page["selection"]["id"],
+        "filters": {"payment": "waiting"}, "kind": "selected",
+    }).status_code == 422
+    with configured.engine.connect() as connection:
+        after = connection.execute(select(
+            order_selections.c.id,
+            order_selections.c.default_selected,
+            order_selections.c.updated_at,
+        )).all()
+        after_members = connection.scalar(
+            select(func.count()).select_from(order_selection_members)
+        )
+    assert after == before
+    assert after_members == before_members
+    assert client.post(path(seller, "/selection"), json={
+        "account_id": str(account_id), "selection_id": page["selection"]["id"],
+        "orders_selection_id": page["selection"]["id"], "purpose": "payments",
+        "filters": {}, "action": "clear",
+    }).status_code == 422
     assert start(client, seller, account_id, environment="playground").status_code == 422
     assert start(client, seller, account_id).status_code == 202
     other_seller = configured.seller(organization)
@@ -459,6 +520,8 @@ def test_real_connector_normalizer_and_worker_integrate_without_network(configur
         if request.url.host == "www.ecb.europa.eu":
             return httpx.Response(503)
         assert request.headers["shop-client-key"] == "client-test"
+        if request.url.path == "/v2/tickets":
+            return httpx.Response(200, json={"data": []})
         assert request.url.path == "/v2/order-units"
         status = request.url.params["status"]
         seen_statuses.append(status)
@@ -482,3 +545,221 @@ def test_real_connector_normalizer_and_worker_integrate_without_network(configur
     assert len(seen_statuses) == 8 and result["total"] == 1
     assert result["items"][0]["product_name"] == "Prodotto reale normalizzato"
     assert result["items"][0]["external_line_id"] == "1"
+
+
+def test_ticket_snapshot_drives_payment_filter_details_and_selection_summary(configured):
+    client, seller, organization, _, _ = owner(configured)
+    account_id = account(configured, seller, organization)
+    now = datetime.now(UTC)
+    received = (now - timedelta(days=20)).isoformat()
+    opened = (now - timedelta(days=2)).isoformat()
+    configured.fetcher.items = [row(
+        status="received", payout_amount="18.00", payout_amount_eur="18.00",
+        details={"tracking": "TRACK-1", "received_at": received, "received_source": "API"},
+    )]
+    configured.fetcher.summary = {"tickets_snapshot": [{
+        "id_ticket": "T-OPEN", "ids_order_units": ["line-1"],
+        "ts_created_iso": opened, "ts_updated_iso": opened, "status": "opened",
+    }]}
+    run(configured, start(client, seller, account_id))
+
+    result = read(client, seller, account_id, payment="ticket_open").json()
+    assert result["total"] == 1
+    details = result["items"][0]["details"]
+    assert details["ticket_open"] is True
+    assert details["ticket_count"] == details["open_ticket_count"] == 1
+    assert details["ticket_ids"] == ["T-OPEN"]
+    assert details["payment_date_final"] is False
+    assert details["payment_available"] is False
+    assert details["payment_status"] == "Ticket aperto · data in aggiornamento"
+    assert result["payment_selection"]["purpose"] == "payments"
+    assert result["payment_selection"]["selected_count"] == 0
+    changed = change_payment(
+        client, seller, account_id, result, filters={"payment": "ticket_open"},
+    )
+    assert changed.status_code == 200
+    summary = changed.json()["selection"]["summary"]
+    assert summary["payment_payable_rows"] == 1
+    assert summary["payment_scheduled_rows"] == 0
+    assert summary["payment_unscheduled_rows"] == 1
+    assert summary["payment_unscheduled_ids"] == [result["items"][0]["id"]]
+    assert summary["payment_available_rows"] == 0
+    assert summary["payment_waiting_rows"] == 1
+    assert summary["payment_all_dates_known"] is False
+    assert summary["payment_all_available"] is False
+    assert summary["waiting_payout_eur"] == "18.00"
+
+
+def test_payment_ticket_snapshots_are_isolated_by_tenant_and_account(configured):
+    first, first_seller, first_organization, _, _ = owner(configured)
+    first_account = account(configured, first_seller, first_organization)
+    received = (datetime.now(UTC) - timedelta(days=20)).isoformat()
+    configured.fetcher.items = [row(
+        "shared-unit", status="received",
+        details={"tracking": "TRACK-1", "received_at": received},
+    )]
+    configured.fetcher.summary = {"tickets_snapshot": [{
+        "id_ticket": "SHARED-TICKET", "ids_order_units": ["shared-unit"],
+        "ts_created_iso": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
+        "ts_updated_iso": datetime.now(UTC).isoformat(), "status": "opened",
+    }]}
+    run(configured, start(first, first_seller, first_account))
+
+    second, second_seller, second_organization, _, _ = owner(configured)
+    second_account = account(configured, second_seller, second_organization)
+    configured.fetcher.items = [row(
+        "shared-unit", status="received",
+        details={"tracking": "TRACK-2", "received_at": received},
+    )]
+    configured.fetcher.summary = {"tickets_snapshot": [{
+        "id_ticket": "SHARED-TICKET", "ids_order_units": ["other-unit"],
+        "ts_created_iso": (datetime.now(UTC) - timedelta(days=5)).isoformat(),
+        "ts_updated_iso": (datetime.now(UTC) - timedelta(days=4)).isoformat(),
+        "status": "both_closed",
+    }]}
+    run(configured, start(second, second_seller, second_account))
+
+    first_details = read(first, first_seller, first_account).json()["items"][0]["details"]
+    second_details = read(second, second_seller, second_account).json()["items"][0]["details"]
+    assert first_details["ticket_open"] is True
+    assert first_details["ticket_ids"] == ["SHARED-TICKET"]
+    assert second_details["ticket_open"] is False
+    assert second_details["ticket_ids"] == []
+    with configured.engine.connect() as connection:
+        snapshots = connection.execute(select(
+            payment_tickets.c.organization_id, payment_tickets.c.seller_id,
+            payment_tickets.c.account_id, payment_tickets.c.external_ticket_id,
+        )).all()
+    assert len(snapshots) == 2
+    assert {row.organization_id for row in snapshots} == {
+        first_organization, second_organization,
+    }
+    assert {row.seller_id for row in snapshots} == {first_seller, second_seller}
+    assert {row.account_id for row in snapshots} == {first_account, second_account}
+    assert {row.external_ticket_id for row in snapshots} == {"SHARED-TICKET"}
+
+
+def test_payment_filters_match_due_date_and_ticket_flags_exactly(configured):
+    client, seller, organization, _, _ = owner(configured)
+    account_id = account(configured, seller, organization)
+    now = datetime.now(UTC).replace(microsecond=0)
+    configured.fetcher.items = [
+        row("autopaid", order_id="AUTO", status="sent_and_autopaid", details={}),
+        row("not-shipped", order_id="OPEN", status="open", details={}),
+        row(
+            "future", order_id="FUTURE", status="received",
+            details={"tracking": "TRACK", "received_at": now.isoformat()},
+        ),
+        row("cancelled-ticket", order_id="CANCEL", status="cancelled", details={}),
+    ]
+    configured.fetcher.summary = {"tickets_snapshot": [{
+        "id_ticket": "CANCELLED-OPEN", "ids_order_units": ["cancelled-ticket"],
+        "ts_created_iso": (now - timedelta(days=1)).isoformat(),
+        "ts_updated_iso": now.isoformat(), "status": "opened",
+    }]}
+    run(configured, start(client, seller, account_id))
+
+    def identifiers(payment):
+        return {
+            item["external_line_id"]
+            for item in read(client, seller, account_id, payment=payment).json()["items"]
+        }
+
+    assert identifiers("available") == {"autopaid"}
+    assert identifiers("waiting") == {"future"}
+    assert identifiers("unknown") == {"autopaid", "not-shipped", "cancelled-ticket"}
+    assert identifiers("ticket_open") == {"cancelled-ticket"}
+
+
+def test_ticket_snapshot_database_failure_keeps_saved_orders_and_finishes_with_warning(
+    configured, monkeypatch,
+):
+    client, seller, organization, _, _ = owner(configured)
+    account_id = account(configured, seller, organization)
+    configured.fetcher.summary = {"tickets_snapshot": [{
+        "id_ticket": "T-1", "ids_order_units": ["line-1"], "status": "opened",
+    }]}
+
+    def fail_ticket_persistence(*_args, **_kwargs):
+        raise SQLAlchemyError("ticket table unavailable")
+
+    monkeypatch.setattr(
+        configured.order_repository,
+        "upsert_payment_ticket_snapshot",
+        fail_ticket_persistence,
+    )
+    job_id = run(configured, start(client, seller, account_id))
+    job = configured.order_repository.job(job_id)
+    assert job["status"] == "done" and job["error_code"] is None
+    assert "Ticket non aggiornati" in job["message"]
+    assert read(client, seller, account_id).json()["total"] == 1
+
+
+def test_read_repairs_stale_payment_availability_from_current_utc_date(configured):
+    client, seller, organization, _, _ = owner(configured)
+    account_id = account(configured, seller, organization)
+    received = (datetime.now(UTC) - timedelta(days=20)).isoformat()
+    configured.fetcher.items = [row(
+        status="received", details={"tracking": "TRACK-1", "received_at": received},
+    )]
+    configured.fetcher.summary = {}
+    run(configured, start(client, seller, account_id))
+    with configured.engine.begin() as connection:
+        saved = connection.execute(select(order_lines)).mappings().one()
+        public = json.loads(saved["canonical_json"])
+        public["details"]["payment_available"] = False
+        connection.execute(order_lines.update().where(order_lines.c.id == saved["id"]).values(
+            canonical_json=json.dumps(public), payment_available=False,
+        ))
+
+    result = read(client, seller, account_id, payment="available").json()
+    assert result["total"] == 1
+    assert result["items"][0]["details"]["payment_days_remaining"] < 0
+    assert result["items"][0]["details"]["payment_available"] is True
+    with configured.engine.connect() as connection:
+        saved = connection.execute(select(order_lines)).mappings().one()
+        assert saved["payment_available"] is False
+        assert json.loads(saved["canonical_json"])["details"]["payment_available"] is False
+
+
+def test_autopaid_without_release_is_available_but_has_unknown_final_date(configured):
+    client, seller, organization, _, _ = owner(configured)
+    account_id = account(configured, seller, organization)
+    configured.fetcher.items = [row(
+        status="sent_and_autopaid", payout_amount="18.00", payout_amount_eur="18.00",
+        details={"tracking": ""},
+    )]
+    run(configured, start(client, seller, account_id))
+    result = read(client, seller, account_id, payment="available").json()
+    assert result["total"] == 1
+    assert result["items"][0]["details"]["payment_available"] is True
+    changed = change_payment(
+        client, seller, account_id, result, filters={"payment": "available"},
+    )
+    summary = changed.json()["selection"]["summary"]
+    assert summary["payment_available_rows"] == 1
+    assert summary["payment_unscheduled_rows"] == 1
+    assert summary["payment_all_available"] is True
+    assert summary["payment_all_dates_known"] is False
+
+
+def test_scheduled_payment_filter_and_latest_deadline_use_current_utc_projection(configured):
+    client, seller, organization, _, _ = owner(configured)
+    account_id = account(configured, seller, organization)
+    received = datetime.now(UTC).replace(microsecond=0)
+    configured.fetcher.items = [row(
+        status="received", payout_amount="18.00", payout_amount_eur="18.00",
+        details={"tracking": "TRACK-1", "received_at": received.isoformat()},
+    )]
+    run(configured, start(client, seller, account_id))
+    result = read(client, seller, account_id, payment="waiting").json()
+    assert result["total"] == 1
+    changed = change_payment(
+        client, seller, account_id, result, filters={"payment": "waiting"},
+    )
+    summary = changed.json()["selection"]["summary"]
+    expected = (received + timedelta(days=14)).isoformat()
+    assert summary["payment_scheduled_rows"] == 1
+    assert summary["payment_unscheduled_rows"] == 0
+    assert summary["payment_all_dates_known"] is True
+    assert summary["latest_payment_due_at"] == expected

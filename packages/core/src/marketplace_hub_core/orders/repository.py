@@ -1,10 +1,10 @@
 import json
 from collections import defaultdict
 from contextlib import nullcontext
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import Engine, bindparam, func, or_, select, tuple_
+from sqlalchemy import Engine, and_, bindparam, func, inspect, not_, or_, select, tuple_
 from sqlalchemy.exc import OperationalError
 
 from marketplace_hub_core.marketplace_connections.repository import (
@@ -12,10 +12,16 @@ from marketplace_hub_core.marketplace_connections.repository import (
     settings_object,
 )
 from marketplace_hub_core.orders.filters import OrderFilters
+from marketplace_hub_core.orders.payments import (
+    apply_payment_details,
+    repair_payment_event_details,
+    ticket_holds,
+)
 from marketplace_hub_core.orders.projections import project_order
 from marketplace_hub_core.orders.schema import order_lines as lines
 from marketplace_hub_core.orders.schema import order_sync_jobs as jobs
 from marketplace_hub_core.orders.schema import order_tracking_events as tracking_events
+from marketplace_hub_core.orders.schema import payment_tickets
 from marketplace_hub_core.orders.tracking import MAX_TRACKING_TARGET_UNITS, TrackingLimitError
 from marketplace_hub_core.seller_settings.schema import seller_marketplace_accounts as accounts
 
@@ -134,39 +140,173 @@ class SqlOrdersRepository:
                 "Verifica il marketplace prima di sincronizzare."
             )
 
-    def refresh_projections(self, connection, scope):
-        # A previous worker version can still commit during a rolling deploy.
-        # Only stale projections are rebuilt; canonical/raw records stay untouched.
+    def payment_context(self, connection, scope, *, current_time=None):
+        """Load one tenant's small ticket snapshot for pure row enrichment."""
+        stored = []
+        for row in connection.execute(select(payment_tickets).where(
+            *self._scope(payment_tickets, *scope),
+        )).mappings():
+            try:
+                unit_ids = json.loads(row["order_unit_ids_json"] or "[]")
+            except (TypeError, ValueError):
+                unit_ids = []
+            stored.append({
+                "external_ticket_id": row["external_ticket_id"],
+                "order_unit_ids": unit_ids if isinstance(unit_ids, list) else [],
+                "created_at": row["marketplace_created_at"],
+                "updated_at": row["marketplace_updated_at"],
+                "status": row["status"],
+            })
+        now = current_time or datetime.now(UTC)
+        now = now.replace(tzinfo=UTC) if now.tzinfo is None else now.astimezone(UTC)
+        return now, ticket_holds(stored, current_time=now)
+
+    @staticmethod
+    def _payment_public(row, context):
+        current = json.loads(row["canonical_json"])
+        try:
+            raw = json.loads(row.get("raw_json") or "{}")
+        except (TypeError, ValueError):
+            raw = {}
+        current = repair_payment_event_details(current, raw)
+        now, holds = context
+        return apply_payment_details(
+            current, holds.get(str(row["external_line_id"])), current_time=now,
+        )
+
+    def enrich_payment_rows(
+        self, connection, scope, rows, *, context=None, current_time=None,
+    ):
+        """Enrich only rows already selected for a response; never write on GET."""
+        output = [dict(row) for row in rows]
+        if not output or not any(row.get("marketplace") == "kaufland" for row in output):
+            return output
+        context = context or self.payment_context(
+            connection, scope, current_time=current_time,
+        )
+        for row in output:
+            if row.get("marketplace") != "kaufland":
+                continue
+            public = self._payment_public(row, context)
+            row["canonical_json"] = json.dumps(public, ensure_ascii=False, allow_nan=False)
+        return output
+
+    def materialize_payment_details(self, connection, scope, *, context=None):
+        """Materialize base projections during sync/migration, outside request reads."""
+        context = context or self.payment_context(connection, scope)
         last_id = None
         while True:
-            conditions = [*self._scope(lines, *scope), or_(
-                lines.c.projection_updated_at.is_(None),
-                lines.c.projection_updated_at != lines.c.updated_at,
-            )]
+            predicates = [*self._scope(lines, *scope), lines.c.marketplace == "kaufland"]
             if last_id is not None:
-                conditions.append(lines.c.id > last_id)
-            rows = connection.execute(select(lines.c.id, lines.c.canonical_json,
-                                             lines.c.updated_at).where(*conditions)
-                                      .order_by(lines.c.id).limit(100)).mappings().all()
+                predicates.append(lines.c.id > last_id)
+            rows = connection.execute(select(
+                lines.c.id, lines.c.external_line_id, lines.c.marketplace,
+                lines.c.canonical_json, lines.c.raw_json, lines.c.updated_at,
+            ).where(*predicates).order_by(lines.c.id).limit(100)).mappings().all()
             if not rows:
                 return
             for row in rows:
-                connection.execute(lines.update().where(
-                    lines.c.id == row["id"], lines.c.updated_at == row["updated_at"],
-                ).values(**project_order(json.loads(row["canonical_json"])),
-                         projection_updated_at=row["updated_at"]))
+                public = self._payment_public(row, context)
+                connection.execute(lines.update().where(lines.c.id == row["id"]).values(
+                    **project_order(public),
+                    canonical_json=json.dumps(public, ensure_ascii=False, allow_nan=False),
+                    payment_projection_updated_at=row["updated_at"],
+                ))
             last_id = rows[-1]["id"]
+
+    @staticmethod
+    def payment_available_expression(*, current_time=None):
+        """Availability follows the original UTC calendar-day comparison."""
+        now = current_time or datetime.now(UTC)
+        now = now.replace(tzinfo=UTC) if now.tzinfo is None else now.astimezone(UTC)
+        tomorrow = datetime.combine(now.date() + timedelta(days=1), time.min, UTC)
+        return or_(
+            lines.c.payment_available.is_(True),
+            and_(
+                lines.c.payment_date_final.is_(True),
+                lines.c.payment_ticket_open.is_(False),
+                lines.c.payment_due_at.is_not(None),
+                lines.c.payment_due_at < tomorrow,
+            ),
+        )
+
+    def upsert_payment_ticket_snapshot(self, job, tickets):
+        """Atomically replace one complete Kaufland ticket snapshot in its tenant scope."""
+        if job["marketplace"] != "kaufland" or not isinstance(tickets, list):
+            return 0
+        normalized = {}
+        for ticket in tickets:
+            if not isinstance(ticket, dict):
+                continue
+            ticket_id = str(ticket.get("id_ticket") or "").strip()
+            if not ticket_id:
+                continue
+            unit_ids = ticket.get("ids_order_units") or []
+            if not isinstance(unit_ids, list | tuple):
+                unit_ids = [unit_ids]
+            unit_ids = list(dict.fromkeys(
+                str(value).strip() for value in unit_ids if str(value).strip()
+            ))
+            normalized[ticket_id] = {
+                "external_ticket_id": ticket_id,
+                "order_unit_ids_json": json.dumps(unit_ids, ensure_ascii=False),
+                "marketplace_created_at": timestamp(ticket.get("ts_created_iso")),
+                "marketplace_updated_at": timestamp(ticket.get("ts_updated_iso")),
+                "status": str(ticket.get("status") or "").strip().lower()[:64],
+            }
+        if self.engine.dialect.name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert
+        else:
+            from sqlalchemy.dialects.sqlite import insert
+        scope_values = {
+            "organization_id": job["organization_id"], "seller_id": job["seller_id"],
+            "account_id": job["account_id"], "environment": job["environment"],
+        }
+        now = datetime.now(UTC)
+        with self.engine.begin() as connection:
+            self._lock_tracking_import(
+                connection, job["organization_id"], job["seller_id"], job["account_id"],
+                fail_fast=False,
+            )
+            for values in normalized.values():
+                statement = insert(payment_tickets).values(
+                    id=uuid4(), **scope_values, **values, synced_at=now,
+                )
+                connection.execute(statement.on_conflict_do_update(
+                    index_elements=[
+                        "seller_id", "account_id", "environment", "external_ticket_id",
+                    ],
+                    set_={
+                        key: getattr(statement.excluded, key) for key in (
+                            "organization_id", "order_unit_ids_json", "marketplace_created_at",
+                            "marketplace_updated_at", "status", "synced_at",
+                        )
+                    },
+                ))
+            stale = [*self._scope(payment_tickets, *scope_values.values())]
+            if normalized:
+                stale.append(not_(payment_tickets.c.external_ticket_id.in_(tuple(normalized))))
+            connection.execute(payment_tickets.delete().where(*stale))
+            self.materialize_payment_details(
+                connection,
+                tuple(scope_values.values()),
+                context=self.payment_context(
+                    connection, tuple(scope_values.values()), current_time=now,
+                ),
+            )
+        return len(normalized)
 
     def list(self, organization_id, seller_id, account_id, environment, *, page, page_size,
              search="", status="", storefront="", date_from=None, date_to=None, criteria=None,
-             connection=None):
+             connection=None, current_time=None):
+        current_time = current_time or datetime.now(UTC)
         scope = self._scope(lines, organization_id, seller_id, account_id, environment)
         if criteria is None:
             criteria = OrderFilters(search=search,
                                     statuses=([status] if isinstance(status, str) else status)
                                     or None, storefronts=([storefront]
                                     if isinstance(storefront, str) else storefront) or None)
-        filters = [*scope, *self.filters(criteria)]
+        filters = [*scope, *self.filters(criteria, current_time=current_time)]
         if date_from:
             filters.append(lines.c.order_created_at >= date_from)
         if date_to:
@@ -190,7 +330,11 @@ class SqlOrdersRepository:
                 func.min(lines.c.order_created_at), func.max(lines.c.order_created_at),
                 func.min(lines.c.sale_eur), func.max(lines.c.sale_eur),
             ).where(*scope)).one()
-            return [dict(row) for row in rows], total, {
+            rows = self.enrich_payment_rows(
+                connection, (organization_id, seller_id, account_id, environment), rows,
+                current_time=current_time,
+            )
+            return rows, total, {
                 "statuses": [s for s in statuses if s],
                 "storefronts": [s for s in storefronts if s],
                 "currencies": list(currencies), "carriers": [s for s in carriers if s],
@@ -200,8 +344,8 @@ class SqlOrdersRepository:
                 "amount_max": f"{max(0, bounds[3]):.2f}" if bounds[3] is not None else None,
             }
 
-    @staticmethod
-    def filters(criteria):
+    @classmethod
+    def filters(cls, criteria, *, current_time=None):
         result = []
         if criteria.search:
             result.append(lines.c.search_text.contains(criteria.search, autoescape=True))
@@ -215,6 +359,16 @@ class SqlOrdersRepository:
                              ("has_commission", criteria.commission)):
             if value != "all":
                 result.append(lines.c[field].is_(value == "present"))
+        payment_available = cls.payment_available_expression(current_time=current_time)
+        if criteria.payment == "available":
+            result.append(payment_available)
+        elif criteria.payment == "waiting":
+            result.append(~payment_available)
+            result.append(lines.c.payment_due_at.is_not(None))
+        elif criteria.payment == "unknown":
+            result.append(lines.c.payment_due_at.is_(None))
+        elif criteria.payment == "ticket_open":
+            result.append(lines.c.payment_ticket_open.is_(True))
         start, end = criteria.dates()
         if start:
             result.append(lines.c.order_created_at >= start)
@@ -227,14 +381,18 @@ class SqlOrdersRepository:
         return result
 
     def item(self, organization_id, seller_id, account_id, environment, line_id):
+        scope = (organization_id, seller_id, account_id, environment)
+        current_time = datetime.now(UTC)
         with self.engine.connect() as connection:
             row = connection.execute(select(lines).where(
-                *self._scope(lines, organization_id, seller_id, account_id, environment),
+                *self._scope(lines, *scope),
                 lines.c.id == line_id,
             )).mappings().first()
             if row is None:
                 raise OrdersNotFoundError("Riga ordine non disponibile.")
-            return dict(row)
+            return self.enrich_payment_rows(
+                connection, scope, [row], current_time=current_time,
+            )[0]
 
     def update_tracking(
         self, organization_id, seller_id, account_id, environment, *, carrier, tracking,
@@ -265,6 +423,10 @@ class SqlOrdersRepository:
                     "L'ID unità ordine corrisponde a più righe. Nessun dato è stato modificato."
                 )
             now = datetime.now(UTC)
+            scope = (organization_id, seller_id, account_id, environment)
+            payment_context = (
+                self.payment_context(active, scope, current_time=now) if found else None
+            )
             for row in found:
                 public = json.loads(row["canonical_json"])
                 details = dict(public.get("details") or {})
@@ -290,6 +452,17 @@ class SqlOrdersRepository:
                 if not changed:
                     continue
                 public["details"] = details
+                try:
+                    raw = json.loads(row.get("raw_json") or "{}")
+                except (TypeError, ValueError):
+                    raw = {}
+                public = repair_payment_event_details(public, raw)
+                public = apply_payment_details(
+                    public,
+                    payment_context[1].get(str(row["external_line_id"])),
+                    current_time=payment_context[0],
+                )
+                details = public["details"]
                 search_text = " ".join(str(public.get(key) or "") for key in (
                     "order_id", "external_line_id", "product_name", "ean", "sku",
                 )).casefold() + " " + " ".join(str(details.get(key) or "") for key in (
@@ -299,6 +472,7 @@ class SqlOrdersRepository:
                     **project_order(public), canonical_json=json.dumps(
                         public, ensure_ascii=False, allow_nan=False,
                     ), search_text=search_text, updated_at=now, projection_updated_at=now,
+                    payment_projection_updated_at=now,
                 ))
                 active.execute(tracking_events.insert().values(
                     id=uuid4(), organization_id=organization_id, seller_id=seller_id,
@@ -339,7 +513,7 @@ class SqlOrdersRepository:
             )
             found = self._execute_tracking_locked(connection, select(
                 lines.c.id, lines.c.external_line_id, lines.c.order_id,
-                lines.c.canonical_json,
+                lines.c.canonical_json, lines.c.raw_json,
             ).where(
                 *self._scope(lines, organization_id, seller_id, account_id, environment),
                 or_(*lookup),
@@ -355,12 +529,16 @@ class SqlOrdersRepository:
             by_order = defaultdict(list)
             original = {}
             staged = {}
+            raw_by_id = {}
+            external_line_ids = {}
             for row in found:
                 values = dict(row)
                 by_unit[str(row["external_line_id"])].append(values)
                 by_order[str(row["order_id"])].append(values)
                 public = json.loads(row["canonical_json"])
                 original[row["id"]] = public
+                raw_by_id[row["id"]] = row["raw_json"]
+                external_line_ids[row["id"]] = str(row["external_line_id"])
                 staged[row["id"]] = {
                     **public,
                     "details": dict(public.get("details") or {}),
@@ -402,6 +580,11 @@ class SqlOrdersRepository:
                 )
 
             now = datetime.now(UTC)
+            scope = (organization_id, seller_id, account_id, environment)
+            payment_context = (
+                self.payment_context(connection, scope, current_time=now)
+                if matched_ids else None
+            )
             updates = []
             events = []
             projection_keys = None
@@ -423,6 +606,17 @@ class SqlOrdersRepository:
                 if not changed:
                     continue
                 public["details"] = details
+                try:
+                    raw = json.loads(raw_by_id[line_id] or "{}")
+                except (TypeError, ValueError):
+                    raw = {}
+                public = repair_payment_event_details(public, raw)
+                public = apply_payment_details(
+                    public,
+                    payment_context[1].get(external_line_ids[line_id]),
+                    current_time=payment_context[0],
+                )
+                details = public["details"]
                 projected = project_order(public)
                 projection_keys = projection_keys or tuple(projected)
                 updates.append({
@@ -460,6 +654,7 @@ class SqlOrdersRepository:
                     "search_text": bindparam("_tracking_search_text"),
                     "updated_at": bindparam("_tracking_updated_at"),
                     "projection_updated_at": bindparam("_tracking_updated_at"),
+                    "payment_projection_updated_at": bindparam("_tracking_updated_at"),
                 })
                 statement = lines.update().where(
                     lines.c.id == bindparam("_tracking_line_id")
@@ -536,6 +731,27 @@ class SqlOrdersRepository:
             from sqlalchemy.dialects.sqlite import insert
         now = datetime.now(UTC)
         with self.engine.begin() as connection:
+            # During a rolling migration a new worker can briefly meet the
+            # pre-0009 table. Keep writing the columns present in that schema;
+            # the next compatible sync or migration materializes payment fields.
+            inspector = inspect(connection)
+            available_columns = {
+                column["name"] for column in inspector.get_columns(lines.name)
+            }
+            scope = (
+                job["organization_id"], job["seller_id"],
+                job["account_id"], job["environment"],
+            )
+            payment_context = None
+            if (
+                job["marketplace"] == "kaufland"
+                and "payment_due_at" in available_columns
+            ):
+                payment_context = (
+                    self.payment_context(connection, scope, current_time=now)
+                    if inspector.has_table(payment_tickets.name)
+                    else (now, {})
+                )
             if job["marketplace"] == "kaufland":
                 self._lock_tracking_import(
                     connection, job["organization_id"], job["seller_id"], job["account_id"],
@@ -598,9 +814,30 @@ class SqlOrdersRepository:
                     elif key in {"tracking", "carrier"} and details.get(key):
                         details[f"{key}_source"] = details.get(f"{key}_source") or "api"
                 public["details"] = details
+                if payment_context is not None:
+                    raw = item.get("raw") if isinstance(item.get("raw"), dict) else {}
+                    public = repair_payment_event_details(public, raw)
+                    public = apply_payment_details(
+                        public,
+                        payment_context[1].get(str(item["external_line_id"])),
+                        current_time=payment_context[0],
+                    )
+                    details = public["details"]
                 previous[identity] = public
+                projections = {
+                    key: value for key, value in project_order(public).items()
+                    if key in available_columns
+                }
+                if "payment_event_backup_json" in available_columns:
+                    # This provider refresh supersedes migration rollback state.
+                    # A later downgrade must retain the newly imported events.
+                    projections["payment_event_backup_json"] = None
+                if "payment_projection_updated_at" in available_columns:
+                    projections["payment_projection_updated_at"] = (
+                        now if payment_context is not None else None
+                    )
                 record = {
-                    **project_order(public),
+                    **projections,
                     "id": uuid4(), "organization_id": job["organization_id"],
                     "seller_id": job["seller_id"], "account_id": job["account_id"],
                     "environment": job["environment"], "marketplace": job["marketplace"],

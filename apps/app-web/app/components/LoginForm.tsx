@@ -72,6 +72,12 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
     event.preventDefault();
     if (busy.current) return;
     busy.current = true;
+    // Capture the submitted controls before the asynchronous readiness wait.
+    // A long cold start must not invalidate the values from this explicit submit.
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const submittedLogin = form.get("login");
+    const submittedPassword = form.get("password");
     const abort = new AbortController();
     controller.current = abort;
     prewarmController.current?.abort();
@@ -80,7 +86,6 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
     recoveryController.current = null;
     readinessExpired.current = false;
     const current = () => active.current && controller.current === abort;
-    const formElement = event.currentTarget;
     setPending(true);
     setError("");
     setProgress("Preparazione dell’accesso…");
@@ -97,12 +102,11 @@ export function LoginForm({ realm, title, description }: { realm: Realm; title: 
         return;
       }
       setProgress("Accesso in corso…");
-      const form = new FormData(formElement);
       timeout = setTimeout(() => abort.abort(), 35000);
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ login: form.get("login"), password: form.get("password"), realm }),
+        body: JSON.stringify({ login: submittedLogin, password: submittedPassword, realm }),
         cache: "no-store", redirect: "error", signal: abort.signal,
       });
       if (!current()) return;

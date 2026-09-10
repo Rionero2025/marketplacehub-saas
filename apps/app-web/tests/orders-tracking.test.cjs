@@ -20,7 +20,7 @@ const item = () => ({ id: lineId, marketplace: "kaufland", external_line_id: "UN
   storefront: "de", created_at: "2026-09-07T08:30:00Z", product_name: "Prodotto", ean: "1234567890123", sku: "AB_123", quantity: 1, currency: "EUR",
   sale_amount: "60", shipping_amount: "0", commission_amount: "5", commission_rate: "8.33", payout_amount: "55", purchase_cost: "40", profit_amount: "15", profit_pct: "37.5",
   sale_amount_eur: "60", shipping_amount_eur: "0", commission_amount_eur: "5", payout_amount_eur: "55", purchase_cost_eur: "40", profit_amount_eur: "15",
-  purchase_cost_source: "SKU", monetary_warnings: [], details: { carrier: "DPD", tracking: "TRACK-1" } });
+  purchase_cost_source: "SKU", monetary_warnings: [], details: { carrier: "DPD", tracking: "TRACK-1", payment_due_at: "", payment_days_remaining: null, payment_available: false, payment_date_final: false, payment_status: "Tracking presente · consegna non ancora rilevata", payment_rule: "Con tracking: consegna + 14 giorni", payment_source: "Con tracking: consegna + 14 giorni", ticket_delay_days: 0, ticket_open: false, ticket_count: 0, open_ticket_count: 0, ticket_ids: [] } });
 
 function load(file, context = {}) {
   const source = fs.readFileSync(path.join(__dirname, file), "utf8");
@@ -357,7 +357,7 @@ test("tracking UI preloads the visible order, saves a manual correction and make
     if (url.includes("/capabilities?")) return Response.json({ capabilities });
     if (url.endsWith("/manual")) {
       const body = JSON.parse(options.body); assert.equal(body.line_id, lineId); assert.equal(body.carrier, "GLS"); assert.equal(body.tracking, "NEW-TRACK");
-      return Response.json({ updated: 1, item: { ...item(), details: { carrier: "GLS", tracking: "NEW-TRACK" } } });
+      return Response.json({ updated: 1, item: { ...item(), details: { ...item().details, carrier: "GLS", tracking: "NEW-TRACK" } } });
     }
     throw new Error(url);
   });

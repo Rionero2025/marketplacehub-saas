@@ -99,6 +99,7 @@ def test_original_composite_sku_fixtures(sku, ean, payout, cost, profit, percent
     assert row["details"]["sku_product_code"] == sku.rsplit("_", 3)[1]
     assert row["details"]["sku_supplier"] == sku.rsplit("_", 3)[0]
     assert row["details"]["sku_ean_matches_order"] == (sku.rsplit("_", 3)[1] == ean)
+    assert row["details"]["purchase_cost_method"] == "SKU composto"
 
 
 @pytest.mark.parametrize(
@@ -117,6 +118,7 @@ def test_unrecognized_or_invalid_sku_does_not_invent_cost(sku):
     row = normalize_order_line("kaufland", kaufland(id_offer=sku))
     assert row["purchase_cost"] is None
     assert row["profit_amount"] is None
+    assert row["details"]["purchase_cost_method"] == "Costo non calcolabile"
     assert "listini non disponibile" in row["monetary_warnings"][0]
 
 
@@ -234,6 +236,9 @@ def test_status_dates_do_not_treat_updated_as_delivery():
     )
     assert paid["details"]["received_at"] is None
     assert paid["details"]["released_at"] == "2026-09-07T10:00:00+00:00"
+    assert paid["details"]["released_source"] == (
+        "API Kaufland: stato sent_and_autopaid (ts_updated_iso)"
+    )
 
 
 def test_actual_release_and_received_timestamps_have_priority():
@@ -248,6 +253,12 @@ def test_actual_release_and_received_timestamps_have_priority():
     )
     assert row["details"]["received_at"] == "2026-08-23T10:00:00+00:00"
     assert row["details"]["released_at"] == "2026-09-06T10:00:00+00:00"
+    assert row["details"]["received_source"] == (
+        "API Kaufland: order_received_timestamp_iso"
+    )
+    assert row["details"]["released_source"] == (
+        "API Kaufland: revenue_released_timestamp_iso"
+    )
 
 
 def test_kaufland_cancelled_keeps_api_amounts_but_excludes_them_from_totals():
@@ -282,6 +293,7 @@ def test_worten_uses_positive_sku_cost_without_requiring_a_numeric_minimum():
     row = normalize_order_line("worten", worten(offer_sku="supplier_code_20.123_invalid"))
     assert row["purchase_cost_eur"] == "40.25"
     assert row["details"]["minimum_price_sku_eur"] is None
+    assert row["details"]["purchase_cost_method"] == "SKU composto"
 
 
 def test_worten_recovers_only_current_line_sku_and_tracking():

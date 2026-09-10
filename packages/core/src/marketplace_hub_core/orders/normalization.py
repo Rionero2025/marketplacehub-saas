@@ -175,6 +175,22 @@ def _payment_release_timestamp(raw: dict, status: str) -> tuple[str, str]:
     return "", ""
 
 
+def kaufland_payment_timestamps(raw: dict, status: str) -> dict[str, str]:
+    """Extract the three API events used by the payout schedule.
+
+    This public, pure boundary is also used when rows written by an older
+    worker are repaired from their archived provider payload.
+    """
+    received_at, received_source = _received_timestamp(raw, status)
+    shipped_at, shipped_source = _shipped_timestamp(raw, status)
+    released_at, released_source = _payment_release_timestamp(raw, status)
+    return {
+        "received_at": received_at, "received_source": received_source,
+        "shipped_at": shipped_at, "shipped_source": shipped_source,
+        "released_at": released_at, "released_source": released_source,
+    }
+
+
 def _first_ean(product: dict) -> str:
     values = product.get("eans") or product.get("ean") or []
     if isinstance(values, dict):
@@ -745,6 +761,11 @@ def _sku_cost(
                     "sku_product_code": parts[1].strip(),
                     "sku_ean_matches_order": parts[1].strip() == ean if ean else None,
                     "minimum_price_sku_eur": _number(parts[3]),
+                    "purchase_cost_method": (
+                        "SKU composto"
+                        if unit_cost is not None
+                        else "Costo non calcolabile"
+                    ),
                 }
             )
     details = {
@@ -754,6 +775,9 @@ def _sku_cost(
         "sku_ean_note": parsed.get("sku_ean_note", ""),
         "purchase_unit_cost_eur": _decimal(unit_cost),
         "minimum_price_sku_eur": _decimal(parsed.get("minimum_price_sku_eur")),
+        "purchase_cost_method": parsed.get(
+            "purchase_cost_method", "Costo non calcolabile"
+        ),
     }
     return (None if unit_cost is None else round(unit_cost * quantity, 2)), details
 
@@ -784,9 +808,7 @@ def _kaufland_values(raw: dict) -> dict:
         payout_source = "Calcolato: revenue_gross + spedizione (API Kaufland)"
     else:
         payout, payout_source = None, ""
-    received_at, received_source = _received_timestamp(raw, status)
-    shipped_at, shipped_source = _shipped_timestamp(raw, status)
-    released_at, released_source = _payment_release_timestamp(raw, status)
+    events = kaufland_payment_timestamps(raw, status)
     carrier, tracking = extract_tracking(raw)
     return {
         "external_line_id": _safe_text(raw.get("id_order_unit"), 200),
@@ -817,12 +839,12 @@ def _kaufland_values(raw: dict) -> dict:
             "tracking": tracking,
             "carrier_source": "api" if carrier else "",
             "tracking_source": "api" if tracking else "",
-            "received_at": received_at or None,
-            "received_source": received_source,
-            "shipped_at": shipped_at or None,
-            "shipped_source": shipped_source,
-            "released_at": released_at or None,
-            "released_source": released_source,
+            "received_at": events["received_at"] or None,
+            "received_source": events["received_source"],
+            "shipped_at": events["shipped_at"] or None,
+            "shipped_source": events["shipped_source"],
+            "released_at": events["released_at"] or None,
+            "released_source": events["released_source"],
             "updated_at": _iso_seconds(raw.get("ts_updated_iso")) or None,
             "excluded_from_totals": status in {"cancelled", "canceled"},
             "financial_source": "API Kaufland: importi in unità minime / 100",
@@ -994,6 +1016,7 @@ def normalize_order_line(
         warnings.append("Costo da SKU; confronto prioritario con i listini non ancora disponibile.")
     if details.get("zero_economic_reason"):
         cost = 0.0
+        details["purchase_cost_method"] = "Non dovuto"
         warnings = []
     snapshot = raw.get("_fx") if isinstance(raw.get("_fx"), dict) else {}
     rates = fx_rates if isinstance(fx_rates, dict) else snapshot.get("rates", {})

@@ -10,7 +10,7 @@
 .field input, .field select, .pagination select { width: 100%; min-height: 36px; border: 1px solid #ccd9e5; border-radius: 4px; color: #263b4c; background: #fff; padding: 8px 10px; }
 .field select[multiple] { min-height: 72px; padding: 4px; }
 .field select[multiple] option { padding: 3px 5px; }
-.field input:focus-visible, .field select:focus-visible, .secondary:focus-visible, .primary:focus-visible, .linkButton:focus-visible, .tableScroll:focus-visible, .previewScroll:focus-visible { outline: 2px solid #008bd0; outline-offset: 2px; }
+.field input:focus-visible, .field select:focus-visible, .secondary:focus-visible, .primary:focus-visible, .linkButton:focus-visible, .tableScroll:focus-visible, .paymentTableScroll:focus-visible, .previewScroll:focus-visible { outline: 2px solid #008bd0; outline-offset: 2px; }
 .primary, .secondary { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border: 1px solid #cfdae5; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .primary { background: #007cb7; color: #fff; border-color: #007cb7; }
 .secondary { background: #fff; color: #48647e; }
@@ -54,6 +54,36 @@
 .totalCards > div { display: flex; flex-direction: column; gap: 8px; border: 1px solid #dde6ef; border-radius: 4px; padding: 13px; }
 .totalCards span { color: #668096; font-size: 11px; }
 .totalCards strong { font-size: 18px; color: #2c495e; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.paymentSummary { display: grid; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #dfe7ef; }
+.paymentSummaryHeading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.paymentSummaryHeading h4 { margin: 0 0 4px; color: #293e51; font-size: 13px; }
+.paymentSummaryHeading p { margin: 0; color: #657b8e; font-size: 11px; }
+.paymentCards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.paymentEconomicCards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.paymentCards > div, .paymentEconomicCards > div { display: flex; min-width: 0; flex-direction: column; gap: 6px; padding: 13px; border: 1px solid #dce6ef; border-radius: 4px; background: #f9fbfd; }
+.paymentCards span, .paymentCards small, .paymentEconomicCards span, .paymentEconomicCards small { color: #668096; font-size: 11px; }
+.paymentCards strong, .paymentEconomicCards strong { color: #2c495e; font-size: 16px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.paymentBadge { display: inline-flex; width: fit-content; align-items: center; padding: 3px 7px; border: 1px solid transparent; border-radius: 999px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.paymentAvailable { border-color: #bfe4d5; background: #edf9f4; color: #1c7155; }
+.paymentWaiting { border-color: #efdcae; background: #fff8e5; color: #84601c; }
+.paymentUnknown { border-color: #d9e1e8; background: #f2f5f7; color: #5b6e7e; }
+.paymentTicket { border-color: #efc8c8; background: #fff1f1; color: #a23c3c; }
+.ticketNotice { margin: 0; padding: 11px 12px; border: 1px solid #efc8c8; border-radius: 4px; background: #fff4f4; color: #963b3b; font-size: 11px; line-height: 1.45; }
+.paymentProgram { display: grid; gap: 14px; margin-top: 22px; padding: 18px; border: 1px solid #cfdfea; border-radius: 5px; background: #f9fbfd; }
+.paymentProgramHeading { display: flex; justify-content: space-between; align-items: start; gap: 18px; }
+.paymentProgramHeading h3 { margin: 2px 0 5px; color: #293e51; font-size: 15px; }
+.paymentProgramHeading p { max-width: 760px; margin: 0; color: #657b8e; font-size: 11px; line-height: 1.5; }
+.paymentProgramHeading .eyebrow { color: #0077b8; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.paymentSelectionCount { flex: 0 0 auto; padding: 5px 9px; border: 1px solid #d5e2ec; border-radius: 999px; background: white; color: #48647e; font-size: 11px; font-weight: 600; }
+.paymentToolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.paymentToolbar > span { color: #0077b8; font-size: 11px; }
+.paymentTableScroll { max-width: 100%; overflow: auto; border: 1px solid #dce6ef; background: white; }
+.paymentTable { min-width: 2300px; }
+.paymentTable .product { min-width: 210px; }
+.paymentTable .costMethod { min-width: 210px; max-width: 270px; overflow-wrap: anywhere; }
+.paymentEmpty { padding: 22px 14px; border: 1px dashed #cedce7; background: white; color: #516a7f; text-align: center; }
+.paymentEmpty strong { font-size: 13px; }
+.paymentEmpty p { margin: 6px 0 0; color: #6b8092; font-size: 11px; }
 .exports { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 16px; align-items: center; }
 .exports p { color: #7b5a20; font-size: 11px; }
 .table .selectionCell { min-width: 65px; text-align: center; }
@@ -67,6 +97,9 @@
 .table .product { min-width: 250px; max-width: 320px; }
 .table .sku { min-width: 200px; max-width: 280px; overflow-wrap: anywhere; }
 .table .shipment { min-width: 190px; max-width: 260px; overflow-wrap: anywhere; }
+.table .paymentCell { min-width: 210px; max-width: 260px; }
+.table .paymentCell .paymentBadge { margin-bottom: 3px; }
+.table .ticketCell { min-width: 175px; max-width: 230px; }
 .table .number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .table .number small { white-space: normal; }
 .linkButton { background: transparent; color: #0077b8; padding: 0; font-size: 12px; min-height: 28px; }
@@ -110,8 +143,8 @@
 .facts dt { color: #698195; font-size: 11px; }
 .facts dd { margin: 5px 0 0; font-size: 12px; overflow-wrap: anywhere; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-@media (max-width: 1180px) { .filters { grid-template-columns: repeat(3, minmax(120px, 1fr)); } .search { grid-column: 1 / -1; } .totalCards { grid-template-columns: repeat(3, minmax(0, 1fr)); } .advancedFields, .mappingGrid { grid-template-columns: repeat(3, minmax(110px, 1fr)); } .manualGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .manualOrder { grid-column: 1 / -1; } }
+@media (max-width: 1180px) { .filters { grid-template-columns: repeat(3, minmax(120px, 1fr)); } .search { grid-column: 1 / -1; } .totalCards { grid-template-columns: repeat(3, minmax(0, 1fr)); } .paymentEconomicCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .advancedFields, .mappingGrid { grid-template-columns: repeat(3, minmax(110px, 1fr)); } .manualGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .manualOrder { grid-column: 1 / -1; } }
 @media (max-width: 700px) { .card { padding: 14px; } .filters { grid-template-columns: repeat(2, minmax(100px, 1fr)); } .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .accountBar, .syncControls { align-items: stretch; flex-direction: column; gap: 12px; } .check { align-self: start; } .context a { margin-left: 0; } .sectionHeading { flex-wrap: wrap; } }
 @media (max-width: 420px) { .filters, .facts { grid-template-columns: 1fr; } }
-@media (max-width: 700px) { .choiceGrid { grid-template-columns: 1fr; } .advancedFields, .totalCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .choiceGrid { grid-template-columns: 1fr; } .advancedFields, .totalCards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .paymentProgram { padding: 14px; } .paymentProgramHeading, .paymentSummaryHeading { flex-direction: column; } .paymentSelectionCount { align-self: start; } .paymentCards, .paymentEconomicCards { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .trackingPanel > summary { align-items: flex-start; flex-direction: column; } .trackingBody { padding: 0 14px 14px; } .mappingGrid, .manualGrid { grid-template-columns: 1fr; } .manualOrder { grid-column: auto; } }

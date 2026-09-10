@@ -33,6 +33,18 @@ COLUMNS = [
     ("Spedito (Italia)", "details.shipped_at", "date"),
     ("Ricevuto (Italia)", "details.received_at", "date"),
     ("Rilascio pagamento API (Italia)", "details.released_at", "date"),
+    ("Data pagamento (Italia)", "details.payment_due_at", "date"),
+    ("Giorni al pagamento", "details.payment_days_remaining", "number"),
+    ("Pagamento disponibile", "details.payment_available", "text"),
+    ("Data pagamento definitiva", "details.payment_date_final", "text"),
+    ("Stato pagamento", "details.payment_status", "text"),
+    ("Regola pagamento", "details.payment_rule", "text"),
+    ("Fonte data pagamento", "details.payment_source", "text"),
+    ("Ritardo ticket (giorni)", "details.ticket_delay_days", "number"),
+    ("Ticket aperto", "details.ticket_open", "text"),
+    ("Numero ticket", "details.ticket_count", "number"),
+    ("Ticket aperti", "details.open_ticket_count", "number"),
+    ("ID ticket", "details.ticket_ids", "text"),
     ("Ultima verifica dettagli (Italia)", "details.detail_checked_at", "date"),
     ("Cambio", "details.fx.rate", "number"), ("Data cambio", "details.fx.date", "text"),
     ("Fonte cambio", "details.fx.source", "text"), ("Avvisi", "monetary_warnings", "text"),
@@ -40,7 +52,7 @@ COLUMNS = [
 
 
 def safe_text(value):
-    text = str(value or "")
+    text = "" if value is None else str(value)
     stripped = text.lstrip()
     while stripped and unicodedata.category(stripped[0]) in {"Cf", "Cc", "Zs", "Zl", "Zp"}:
         stripped = stripped[1:].lstrip()

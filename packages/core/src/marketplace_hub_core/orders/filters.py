@@ -16,6 +16,7 @@ class OrderFilters(BaseModel):
     carriers: list[str] = Field(default_factory=list, max_length=100)
     tracking: Literal["all", "present", "missing"] = "all"
     commission: Literal["all", "present", "missing"] = "all"
+    payment: Literal["all", "available", "waiting", "unknown", "ticket_open"] = "all"
     amount_min: Decimal | None = Field(None, ge=0, max_digits=30, decimal_places=8)
     amount_max: Decimal | None = Field(None, ge=0, max_digits=30, decimal_places=8)
     date_from: date | None = None

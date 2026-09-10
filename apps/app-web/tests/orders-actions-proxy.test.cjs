@@ -9,15 +9,20 @@ const sellerId = "a1000000-0000-4000-8000-000000000001";
 const accountId = "a2000000-0000-4000-8000-000000000001";
 const selectionId = "a3000000-0000-4000-8000-000000000001";
 const lineId = "a4000000-0000-4000-8000-000000000001";
+const paymentSelectionId = "a5000000-0000-4000-8000-000000000001";
 const filters = { search: "", statuses: null, storefronts: null, currencies: null, carriers: [],
-  tracking: "all", commission: "all", date_from: null, date_to: null, amount_min: null, amount_max: null };
+  tracking: "all", commission: "all", payment: "all", date_from: null, date_to: null, amount_min: null, amount_max: null };
 const input = (extra = {}) => ({ account_id: accountId, environment: "live", selection_id: selectionId, filters, ...extra });
 const summary = { selected_rows: 1, distinct_orders: 1, quantity: 1, cancelled_rows: 0,
   sale_amount_eur: "100.00", commission_amount_eur: "10.00", payout_amount_eur: "90.00",
   purchase_cost_eur: "50.00", profit_amount_eur: "40.00", profit_pct: "80.00",
   complete_economic_rows: 1, missing_economic_rows: 0, known_cost_rows: 1, missing_cost_rows: 0,
-  loss_rows: 0, sku_cost_rows: 1, catalog_cost_rows: 0, missing_currencies: [] };
-const selection = () => ({ id: selectionId, selected_ids: [lineId], selected_count: 1, filtered_count: 1, summary });
+  loss_rows: 0, sku_cost_rows: 1, catalog_cost_rows: 0, payment_payable_rows: 1,
+  payment_scheduled_rows: 1, payment_unscheduled_rows: 0, payment_unscheduled_ids: [], payment_available_rows: 1,
+  payment_waiting_rows: 0, payment_all_dates_known: true, payment_all_available: true,
+  latest_payment_due_at: "2026-09-07T10:00:00Z", available_payout_eur: "90.00",
+  waiting_payout_eur: "0.00", missing_currencies: [] };
+const selection = (purpose = "orders", id = selectionId) => ({ id, purpose, selected_ids: [lineId], selected_count: 1, filtered_count: 1, summary });
 
 function load(file, context = {}) {
   const source = fs.readFileSync(path.join(__dirname, file), "utf8");
@@ -54,21 +59,36 @@ test("selection forwards only validated scope and verifies the returned selectio
     assert.equal(options.redirect, "error");
     assert.equal(JSON.parse(options.body).selection_id, selectionId);
     assert.equal(JSON.parse(options.body).line_id, lineId);
+    assert.equal(JSON.parse(options.body).purpose, "orders");
     return Response.json({ selection: { ...selection(), private_payload: "must-not-escape" } });
   });
-  const result = await run(request(input({ action: "set", line_id: lineId, selected: false })), sellerId, "selection");
+  const result = await run(request(input({ purpose: "orders", action: "set", line_id: lineId, selected: false })), sellerId, "selection");
   assert.equal(result.status, 200);
   assert.equal(calls, 1);
   assert.equal((await result.text()).includes("must-not-escape"), false);
   const bad = proxy(async () => Response.json({ selection: { ...selection(), id: accountId } }));
-  assert.equal((await bad(request(input({ action: "clear" })), sellerId, "selection")).status, 502);
+  assert.equal((await bad(request(input({ purpose: "orders", action: "clear" })), sellerId, "selection")).status, 502);
+});
+
+test("payment selection forwards its independent identity and owning orders selection", async () => {
+  const run = proxy(async (_url, options) => {
+    const body = JSON.parse(options.body);
+    assert.equal(body.purpose, "payments"); assert.equal(body.selection_id, paymentSelectionId); assert.equal(body.orders_selection_id, selectionId);
+    assert.equal(Object.hasOwn(body, "main_selection_id"), false);
+    return Response.json({ selection: selection("payments", paymentSelectionId) });
+  });
+  const body = input({ purpose: "payments", selection_id: paymentSelectionId, orders_selection_id: selectionId, action: "set", line_id: lineId, selected: true });
+  assert.equal((await run(request(body), sellerId, "selection")).status, 200);
+  assert.equal((await run(request({ ...body, orders_selection_id: undefined }), sellerId, "selection")).status, 422);
+  const wrongPurpose = proxy(async () => Response.json({ selection: selection("orders", paymentSelectionId) }));
+  assert.equal((await wrongPurpose(request(body), sellerId, "selection")).status, 502);
 });
 
 test("selection and export reject foreign origins, forged paths, missing sessions and invalid input before network", async () => {
   let calls = 0;
   const run = proxy(async () => { calls++; throw new Error(); });
   for (const operation of ["selection", "export"]) {
-    const body = input(operation === "selection" ? { action: "clear" } : { kind: "filtered" });
+    const body = input(operation === "selection" ? { purpose: "orders", action: "clear" } : { kind: "filtered" });
     assert.equal((await run(request(body, { origin: "https://evil.test" }), sellerId, operation)).status, 403);
     assert.equal((await run(request(body, { "sec-fetch-site": "cross-site" }), sellerId, operation)).status, 403);
     assert.equal((await run(request(body, { host: "evil.test/app.test" }), sellerId, operation)).status, 403);

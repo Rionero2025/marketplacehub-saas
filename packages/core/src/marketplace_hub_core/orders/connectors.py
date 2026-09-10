@@ -28,6 +28,7 @@ from marketplace_hub_core.orders.normalization import (
     merge_order_unit,
     normalize_order_line,
 )
+from marketplace_hub_core.orders.payments import KAUFLAND_TICKET_STATUSES
 
 KAUFLAND_PLAYGROUND_URL = "https://sellerapi-playground.kaufland.com/v2"
 ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -367,7 +368,55 @@ class OrdersConnector:
                 batch = []
         if not rows:
             await on_batch([], 0, 0)
-        return {"warning_count": warnings, "details_checked": checked}
+        ticket_snapshot = None
+        try:
+            ticket_snapshot = await self._kaufland_tickets(
+                client, credentials, base, before_request,
+            )
+        except OrdersFetchError:
+            # Support tickets enrich the payout estimate but must never prevent
+            # the primary order cache from being refreshed.
+            pass
+        result = {"warning_count": warnings, "details_checked": checked}
+        if ticket_snapshot is not None:
+            result["tickets_snapshot"] = ticket_snapshot
+        else:
+            result["tickets_warning"] = True
+        return result
+
+    async def _kaufland_tickets(self, client, credentials, base, before_request) -> list[dict]:
+        """Fetch a complete five-status snapshot using Kaufland's 30-row pages."""
+        by_id = {}
+        for status in KAUFLAND_TICKET_STATUSES:
+            offset, fingerprints = 0, set()
+            while True:
+                url = f"{base}/tickets?" + urlencode({
+                    "status": status, "limit": 30, "offset": offset,
+                })
+                payload = await self._request(client, "kaufland", credentials, url, before_request)
+                page = _collection(payload, "data")
+                if not page:
+                    break
+                fingerprint = _fingerprint(page)
+                if fingerprint in fingerprints:
+                    raise OrdersFetchError("invalid_response")
+                fingerprints.add(fingerprint)
+                for raw in page:
+                    ticket_id = _text(raw.get("id_ticket"))
+                    if not ticket_id:
+                        raise OrdersFetchError("invalid_response")
+                    normalized = dict(raw)
+                    normalized["status"] = _text(raw.get("status") or status).lower()
+                    by_id[ticket_id] = normalized
+                offset += len(page)
+                pagination = payload.get("pagination")
+                total = _total(pagination.get("total")) if isinstance(pagination, dict) else None
+                if len(page) < 30 or (total is not None and offset >= total):
+                    break
+        return sorted(by_id.values(), key=lambda item: (
+            _text(item.get("ts_updated_iso")), _text(item.get("ts_created_iso")),
+            _text(item.get("id_ticket")),
+        ), reverse=True)
 
     async def _worten(
         self, client, credentials, maximum, fx, on_batch, on_progress, before_request
