@@ -1,0 +1,602 @@
+[
+  {
+    "input": [
+      "10",
+      "1",
+      "2.5",
+      "35",
+      "10"
+    ],
+    "expected": {
+      "shipping_cost": "3.50",
+      "total_cost": "13.50",
+      "price": "18.23",
+      "minimum_price": "14.85"
+    }
+  },
+  {
+    "input": [
+      "16.055",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "expected": {
+      "shipping_cost": "0.00",
+      "total_cost": "16.06",
+      "price": "16.06",
+      "minimum_price": "16.06"
+    }
+  },
+  {
+    "input": [
+      "2.675",
+      "0",
+      "0",
+      "0",
+      "0"
+    ],
+    "expected": {
+      "shipping_cost": "0.00",
+      "total_cost": "2.68",
+      "price": "2.68",
+      "minimum_price": "2.68"
+    }
+  },
+  {
+    "input": [
+      "37.93",
+      "0",
+      "4.99",
+      "35",
+      "10"
+    ],
+    "expected": {
+      "shipping_cost": "4.99",
+      "total_cost": "42.92",
+      "price": "57.94",
+      "minimum_price": "47.21"
+    }
+  },
+  {
+    "input": [
+      "494.1",
+      "1.25",
+      "35.06",
+      "199.72",
+      "417.11"
+    ],
+    "expected": {
+      "shipping_cost": "36.31",
+      "total_cost": "530.41",
+      "price": "1589.74",
+      "minimum_price": "2742.80"
+    }
+  },
+  {
+    "input": [
+      "620.72",
+      "3.47",
+      "41.89",
+      "22.75",
+      "200.47"
+    ],
+    "expected": {
+      "shipping_cost": "45.36",
+      "total_cost": "666.08",
+      "price": "817.61",
+      "minimum_price": "2001.37"
+    }
+  },
+  {
+    "input": [
+      "740.22",
+      "34.74",
+      "15.75",
+      "385.68",
+      "81.52"
+    ],
+    "expected": {
+      "shipping_cost": "50.49",
+      "total_cost": "790.71",
+      "price": "3840.32",
+      "minimum_price": "1435.30"
+    }
+  },
+  {
+    "input": [
+      "754.85",
+      "16.14",
+      "83.93",
+      "409.58",
+      "206.76"
+    ],
+    "expected": {
+      "shipping_cost": "100.07",
+      "total_cost": "854.92",
+      "price": "4356.50",
+      "minimum_price": "2622.55"
+    }
+  },
+  {
+    "input": [
+      "237.17",
+      "44.95",
+      "58.76",
+      "336.68",
+      "307.62"
+    ],
+    "expected": {
+      "shipping_cost": "103.71",
+      "total_cost": "340.88",
+      "price": "1488.55",
+      "minimum_price": "1389.50"
+    }
+  },
+  {
+    "input": [
+      "687.68",
+      "8.51",
+      "16.09",
+      "393.57",
+      "381.92"
+    ],
+    "expected": {
+      "shipping_cost": "24.60",
+      "total_cost": "712.28",
+      "price": "3515.60",
+      "minimum_price": "3432.62"
+    }
+  },
+  {
+    "input": [
+      "467.01",
+      "33.94",
+      "57.87",
+      "124.12",
+      "443.1"
+    ],
+    "expected": {
+      "shipping_cost": "91.81",
+      "total_cost": "558.82",
+      "price": "1252.43",
+      "minimum_price": "3034.95"
+    }
+  },
+  {
+    "input": [
+      "210.94",
+      "37.74",
+      "11.87",
+      "46.11",
+      "264.4"
+    ],
+    "expected": {
+      "shipping_cost": "49.61",
+      "total_cost": "260.55",
+      "price": "380.69",
+      "minimum_price": "949.44"
+    }
+  },
+  {
+    "input": [
+      "738.04",
+      "5.68",
+      "84.36",
+      "416.64",
+      "83.28"
+    ],
+    "expected": {
+      "shipping_cost": "90.04",
+      "total_cost": "828.08",
+      "price": "4278.19",
+      "minimum_price": "1517.71"
+    }
+  },
+  {
+    "input": [
+      "956.02",
+      "3.31",
+      "88.81",
+      "112.76",
+      "50.66"
+    ],
+    "expected": {
+      "shipping_cost": "92.12",
+      "total_cost": "1048.14",
+      "price": "2230.02",
+      "minimum_price": "1579.13"
+    }
+  },
+  {
+    "input": [
+      "762.72",
+      "18.08",
+      "69.5",
+      "366.72",
+      "292.88"
+    ],
+    "expected": {
+      "shipping_cost": "87.58",
+      "total_cost": "850.30",
+      "price": "3968.52",
+      "minimum_price": "3340.66"
+    }
+  },
+  {
+    "input": [
+      "570.9",
+      "40.47",
+      "82.69",
+      "428.52",
+      "316.36"
+    ],
+    "expected": {
+      "shipping_cost": "123.16",
+      "total_cost": "694.06",
+      "price": "3668.25",
+      "minimum_price": "2889.79"
+    }
+  },
+  {
+    "input": [
+      "579.72",
+      "4.71",
+      "81.07",
+      "185.36",
+      "110.91"
+    ],
+    "expected": {
+      "shipping_cost": "85.78",
+      "total_cost": "665.50",
+      "price": "1899.07",
+      "minimum_price": "1403.61"
+    }
+  },
+  {
+    "input": [
+      "62.58",
+      "33.44",
+      "61.73",
+      "412.1",
+      "299.65"
+    ],
+    "expected": {
+      "shipping_cost": "95.17",
+      "total_cost": "157.75",
+      "price": "807.84",
+      "minimum_price": "630.45"
+    }
+  },
+  {
+    "input": [
+      "24.2",
+      "39.15",
+      "35.98",
+      "281.28",
+      "405.05"
+    ],
+    "expected": {
+      "shipping_cost": "75.13",
+      "total_cost": "99.33",
+      "price": "378.73",
+      "minimum_price": "501.67"
+    }
+  },
+  {
+    "input": [
+      "755.28",
+      "28.7",
+      "10.51",
+      "85.26",
+      "81.73"
+    ],
+    "expected": {
+      "shipping_cost": "39.21",
+      "total_cost": "794.49",
+      "price": "1471.87",
+      "minimum_price": "1443.83"
+    }
+  },
+  {
+    "input": [
+      "121.41",
+      "19.16",
+      "30.7",
+      "416.61",
+      "495.12"
+    ],
+    "expected": {
+      "shipping_cost": "49.86",
+      "total_cost": "171.27",
+      "price": "884.80",
+      "minimum_price": "1019.26"
+    }
+  },
+  {
+    "input": [
+      "177.05",
+      "17.97",
+      "24.09",
+      "497.07",
+      "245.09"
+    ],
+    "expected": {
+      "shipping_cost": "42.06",
+      "total_cost": "219.11",
+      "price": "1308.24",
+      "minimum_price": "756.13"
+    }
+  },
+  {
+    "input": [
+      "276.2",
+      "13.69",
+      "93.62",
+      "405.5",
+      "354.37"
+    ],
+    "expected": {
+      "shipping_cost": "107.31",
+      "total_cost": "383.51",
+      "price": "1938.64",
+      "minimum_price": "1742.55"
+    }
+  },
+  {
+    "input": [
+      "685.39",
+      "37.02",
+      "60.5",
+      "199.08",
+      "237.72"
+    ],
+    "expected": {
+      "shipping_cost": "97.52",
+      "total_cost": "782.91",
+      "price": "2341.53",
+      "minimum_price": "2644.04"
+    }
+  },
+  {
+    "input": [
+      "648.38",
+      "40.64",
+      "74.95",
+      "305.91",
+      "446.52"
+    ],
+    "expected": {
+      "shipping_cost": "115.59",
+      "total_cost": "763.97",
+      "price": "3101.03",
+      "minimum_price": "4175.25"
+    }
+  },
+  {
+    "input": [
+      "553.04",
+      "36.72",
+      "61.63",
+      "232.59",
+      "329.13"
+    ],
+    "expected": {
+      "shipping_cost": "98.35",
+      "total_cost": "651.39",
+      "price": "2166.46",
+      "minimum_price": "2795.31"
+    }
+  },
+  {
+    "input": [
+      "145.13",
+      "21.59",
+      "68.36",
+      "208.39",
+      "18.32"
+    ],
+    "expected": {
+      "shipping_cost": "89.95",
+      "total_cost": "235.08",
+      "price": "724.96",
+      "minimum_price": "278.15"
+    }
+  },
+  {
+    "input": [
+      "928.25",
+      "46.37",
+      "99.96",
+      "150.43",
+      "374.99"
+    ],
+    "expected": {
+      "shipping_cost": "146.33",
+      "total_cost": "1074.58",
+      "price": "2691.07",
+      "minimum_price": "5104.15"
+    }
+  },
+  {
+    "input": [
+      "21.05",
+      "14.44",
+      "42.41",
+      "337.76",
+      "72.81"
+    ],
+    "expected": {
+      "shipping_cost": "56.85",
+      "total_cost": "77.90",
+      "price": "341.02",
+      "minimum_price": "134.62"
+    }
+  },
+  {
+    "input": [
+      "971.89",
+      "21.31",
+      "96.82",
+      "21.2",
+      "40.73"
+    ],
+    "expected": {
+      "shipping_cost": "118.13",
+      "total_cost": "1090.02",
+      "price": "1321.10",
+      "minimum_price": "1533.99"
+    }
+  },
+  {
+    "input": [
+      "680.88",
+      "13.39",
+      "5.34",
+      "177.59",
+      "113.92"
+    ],
+    "expected": {
+      "shipping_cost": "18.73",
+      "total_cost": "699.61",
+      "price": "1942.05",
+      "minimum_price": "1496.61"
+    }
+  },
+  {
+    "input": [
+      "802.88",
+      "26.09",
+      "12.83",
+      "66.53",
+      "267.93"
+    ],
+    "expected": {
+      "shipping_cost": "38.92",
+      "total_cost": "841.80",
+      "price": "1401.85",
+      "minimum_price": "3097.23"
+    }
+  },
+  {
+    "input": [
+      "879.62",
+      "49.01",
+      "25.37",
+      "356.38",
+      "241.1"
+    ],
+    "expected": {
+      "shipping_cost": "74.38",
+      "total_cost": "954.00",
+      "price": "4353.87",
+      "minimum_price": "3254.09"
+    }
+  },
+  {
+    "input": [
+      "166.39",
+      "22.42",
+      "15.3",
+      "389.06",
+      "60.86"
+    ],
+    "expected": {
+      "shipping_cost": "37.72",
+      "total_cost": "204.11",
+      "price": "998.22",
+      "minimum_price": "328.33"
+    }
+  },
+  {
+    "input": [
+      "910.92",
+      "46.17",
+      "35.52",
+      "361.66",
+      "462.63"
+    ],
+    "expected": {
+      "shipping_cost": "81.69",
+      "total_cost": "992.61",
+      "price": "4582.48",
+      "minimum_price": "5584.72"
+    }
+  },
+  {
+    "input": [
+      "835.25",
+      "14.03",
+      "11.95",
+      "49.09",
+      "403.36"
+    ],
+    "expected": {
+      "shipping_cost": "25.98",
+      "total_cost": "861.23",
+      "price": "1284.01",
+      "minimum_price": "4335.09"
+    }
+  },
+  {
+    "input": [
+      "20.63",
+      "26.74",
+      "27.2",
+      "330.11",
+      "150.82"
+    ],
+    "expected": {
+      "shipping_cost": "53.94",
+      "total_cost": "74.57",
+      "price": "320.73",
+      "minimum_price": "187.04"
+    }
+  },
+  {
+    "input": [
+      "346.29",
+      "6.1",
+      "15.29",
+      "452.79",
+      "80.42"
+    ],
+    "expected": {
+      "shipping_cost": "21.39",
+      "total_cost": "367.68",
+      "price": "2032.50",
+      "minimum_price": "663.37"
+    }
+  },
+  {
+    "input": [
+      "383.59",
+      "2.34",
+      "75.53",
+      "392.35",
+      "189.67"
+    ],
+    "expected": {
+      "shipping_cost": "77.87",
+      "total_cost": "461.46",
+      "price": "2272.00",
+      "minimum_price": "1336.71"
+    }
+  },
+  {
+    "input": [
+      "478.75",
+      "23.26",
+      "41.54",
+      "179.44",
+      "35.98"
+    ],
+    "expected": {
+      "shipping_cost": "64.80",
+      "total_cost": "543.55",
+      "price": "1518.90",
+      "minimum_price": "739.12"
+    }
+  }
+]

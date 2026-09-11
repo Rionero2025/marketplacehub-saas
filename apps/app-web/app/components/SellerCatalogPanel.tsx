@@ -25,8 +25,9 @@ import {
 import type { WorkspaceResult } from "../lib/workspace";
 import { DashboardIcon } from "./DashboardIcon";
 import { CatalogJobProgress } from "./CatalogJobProgress";
+import { SellerCatalogWork } from "./SellerCatalogWork";
 
-type CatalogView = "suppliers" | "price-lists";
+type CatalogView = "suppliers" | "price-lists" | "work-lists";
 type PriceListSource = "file" | "url";
 type PendingAction = "read" | "create-supplier" | "delete-supplier" | "create-price-list"
   | "create-price-list-url" | "update-price-list-url" | "refresh-price-list" | "delete-price-list" | "detail";
@@ -110,6 +111,10 @@ export function SellerCatalogPage({ result, view }: { result: WorkspaceResult; v
     eyebrow: "CATALOGO",
     heading: "Fornitori",
     description: "Organizza le fonti dei prodotti e i listini associati al tuo negozio.",
+  } : view === "work-lists" ? {
+    eyebrow: "CATALOGO",
+    heading: "Lavora sui listini",
+    description: "Filtra i prodotti, prepara i prezzi e salva viste per i marketplace del tuo negozio.",
   } : {
     eyebrow: "CATALOGO",
     heading: "Listini",
@@ -120,7 +125,7 @@ export function SellerCatalogPage({ result, view }: { result: WorkspaceResult; v
       <button type="button" className="workspace-refresh" disabled={refreshing} onClick={() => startRefresh(() => router.refresh())}><DashboardIcon name="refresh" size={16} />{refreshing ? "Aggiornamento…" : "Aggiorna workspace"}</button>
     </div>
     {result.error ? <section className="workspace-section workspace-empty"><h2>Dati momentaneamente non disponibili</h2><p className="form-error" role="alert">{result.error}</p><button type="button" className="workspace-refresh" disabled={refreshing} onClick={() => startRefresh(() => router.refresh())}>Riprova</button></section>
-      : seller ? <><div className="catalog-shop"><span><DashboardIcon name="store" size={18} /><strong>{seller.name}</strong><span>{seller.organization_name}</span></span><a href="/seller/settings/store">Cambia negozio<DashboardIcon name="chevron" size={14} /></a></div><SellerCatalogPanel key={`${seller.id}-${view}`} sellerId={seller.id} sellerName={seller.name} view={view} /></>
+      : seller ? <><div className="catalog-shop"><span><DashboardIcon name="store" size={18} /><strong>{seller.name}</strong><span>{seller.organization_name}</span></span><a href="/seller/settings/store">Cambia negozio<DashboardIcon name="chevron" size={14} /></a></div>{view === "work-lists" ? <SellerCatalogWork key={seller.id} sellerId={seller.id} /> : <SellerCatalogPanel key={`${seller.id}-${view}`} sellerId={seller.id} sellerName={seller.name} view={view} />}</>
         : <section className="workspace-section workspace-empty"><DashboardIcon name="store" size={26} /><h2>Seleziona un negozio</h2><p>Per gestire fornitori e listini serve un negozio assegnato al tuo account.</p><a className="workspace-refresh" href="/seller/settings/store">Vai ai tuoi negozi</a></section>}
   </div>;
 }

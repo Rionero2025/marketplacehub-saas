@@ -54,7 +54,7 @@ const failure = (detail: string, status: number, retryAfter: number | null = nul
   { status, headers: { "cache-control": "no-store", ...(retryAfter === null ? {} : { "retry-after": String(retryAfter) }) } },
 );
 
-function requestOrigin(request: NextRequest): string | null {
+export function requestOrigin(request: NextRequest): string | null {
   const url = new URL(request.url);
   const host = request.headers.get("host");
   if (!host) return url.origin;
@@ -87,7 +87,7 @@ function multipartBoundary(contentType: string | null): string | null {
   return match?.[1] ?? match?.[2] ?? null;
 }
 
-async function boundedBody(request: NextRequest, maximum: number, timeoutMs: number): Promise<Uint8Array> {
+export async function boundedBody(request: NextRequest, maximum: number, timeoutMs: number): Promise<Uint8Array> {
   const statedLength = request.headers.get("content-length");
   if (statedLength && (!/^\d+$/.test(statedLength) || Number(statedLength) > maximum)) {
     throw new BodyLimitError();

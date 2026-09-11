@@ -441,6 +441,16 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .catalog-preview .workspace-section-heading h2:focus { outline: 0; }
 .catalog-preview .workspace-section-heading p { margin: 3px 0 0 26px; color: #607284; font-size: 10px; }
 .catalog-products { min-width: 1450px; }
+.catalog-work { display: grid; gap: 20px; }
+.catalog-work > form { display: grid; gap: 20px; }
+.catalog-work-fields { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 14px; margin-bottom: 18px; }
+.catalog-work-fields label { display: grid; gap: 7px; }
+.catalog-work-targets { display: flex; gap: 18px; flex-wrap: wrap; }
+.catalog-work-targets label { display: flex; gap: 8px; align-items: center; }
+.catalog-work-targets input[type=checkbox], .catalog-work-table input[type=checkbox] { width: 18px; height: 18px; }
+.catalog-work-table { min-width: 1650px; }
+.catalog-work-table td:nth-child(2) { min-width: 220px; }
+.catalog-work-table input[type=number] { width: 100px; min-height: 34px; padding: 6px; border: 1px solid #cad7e5; border-radius: 4px; font-variant-numeric: tabular-nums; text-align: right; }
 .catalog-measure-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
 .catalog-products th:first-child { width: 28%; }
 .catalog-products td:nth-child(2), .catalog-products td:nth-child(3) { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 10px; white-space: nowrap; }

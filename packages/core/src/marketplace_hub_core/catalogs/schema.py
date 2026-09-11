@@ -489,10 +489,39 @@ Index(
 )
 
 
+seller_catalog_views = Table(
+    "seller_catalog_views", metadata,
+    Column("id", Uuid(), primary_key=True),
+    Column("organization_id", Uuid(), ForeignKey("organizations.id"), nullable=False),
+    Column("seller_id", Uuid(), ForeignKey("seller_profiles.id"), nullable=False),
+    Column("name", String(200), nullable=False),
+    Column("source_name", Text(), nullable=False),
+    Column("recipe_json", Text(), nullable=False),
+    Column("accounts_json", Text(), nullable=False),
+    Column("row_count", Integer(), nullable=False),
+    Column("revision", Integer(), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+Index("ix_catalog_views_scope", seller_catalog_views.c.organization_id,
+      seller_catalog_views.c.seller_id)
+seller_catalog_view_rows = Table(
+    "seller_catalog_view_rows", metadata,
+    Column("view_id", Uuid(), ForeignKey("seller_catalog_views.id", ondelete="CASCADE"),
+           primary_key=True),
+    Column("id", Uuid(), primary_key=True),
+    Column("position", Integer(), nullable=False),
+    Column("data_json", Text(), nullable=False),
+)
+Index("ix_catalog_view_rows_position", seller_catalog_view_rows.c.view_id,
+      seller_catalog_view_rows.c.position)
+
 CATALOG_TABLES = [
     seller_suppliers,
     seller_price_lists,
     seller_price_list_versions,
     seller_price_list_products,
     seller_price_list_refresh_jobs,
+    seller_catalog_views,
+    seller_catalog_view_rows,
 ]

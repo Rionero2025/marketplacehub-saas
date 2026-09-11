@@ -25,6 +25,8 @@ from marketplace_hub_core.catalogs.service import (
     CatalogsService,
     CatalogValidationError,
 )
+from marketplace_hub_core.catalogs.work import CatalogWorkRepository
+from marketplace_hub_core.catalogs.work_models import ViewDelete, ViewSave, ViewUpdate, WorkPreview
 from marketplace_hub_core.seller_settings.security import CredentialStorageUnavailableError
 from marketplace_hub_core.tenancy.service import SellerNotAccessibleError, WorkspacePermissionError
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
@@ -56,7 +58,7 @@ class CatalogJsonTimeoutError(CatalogJsonError):
     pass
 
 
-def _catalog_json_content_length(request: Request) -> int | None:
+def _catalog_json_content_length(request: Request, maximum=MAX_CATALOG_JSON_BYTES) -> int | None:
     value = request.headers.get("content-length")
     if value is None:
         return None
@@ -65,12 +67,12 @@ def _catalog_json_content_length(request: Request) -> int | None:
     if len(value) > 20:
         raise CatalogJsonLimitError("Il corpo JSON supera il limite consentito.")
     length = int(value)
-    if length > MAX_CATALOG_JSON_BYTES:
+    if length > maximum:
         raise CatalogJsonLimitError("Il corpo JSON supera il limite consentito.")
     return length
 
 
-async def read_catalog_json(request: Request) -> bytes:
+async def read_catalog_json(request: Request, maximum=MAX_CATALOG_JSON_BYTES) -> bytes:
     """Read one small JSON body only after authentication and authorization."""
     content_type = request.headers.get("content-type")
     if content_type is None or len(content_type) > 1_024:
@@ -82,12 +84,12 @@ async def read_catalog_json(request: Request) -> bytes:
     if media_type.lower() != b"application/json":
         raise CatalogJsonError("È richiesto application/json.")
 
-    declared_length = _catalog_json_content_length(request)
+    declared_length = _catalog_json_content_length(request, maximum)
     content = bytearray()
     try:
         async with asyncio.timeout(CATALOG_JSON_BODY_TIMEOUT_SECONDS):
             async for chunk in request.stream():
-                if len(content) + len(chunk) > MAX_CATALOG_JSON_BYTES:
+                if len(content) + len(chunk) > maximum:
                     raise CatalogJsonLimitError(
                         "Il corpo JSON supera il limite consentito."
                     )
@@ -139,10 +141,10 @@ class PriceListUrlUpdate(BaseModel):
 
 
 async def parse_catalog_json[CatalogJsonPayload: BaseModel](
-    request: Request, payload_type: type[CatalogJsonPayload],
+    request: Request, payload_type: type[CatalogJsonPayload], maximum=MAX_CATALOG_JSON_BYTES,
 ) -> CatalogJsonPayload:
     try:
-        content = await read_catalog_json(request)
+        content = await read_catalog_json(request, maximum)
     except CatalogJsonLimitError as exc:
         raise HTTPException(413, str(exc)) from None
     except CatalogJsonTimeoutError as exc:
@@ -358,5 +360,59 @@ def create_catalogs_router(service: CatalogsService, auth, settings):
                 session, seller_id, price_list_id, payload.confirmation,
             ),
         )
+
+    work = CatalogWorkRepository(service.repository.engine)
+
+    def work_scope(seller_id, request, write=False):
+        seller = service._seller(principal(request), seller_id, write=write)
+        return UUID(seller["organization_id"]), seller
+
+    @router.get("/work")
+    def work_index(seller_id: UUID, request: Request):
+        def operation():
+            org, seller = work_scope(seller_id, request)
+            return {
+                **work.index(org, seller_id),
+                "can_manage": "CATALOG" in seller["write_permissions"],
+            }
+        return execute(operation)
+
+    @router.post("/work/preview")
+    async def work_preview(seller_id: UUID, request: Request):
+        org, _ = await run_in_threadpool(execute, lambda: work_scope(seller_id, request))
+        payload = await parse_catalog_json(request, WorkPreview)
+        return await run_in_threadpool(execute, lambda: work.preview(
+            org, seller_id, payload.recipe, payload.page,
+        ))
+
+    @router.post("/work/views", status_code=201)
+    async def work_save(seller_id: UUID, request: Request):
+        org, _ = await run_in_threadpool(execute, lambda: work_scope(seller_id, request, True))
+        payload = await parse_catalog_json(request, ViewSave, 1024 * 1024)
+        return await run_in_threadpool(execute, lambda: work.save(org, seller_id, payload))
+
+    @router.get("/work/views/{view_id}")
+    def work_detail(seller_id: UUID, view_id: UUID, request: Request,
+                    page: int = Query(1, ge=1, le=100000)):
+        def operation():
+            org, _ = work_scope(seller_id, request)
+            return work.detail(org, seller_id, view_id, page)
+        return execute(operation)
+
+    @router.put("/work/views/{view_id}")
+    async def work_update(seller_id: UUID, view_id: UUID, request: Request):
+        org, _ = await run_in_threadpool(execute, lambda: work_scope(seller_id, request, True))
+        payload = await parse_catalog_json(request, ViewUpdate, 1024 * 1024)
+        return await run_in_threadpool(
+            execute, lambda: work.update(org, seller_id, view_id, payload),
+        )
+
+    @router.delete("/work/views/{view_id}")
+    async def work_delete(seller_id: UUID, view_id: UUID, request: Request):
+        org, _ = await run_in_threadpool(execute, lambda: work_scope(seller_id, request, True))
+        payload = await parse_catalog_json(request, ViewDelete)
+        return await run_in_threadpool(execute, lambda: work.remove(
+            org, seller_id, view_id, payload.expected_revision,
+        ))
 
     return router

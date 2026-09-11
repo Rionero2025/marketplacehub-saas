@@ -475,13 +475,14 @@ test("Next routes delegate resolved UUIDs and fixed operations to the shared pro
   }
 });
 
-test("Seller navigation exposes one Catalog macroarea with the two real routes", () => {
+test("Seller navigation exposes one Catalog macroarea with its real routes", () => {
   const navigation = load("../app/lib/seller-navigation.ts");
   const catalog = navigation.sellerAreas.find((area) => area.id === "catalog");
   assert.ok(catalog); assert.equal(catalog.label, "Catalogo");
   assert.deepEqual(plain(catalog.sections), [
     { page: "suppliers", href: "/seller/catalog/suppliers", label: "Fornitori", icon: "supplier" },
     { page: "price-lists", href: "/seller/catalog/price-lists", label: "Listini", icon: "file" },
+    { page: "work-lists", href: "/seller/catalog/work", label: "Lavora sui listini", icon: "catalog" },
   ]);
 });
 
@@ -587,4 +588,59 @@ test("physical measurements are validated and filter query is forwarded with a f
   assert.equal(new URL(calls[0]).search, "?limit=200&measure=weight_kg&exclude=above&lower=10");
   assert.equal((await run(request("lower=1&lower=2"), sellerId, "detail", priceListId)).status, 422);
   assert.equal(calls.length, 1);
+});
+
+const workTypes = load("../app/lib/catalog-work-types.ts", {require: name => { if(name === "./seller-settings-types") return settingsTypes; throw new Error(name); }});
+const workView = () => ({id:priceListId,name:"Working view",source_name:"LIGHT",row_count:1,revision:1,updated_at:"2026-09-11T18:00:00Z",account_ids:[supplierId]});
+const workIndex = () => ({seller_id:sellerId,can_manage:true,accounts:[{id:supplierId,marketplace:"kaufland",name:"Account"}],views:[workView()]});
+const workData = () => ({seller_id:sellerId,page:1,total:1,rows:[{id:jobId,ean:"000123",sku:"A",name:"Product",cost:"10",shipping_cost:"1",total_cost:"11",quantity:"3",price:"14.85",minimum_price:"12.10",weight_kg:null,length_cm:null,width_cm:null,height_cm:null}]});
+function workProxy(fetchImpl) {
+  class NextResponse extends Response { static json(data,options) {return new NextResponse(JSON.stringify(data),options);} }
+  const context={fetch:fetchImpl,TextDecoder,require(name){
+    if(name === "next/server") return {NextResponse};
+    if(name === "./api-url") return {apiUrl:"http://api.test"};
+    if(name === "./seller-settings-types") return settingsTypes;
+    if(name === "./catalog-types") return types;
+    if(name === "./catalog-work-types") return workTypes;
+    if(name === "./catalog-proxy") return load("../app/lib/catalog-proxy.ts",context);
+    throw new Error(name);
+  }};
+  return load("../app/lib/catalog-work-proxy.ts",context).catalogWorkProxy;
+}
+const workRequest = (method="GET", body, query="") => new Request(`https://app.test/api/work${query}`,{method,headers:{cookie:"mh_session=existing",origin:"https://app.test",host:"app.test","content-type":"application/json"},body:body ? JSON.stringify(body):undefined});
+test("work DTOs strip private fields and reject wrong Seller, rows or saved view",()=>{
+  const raw=workData(); raw.rows[0].canonical_json="secret";
+  assert.equal(JSON.stringify(workTypes.readWorkData(raw,sellerId)).includes("secret"),false);
+  assert.equal(workTypes.readWorkData(raw,otherSellerId),null);
+  assert.equal(workTypes.readWorkData({...raw,view:workView()},sellerId,supplierId),null);
+  assert.equal(workTypes.readWorkData({...raw,rows:[{...raw.rows[0],price:"NaN"}]},sellerId),null);
+  const index=workIndex();index.accounts[0].credentials_encrypted="secret";
+  assert.equal(JSON.stringify(workTypes.readWorkIndex(index,sellerId)).includes("secret"),false);
+});
+test("work proxy authenticates before reading a write and forbids foreign origins and paths",async()=>{
+  let bodyReads=0,calls=0;
+  const request=workRequest("POST",{name:"View"});
+  Object.defineProperty(request,"body",{get(){bodyReads++;throw new Error("must not read");}});
+  const run=workProxy(async()=>{calls++;return new Response(null,{status:401});});
+  assert.equal((await run(request,sellerId,["views"])).status,401);
+  assert.equal(bodyReads,0);assert.equal(calls,1);
+  assert.equal((await run(workRequest(),sellerId,["views","../private"])).status,404);
+  const cross=workRequest("POST",{});cross.headers.set("origin","https://other.test");
+  assert.equal((await run(cross,sellerId,["preview"])).status,403);
+  assert.equal(calls,1);
+});
+test("work proxy forwards one snapshot save, sanitized preview and fixed pagination",async()=>{
+  const calls=[];
+  const run=workProxy(async(url,options)=>{calls.push([url,options]);return Response.json(url.endsWith('/work')?workIndex():options.method==="POST"&&!url.endsWith('preview')?workView():url.includes('/views/')?{...workData(),view:workView()}:workData());});
+  assert.equal((await run(workRequest("POST",{recipe:{price_list_id:priceListId,version:1},page:1}),sellerId,["preview"])).status,200);
+  assert.equal((await run(workRequest("POST",{name:"View"}),sellerId,["views"])).status,200);
+  assert.equal(calls.filter(([,o])=>o.method==='POST').length,2);
+  const detail=await run(workRequest("GET",undefined,"?page=2&seller_id=other"),sellerId,["views",priceListId]);
+  assert.equal(detail.status,200);assert.ok(calls.at(-1)[0].endsWith(`views/${priceListId}?page=2`));
+  assert.equal((await run(workRequest("GET",undefined,"?page=1&page=2"),sellerId,["views",priceListId])).status,422);
+});
+test("read-only work permission permits previews but stops writes without consuming body",async()=>{
+  const run=workProxy(async(url)=>Response.json(url.endsWith('/work')?{...workIndex(),can_manage:false}:workData()));
+  assert.equal((await run(workRequest("POST",{recipe:{}}),sellerId,["preview"])).status,200);
+  assert.equal((await run(workRequest("POST",{name:"View"}),sellerId,["views"])).status,403);
 });
