@@ -3,21 +3,23 @@ from __future__ import annotations
 import base64
 import concurrent.futures
 import http.client
+import io
 import ipaddress
 import math
 import re
 import socket
 import ssl
+import tempfile
 import time
 import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from email.message import Message
-from pathlib import PurePath
-from typing import Any, Protocol
+from pathlib import Path, PurePath
+from typing import Any, BinaryIO, Protocol
 from urllib.parse import quote, unquote, urljoin, urlsplit
 
-from marketplace_hub_core.catalogs.schema import MAX_CATALOG_ARTIFACT_BYTES
+from marketplace_hub_core.catalogs.artifacts import MAX_REMOTE_CATALOG_SOURCE_BYTES
 
 MAX_CATALOG_URL_LENGTH = 4096
 MAX_CATALOG_REDIRECTS = 3
@@ -26,6 +28,7 @@ DEFAULT_CONNECT_TIMEOUT_SECONDS = 10.0
 DEFAULT_READ_TIMEOUT_SECONDS = 30.0
 DEFAULT_DOWNLOAD_DEADLINE_SECONDS = 120.0
 DOWNLOAD_CHUNK_BYTES = 64 * 1024
+DEFAULT_GENERIC_DOWNLOAD_BYTES = 20 * 1024 * 1024
 
 _SUPPORTED_SUFFIXES = frozenset({"csv", "txt", "tsv", "xls", "xlsx", "xml"})
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
@@ -90,6 +93,30 @@ class DownloadedCatalog:
     media_type: str
     source_host: str
     total_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class DownloadedCatalogFile:
+    """A bounded remote artifact spooled to a private temporary file.
+
+    The caller owns the file and must call ``cleanup`` in a ``finally`` block.
+    Keeping large IOF feeds off the Python heap lets the InnPro parser release
+    each product element while it walks the document.
+    """
+
+    path: Path = field(repr=False)
+    file_name: str
+    media_type: str
+    source_host: str
+    total_bytes: int
+
+    def cleanup(self) -> None:
+        try:
+            self.path.unlink(missing_ok=True)
+        except OSError:
+            # Cleanup failure must never mask the import result. Render removes
+            # the process-local temporary filesystem when the worker restarts.
+            pass
 
 
 CatalogFetchResult = DownloadedCatalog
@@ -442,11 +469,21 @@ def _content_length(response: _Response, maximum: int) -> int | None:
         raise CatalogFetchResponseError("La dimensione dichiarata dal server non è valida.")
     length = int(value)
     if length > maximum:
-        raise CatalogFetchLimitError("Il listino supera il limite di 20 MiB.")
+        raise CatalogFetchLimitError(_size_limit_message(maximum))
     return length
 
 
-def _read_body(
+def _size_limit_message(maximum: int) -> str:
+    # The public generic-feed contract remains 20 MiB even when tests or an
+    # internal caller choose a smaller defensive ceiling for one request.
+    if maximum <= DEFAULT_GENERIC_DOWNLOAD_BYTES:
+        return "Il listino supera il limite di 20 MiB."
+    mebibytes = maximum / (1024 * 1024)
+    label = str(int(mebibytes)) if mebibytes.is_integer() else f"{mebibytes:.1f}"
+    return f"Il listino supera il limite di {label} MiB."
+
+
+def _copy_body(
     response: _Response,
     connection: _Connection,
     *,
@@ -455,7 +492,8 @@ def _read_body(
     clock: Clock,
     deadline: float,
     on_progress: Callable[[int, int | None], None] | None,
-) -> bytes:
+    output: BinaryIO,
+) -> int:
     encoding = (response.getheader("Content-Encoding", "") or "").strip().casefold()
     if encoding not in {"", "identity"}:
         raise CatalogFetchResponseError(
@@ -464,7 +502,6 @@ def _read_body(
     expected_length = _content_length(response, maximum)
     if on_progress is not None:
         on_progress(0, expected_length)
-    chunks: list[bytes] = []
     total = 0
     while True:
         timeout = min(read_timeout, _remaining(clock, deadline))
@@ -483,15 +520,39 @@ def _read_body(
             break
         total += len(chunk)
         if total > maximum:
-            raise CatalogFetchLimitError("Il listino supera il limite di 20 MiB.")
-        chunks.append(chunk)
+            raise CatalogFetchLimitError(_size_limit_message(maximum))
+        output.write(chunk)
         if on_progress is not None:
             on_progress(total, expected_length)
     if total == 0:
         raise CatalogFetchResponseError("Il server ha restituito un listino vuoto.")
     if expected_length is not None and expected_length != total:
         raise CatalogFetchResponseError("Il listino ricevuto risulta incompleto.")
-    return b"".join(chunks)
+    return total
+
+
+def _read_body(
+    response: _Response,
+    connection: _Connection,
+    *,
+    maximum: int,
+    read_timeout: float,
+    clock: Clock,
+    deadline: float,
+    on_progress: Callable[[int, int | None], None] | None,
+) -> bytes:
+    output = io.BytesIO()
+    _copy_body(
+        response,
+        connection,
+        maximum=maximum,
+        read_timeout=read_timeout,
+        clock=clock,
+        deadline=deadline,
+        on_progress=on_progress,
+        output=output,
+    )
+    return output.getvalue()
 
 
 def fetch_catalog(
@@ -507,8 +568,9 @@ def fetch_catalog(
     connect_timeout_seconds: float = DEFAULT_CONNECT_TIMEOUT_SECONDS,
     read_timeout_seconds: float = DEFAULT_READ_TIMEOUT_SECONDS,
     deadline_seconds: float = DEFAULT_DOWNLOAD_DEADLINE_SECONDS,
-    maximum_bytes: int = MAX_CATALOG_ARTIFACT_BYTES,
-) -> DownloadedCatalog:
+    maximum_bytes: int = DEFAULT_GENERIC_DOWNLOAD_BYTES,
+    _spool_to_file: bool = False,
+) -> DownloadedCatalog | DownloadedCatalogFile:
     """Fetch one supported catalog while pinning each validated DNS result.
 
     Redirects are followed manually so every destination is independently
@@ -532,7 +594,7 @@ def fetch_catalog(
         not isinstance(maximum_bytes, int)
         or isinstance(maximum_bytes, bool)
         or maximum_bytes <= 0
-        or maximum_bytes > MAX_CATALOG_ARTIFACT_BYTES
+        or maximum_bytes > MAX_REMOTE_CATALOG_SOURCE_BYTES
     )
     if invalid_time_limit or invalid_size_limit:
         raise CatalogFetchValidationError("I limiti del download non sono validi.")
@@ -646,6 +708,35 @@ def fetch_catalog(
 
             media_type = _media_type(response)
             file_name = _safe_file_name(response, current, media_type)
+            if _spool_to_file:
+                temporary = tempfile.NamedTemporaryFile(
+                    mode="w+b", prefix="mh-catalog-", suffix=".download", delete=False,
+                )
+                temporary_path = Path(temporary.name)
+                try:
+                    total_bytes = _copy_body(
+                        response,
+                        connection,
+                        maximum=int(maximum_bytes),
+                        read_timeout=float(read_timeout_seconds),
+                        clock=clock,
+                        deadline=deadline,
+                        on_progress=on_progress,
+                        output=temporary,
+                    )
+                    temporary.flush()
+                except BaseException:
+                    temporary.close()
+                    temporary_path.unlink(missing_ok=True)
+                    raise
+                temporary.close()
+                return DownloadedCatalogFile(
+                    path=temporary_path,
+                    file_name=file_name,
+                    media_type=media_type,
+                    source_host=current.host,
+                    total_bytes=total_bytes,
+                )
             content = _read_body(
                 response,
                 connection,
@@ -668,6 +759,14 @@ def fetch_catalog(
     raise CatalogFetchResponseError("Il server ha restituito troppi reindirizzamenti.")
 
 
+def fetch_catalog_to_file(url: str, **kwargs: Any) -> DownloadedCatalogFile:
+    """Fetch a catalog into a private file without materializing its body in RAM."""
+    result = fetch_catalog(url, _spool_to_file=True, **kwargs)
+    if not isinstance(result, DownloadedCatalogFile):  # pragma: no cover - invariant guard
+        raise RuntimeError("Il download del listino non è stato salvato correttamente.")
+    return result
+
+
 fetch_catalog_url = fetch_catalog
 
 
@@ -681,8 +780,10 @@ __all__ = [
     "CatalogFetchTimeoutError",
     "CatalogFetchValidationError",
     "DownloadedCatalog",
+    "DownloadedCatalogFile",
     "ParsedCatalogUrl",
     "fetch_catalog",
+    "fetch_catalog_to_file",
     "fetch_catalog_url",
     "validate_catalog_url",
 ]

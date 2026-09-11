@@ -14,6 +14,7 @@ from marketplace_hub_core.catalogs.fetching import (
     CatalogFetchTimeoutError,
     CatalogFetchValidationError,
     fetch_catalog,
+    fetch_catalog_to_file,
     validate_catalog_url,
 )
 
@@ -148,6 +149,30 @@ def fetch_with(
         **kwargs,
     )
     return result, factory
+
+
+def test_large_feed_can_be_spooled_and_explicitly_cleaned_without_body_buffering():
+    body = (b"<offer><product id='1'/></offer>" * 10_000)
+    factory = FakeConnectionFactory([
+        response(body, headers={"Content-Type": "application/xml"}),
+    ])
+
+    result = fetch_catalog_to_file(
+        "https://catalog.example.com/full.xml",
+        resolver=public_resolver,
+        connection_factory=factory,
+    )
+
+    try:
+        assert result.path.is_file()
+        assert result.path.read_bytes() == body
+        assert result.file_name == "full.xml"
+        assert result.media_type == "application/xml"
+        assert result.total_bytes == len(body)
+    finally:
+        path = result.path
+        result.cleanup()
+    assert not path.exists()
 
 
 def test_validate_catalog_url_canonicalizes_host_port_and_request_target():
@@ -843,7 +868,7 @@ def test_invalid_limits_are_rejected():
         {"read_timeout_seconds": False},
         {"deadline_seconds": 0},
         {"deadline_seconds": float("inf")},
-        {"maximum_bytes": 20 * 1024 * 1024 + 1},
+        {"maximum_bytes": 200 * 1024 * 1024 + 1},
     ]:
         with pytest.raises(CatalogFetchValidationError, match="limiti"):
             fetch_catalog("https://catalog.example.com/feed.csv", **options)

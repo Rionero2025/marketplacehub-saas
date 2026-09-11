@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-09-11 — B12.1b2: feed InnPro FULL/LIGHT
+
+- aggiunta in Catalogo → Listini la scelta esplicita `InnPro IOF` con ruolo FULL
+  o LIGHT, disponibile per file e URL;
+- trasferito il parser XML IOF incrementale: FULL conserva contenuti prodotto,
+  LIGHT fornisce prezzo all'ingrosso e stock;
+- applicata agli Ordini la regola contabile fail closed: costo soltanto da LIGHT
+  attivo dello stesso Seller e per EAN esatto, senza fallback su FULL o SKU;
+- aggiunto download InnPro su disco fino a 200 MiB e persistenza durevole con gzip
+  per artefatti oltre 20 MiB, conservando SHA-256 e dimensione originali;
+- introdotte le migrazioni 0012 per identità provider/ruolo e 0013 per codifica e
+  dimensione degli artefatti;
+- limitata la memoria del parser con rilascio dei sottoalberi XML estranei e spool
+  su disco; il FULL reale completa parsing e persistenza con 129,31 MiB RSS;
+- serializzati sincronizzazione Ordini e cambi LIGHT sul lock del Seller, con
+  ricalcolo storico in pagine da 250 righe, fallback e pulizia delle fonti obsolete;
+- separati i job Catalogo sulla coda `marketplace-hub-catalog-v2`; il nuovo worker
+  serve a rotazione la coda Catalogo e quella Ordini precedente, impedendo ai worker
+  vecchi di prelevare feed InnPro durante il deploy;
+- verificati i file originali: FULL 111.012.011 byte, SHA-256
+  `b7fcb8a17f89f7e733e03a0b21569b87660dcd1ace1407ecf001cbaa4976f17e`,
+  6.880 prodotti; LIGHT 1.621.952 byte, SHA-256
+  `9cf2a50e8be89eff8f501b3e08157f8788bdaba951aecc99067283309c0f4b57`,
+  5.000 prodotti;
+- superati **615/615 test Python**, **156/156 test web**, TypeScript, Ruff,
+  `pip check`, build Next.js **19/19** e head Alembic `20260911_0013`;
+- tre criteri sono candidati ma restano pending fino al collaudo staging;
+  avanzamento certificato invariato a **147/2.011 = 7,31%**.
+
 ## 2026-09-10 — B12.1b1: feed listino generici da URL HTTPS
 
 - aggiunta in Catalogo → Listini la scelta File/URL con feed HTTPS e HTTP Basic

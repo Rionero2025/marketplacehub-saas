@@ -2,12 +2,22 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 from sqlalchemy import Engine, func, select
 
+from marketplace_hub_core.catalogs.artifacts import (
+    MAX_REMOTE_CATALOG_SOURCE_BYTES,
+    MAX_STORED_CATALOG_ARTIFACT_BYTES,
+    CatalogArtifactEncodingError,
+    EncodedCatalogArtifact,
+    decode_catalog_artifact,
+    encode_catalog_artifact,
+    verify_encoded_catalog_artifact,
+)
 from marketplace_hub_core.catalogs.schema import (
     seller_price_list_products as products,
 )
@@ -19,6 +29,9 @@ from marketplace_hub_core.catalogs.schema import seller_price_lists as price_lis
 from marketplace_hub_core.catalogs.schema import seller_suppliers as suppliers
 from marketplace_hub_core.tenancy.schema import seller_profiles
 from marketplace_hub_core.tenancy.service import SellerNotAccessibleError
+
+PRODUCT_INSERT_BATCH_ROWS = 250
+PRODUCT_INSERT_BATCH_BYTES = 4 * 1024 * 1024
 
 
 class CatalogSupplierNotFoundError(ValueError):
@@ -61,6 +74,48 @@ def _safe_error_code(value) -> str | None:
     return text if re.fullmatch(r"[a-z0-9_]{1,64}", text) else None
 
 
+def _durable_artifact(
+    artifact: bytes,
+    *,
+    artifact_encoding: str | None,
+    artifact_size: int | None,
+    artifact_sha256: str | None,
+) -> EncodedCatalogArtifact:
+    metadata = (artifact_encoding, artifact_size, artifact_sha256)
+    if all(value is None for value in metadata):
+        return encode_catalog_artifact(artifact)
+    if any(value is None for value in metadata):
+        raise CatalogArtifactEncodingError(
+            "I metadati di archiviazione del listino devono essere completi."
+        )
+    encoding = str(artifact_encoding)
+    raw_size = artifact_size
+    raw_sha256 = str(artifact_sha256)
+    if encoding not in {"identity", "gzip"}:
+        raise CatalogArtifactEncodingError("Codifica del listino non supportata.")
+    if isinstance(raw_size, bool) or not isinstance(raw_size, int):
+        raise CatalogArtifactEncodingError("La dimensione originale del listino non è valida.")
+    if raw_size <= 0 or raw_size > MAX_REMOTE_CATALOG_SOURCE_BYTES:
+        raise CatalogArtifactEncodingError("La dimensione originale del listino non è valida.")
+    if not re.fullmatch(r"[0-9a-f]{64}", raw_sha256):
+        raise CatalogArtifactEncodingError("L'impronta del listino non è valida.")
+    if not artifact or len(artifact) > MAX_STORED_CATALOG_ARTIFACT_BYTES:
+        raise CatalogArtifactEncodingError("La dimensione archiviata del listino non è valida.")
+    encoded = EncodedCatalogArtifact(artifact, encoding, raw_size, raw_sha256)
+    verify_encoded_catalog_artifact(encoded)
+    return encoded
+
+
+def _artifact_persistence_values(encoded: EncodedCatalogArtifact) -> dict:
+    return {
+        "artifact_sha256": encoded.raw_sha256,
+        "artifact_size": encoded.raw_size,
+        "artifact_encoding": encoded.encoding,
+        "artifact_stored_size": encoded.stored_size,
+        "artifact_bytes": encoded.content,
+    }
+
+
 class SqlCatalogsRepository:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
@@ -81,6 +136,42 @@ class SqlCatalogsRepository:
         )).first()
         if found is None:
             raise SellerNotAccessibleError("Negozio non disponibile.")
+
+    def _refresh_light_order_costs(
+        self,
+        connection,
+        organization_id: UUID,
+        seller_id: UUID,
+        *,
+        provider: str,
+        feed_role: str,
+    ) -> None:
+        if provider != "innpro" or feed_role != "light":
+            return
+        from marketplace_hub_core.catalogs.costing import SqlCatalogCostResolver
+
+        SqlCatalogCostResolver(self.engine).refresh_saved_orders(
+            organization_id,
+            seller_id,
+            connection=connection,
+        )
+
+    def _lock_light_cost_scope(
+        self,
+        connection,
+        organization_id: UUID,
+        seller_id: UUID,
+        *,
+        provider: str,
+        feed_role: str,
+    ) -> None:
+        if provider != "innpro" or feed_role != "light":
+            return
+        from marketplace_hub_core.catalogs.costing import SqlCatalogCostResolver
+
+        SqlCatalogCostResolver(self.engine).lock_scope(
+            connection, organization_id, seller_id,
+        )
 
     @staticmethod
     def _active_refresh_statement(
@@ -172,6 +263,19 @@ class SqlCatalogsRepository:
     @classmethod
     def _price_list_public(cls, row, *, latest_job=None) -> dict:
         active_version = int(row["active_version_number"])
+        artifact_size = (
+            int(row["artifact_size"]) if row["artifact_size"] is not None else None
+        )
+        artifact_encoding = row["artifact_encoding"]
+        artifact_stored_size = (
+            int(row["artifact_stored_size"])
+            if row["artifact_stored_size"] is not None else None
+        )
+        # Rows written briefly by the previous release during a rolling deploy
+        # use the pre-encoding representation, which is unambiguously identity.
+        if artifact_size is not None and artifact_encoding is None:
+            artifact_encoding = "identity"
+            artifact_stored_size = artifact_size
         if latest_job is not None and latest_job["status"] in {"queued", "running", "error"}:
             status = latest_job["status"]
         else:
@@ -181,15 +285,17 @@ class SqlCatalogsRepository:
             "supplier_id": str(row["supplier_id"]),
             "supplier_name": row.get("supplier_name", ""),
             "name": row["name"],
+            "provider": row["provider"],
+            "feed_role": row["feed_role"],
             "source_type": row["source_type"],
             "status": status,
             "file_name": row["original_filename"],
             "media_type": row["media_type"],
             "file_format": row["file_format"],
             "artifact_sha256": row["artifact_sha256"],
-            "artifact_size": (
-                int(row["artifact_size"]) if row["artifact_size"] is not None else None
-            ),
+            "artifact_size": artifact_size,
+            "artifact_encoding": artifact_encoding,
+            "artifact_stored_size": artifact_stored_size,
             "row_count": int(row["product_count"]),
             "source_host": row["source_host"],
             "source_config_revision": int(row["source_config_revision"]),
@@ -244,20 +350,36 @@ class SqlCatalogsRepository:
         seller_id: UUID,
         price_list_id: UUID,
         version_number: int,
-        normalized_products: list[dict],
+        normalized_products: Sequence[dict],
         now: datetime,
     ) -> None:
-        rows = [{
-            "id": uuid4(),
-            "organization_id": organization_id,
-            "seller_id": seller_id,
-            "price_list_id": price_list_id,
-            "version_number": version_number,
-            "created_at": now,
-            **product,
-        } for product in normalized_products]
-        for position in range(0, len(rows), 1_000):
-            connection.execute(products.insert(), rows[position : position + 1_000])
+        batch: list[dict] = []
+        batch_bytes = 0
+        for product in normalized_products:
+            canonical_bytes = len(str(product.get("canonical_json", "")).encode("utf-8"))
+            if batch and (
+                len(batch) >= PRODUCT_INSERT_BATCH_ROWS
+                or batch_bytes + canonical_bytes > PRODUCT_INSERT_BATCH_BYTES
+            ):
+                connection.execute(products.insert(), batch)
+                batch.clear()
+                batch_bytes = 0
+            batch.append({
+                "id": uuid4(),
+                "organization_id": organization_id,
+                "seller_id": seller_id,
+                "price_list_id": price_list_id,
+                "version_number": version_number,
+                "created_at": now,
+                **product,
+            })
+            batch_bytes += canonical_bytes
+            if batch_bytes >= PRODUCT_INSERT_BATCH_BYTES:
+                connection.execute(products.insert(), batch)
+                batch.clear()
+                batch_bytes = 0
+        if batch:
+            connection.execute(products.insert(), batch)
 
     def dashboard(self, organization_id: UUID, seller_id: UUID) -> dict:
         with self.engine.connect() as connection:
@@ -350,7 +472,11 @@ class SqlCatalogsRepository:
             # The supplier lock stabilizes the set against new list creation. For
             # existing lists follow the worker order (job -> list), then recheck
             # without locking jobs to cover refreshes created while lists were free.
-            list_id_rows = connection.execute(select(price_lists.c.id).where(
+            list_id_rows = connection.execute(select(
+                price_lists.c.id,
+                price_lists.c.provider,
+                price_lists.c.feed_role,
+            ).where(
                 price_lists.c.supplier_id == supplier_id,
                 *self._scope(price_lists, organization_id, seller_id),
             ).order_by(price_lists.c.id)).all()
@@ -361,7 +487,11 @@ class SqlCatalogsRepository:
                 raise CatalogRefreshInProgressError(
                     "Attendi il completamento dell'aggiornamento del listino."
                 )
-            list_rows = connection.execute(select(price_lists.c.id).where(
+            list_rows = connection.execute(select(
+                price_lists.c.id,
+                price_lists.c.provider,
+                price_lists.c.feed_role,
+            ).where(
                 price_lists.c.id.in_(list_ids),
                 price_lists.c.supplier_id == supplier_id,
                 *self._scope(price_lists, organization_id, seller_id),
@@ -373,10 +503,30 @@ class SqlCatalogsRepository:
                 raise CatalogRefreshInProgressError(
                     "Attendi il completamento dell'aggiornamento del listino."
                 )
+            refresh_light_costs = any(
+                item.provider == "innpro" and item.feed_role == "light"
+                for item in list_rows
+            )
+            if refresh_light_costs:
+                self._lock_light_cost_scope(
+                    connection,
+                    organization_id,
+                    seller_id,
+                    provider="innpro",
+                    feed_role="light",
+                )
             connection.execute(suppliers.delete().where(
                 suppliers.c.id == supplier_id,
                 *self._scope(suppliers, organization_id, seller_id),
             ))
+            if refresh_light_costs:
+                self._refresh_light_order_costs(
+                    connection,
+                    organization_id,
+                    seller_id,
+                    provider="innpro",
+                    feed_role="light",
+                )
         return {
             "id": str(supplier_id),
             "name": row["name"],
@@ -394,18 +544,26 @@ class SqlCatalogsRepository:
         media_type: str,
         file_format: str,
         artifact: bytes,
-        normalized_products: list[dict],
+        normalized_products: Sequence[dict],
+        provider: str = "generic",
+        feed_role: str = "standard",
+        artifact_encoding: str | None = None,
+        artifact_size: int | None = None,
+        artifact_sha256: str | None = None,
     ) -> UUID:
         price_list_id = uuid4()
         now = datetime.now(UTC)
-        digest = hashlib.sha256(artifact).hexdigest()
+        encoded = _durable_artifact(
+            artifact,
+            artifact_encoding=artifact_encoding,
+            artifact_size=artifact_size,
+            artifact_sha256=artifact_sha256,
+        )
         artifact_values = {
             "original_filename": original_filename,
             "media_type": media_type,
             "file_format": file_format,
-            "artifact_sha256": digest,
-            "artifact_size": len(artifact),
-            "artifact_bytes": artifact,
+            **_artifact_persistence_values(encoded),
             "product_count": len(normalized_products),
         }
         with self.engine.begin() as connection:
@@ -416,12 +574,21 @@ class SqlCatalogsRepository:
             ).with_for_update()).first()
             if supplier is None:
                 raise CatalogSupplierNotFoundError("Fornitore non disponibile.")
+            self._lock_light_cost_scope(
+                connection,
+                organization_id,
+                seller_id,
+                provider=provider,
+                feed_role=feed_role,
+            )
             connection.execute(price_lists.insert().values(
                 id=price_list_id,
                 organization_id=organization_id,
                 seller_id=seller_id,
                 supplier_id=supplier_id,
                 name=name,
+                provider=provider,
+                feed_role=feed_role,
                 source_type="upload",
                 source_config_encrypted=None,
                 source_host="",
@@ -448,6 +615,8 @@ class SqlCatalogsRepository:
                     seller_id=seller_id,
                     price_list_id=price_list_id,
                     version_number=1,
+                    provider=provider,
+                    feed_role=feed_role,
                     **artifact_values,
                     created_at=now,
                 ))
@@ -459,6 +628,13 @@ class SqlCatalogsRepository:
                 version_number=1,
                 normalized_products=normalized_products,
                 now=now,
+            )
+            self._refresh_light_order_costs(
+                connection,
+                organization_id,
+                seller_id,
+                provider=provider,
+                feed_role=feed_role,
             )
         return price_list_id
 
@@ -473,6 +649,8 @@ class SqlCatalogsRepository:
         source_host: str,
         requested_by: UUID,
         realm: str,
+        provider: str = "generic",
+        feed_role: str = "standard",
     ) -> dict:
         price_list_id = uuid4()
         job_id = uuid4()
@@ -491,6 +669,8 @@ class SqlCatalogsRepository:
                 seller_id=seller_id,
                 supplier_id=supplier_id,
                 name=name,
+                provider=provider,
+                feed_role=feed_role,
                 source_type="url",
                 source_config_encrypted=source_config_encrypted,
                 source_host=source_host,
@@ -709,6 +889,8 @@ class SqlCatalogsRepository:
                 price_lists.c.source_config_revision.label(
                     "current_source_config_revision"
                 ),
+                price_lists.c.provider,
+                price_lists.c.feed_role,
                 price_lists.c.source_config_encrypted,
                 price_lists.c.source_host,
             ).join(
@@ -809,10 +991,19 @@ class SqlCatalogsRepository:
         media_type: str,
         file_format: str,
         artifact: bytes,
-        normalized_products: list[dict],
+        normalized_products: Sequence[dict],
+        artifact_encoding: str | None = None,
+        artifact_size: int | None = None,
+        artifact_sha256: str | None = None,
     ) -> dict:
         now = datetime.now(UTC)
-        digest = hashlib.sha256(artifact).hexdigest()
+        encoded = _durable_artifact(
+            artifact,
+            artifact_encoding=artifact_encoding,
+            artifact_size=artifact_size,
+            artifact_sha256=artifact_sha256,
+        )
+        digest = encoded.raw_sha256
         with self.engine.begin() as connection:
             job = connection.execute(select(refresh_jobs).where(
                 refresh_jobs.c.id == job_id,
@@ -834,6 +1025,13 @@ class SqlCatalogsRepository:
                 raise CatalogSourceRevisionMismatchError(
                     "La configurazione del listino è cambiata durante l'aggiornamento."
                 )
+            self._lock_light_cost_scope(
+                connection,
+                current["organization_id"],
+                current["seller_id"],
+                provider=current["provider"],
+                feed_role=current["feed_role"],
+            )
 
             duplicate = connection.execute(select(versions).where(
                 versions.c.price_list_id == current["id"],
@@ -853,9 +1051,7 @@ class SqlCatalogsRepository:
                     "original_filename": original_filename,
                     "media_type": media_type,
                     "file_format": file_format,
-                    "artifact_sha256": digest,
-                    "artifact_size": len(artifact),
-                    "artifact_bytes": artifact,
+                    **_artifact_persistence_values(encoded),
                     "product_count": len(normalized_products),
                 }
                 connection.execute(versions.insert().values(
@@ -864,6 +1060,8 @@ class SqlCatalogsRepository:
                     seller_id=current["seller_id"],
                     price_list_id=current["id"],
                     version_number=version_number,
+                    provider=current["provider"],
+                    feed_role=current["feed_role"],
                     **artifact_values,
                     created_at=now,
                 ))
@@ -882,7 +1080,8 @@ class SqlCatalogsRepository:
                     key: duplicate[key]
                     for key in (
                         "original_filename", "media_type", "file_format", "artifact_sha256",
-                        "artifact_size", "artifact_bytes", "product_count",
+                        "artifact_size", "artifact_encoding", "artifact_stored_size",
+                        "artifact_bytes", "product_count",
                     )
                 }
 
@@ -898,13 +1097,20 @@ class SqlCatalogsRepository:
                 updated_at=now,
                 **artifact_values,
             ))
+            self._refresh_light_order_costs(
+                connection,
+                current["organization_id"],
+                current["seller_id"],
+                provider=current["provider"],
+                feed_role=current["feed_role"],
+            )
             connection.execute(refresh_jobs.update().where(
                 refresh_jobs.c.id == job_id,
                 refresh_jobs.c.status == "running",
             ).values(
                 status="done",
-                processed_bytes=len(artifact),
-                total_bytes=len(artifact),
+                processed_bytes=encoded.raw_size,
+                total_bytes=encoded.raw_size,
                 message=(
                     "Listino invariato: versione già acquisita."
                     if duplicate is not None
@@ -937,11 +1143,18 @@ class SqlCatalogsRepository:
             "id": str(row["id"]),
             "price_list_id": str(row["price_list_id"]),
             "version_number": int(row["version_number"]),
+            "provider": row["provider"],
+            "feed_role": row["feed_role"],
             "file_name": row["original_filename"],
             "media_type": row["media_type"],
             "file_format": row["file_format"],
             "artifact_sha256": row["artifact_sha256"],
             "artifact_size": int(row["artifact_size"]),
+            "artifact_encoding": row["artifact_encoding"] or "identity",
+            "artifact_stored_size": (
+                int(row["artifact_stored_size"])
+                if row["artifact_stored_size"] is not None else int(row["artifact_size"])
+            ),
             "row_count": int(row["product_count"]),
             "created_at": _timestamp(row["created_at"]),
         } for row in rows]
@@ -1004,6 +1217,8 @@ class SqlCatalogsRepository:
                 price_lists.c.id,
                 price_lists.c.name,
                 price_lists.c.product_count,
+                price_lists.c.provider,
+                price_lists.c.feed_role,
             ).where(
                 price_lists.c.id == price_list_id,
                 *self._scope(price_lists, organization_id, seller_id),
@@ -1019,12 +1234,26 @@ class SqlCatalogsRepository:
                 raise CatalogRefreshInProgressError(
                     "Attendi il completamento dell'aggiornamento del listino."
                 )
+            self._lock_light_cost_scope(
+                connection,
+                organization_id,
+                seller_id,
+                provider=row["provider"],
+                feed_role=row["feed_role"],
+            )
             result = connection.execute(price_lists.delete().where(
                 price_lists.c.id == price_list_id,
                 *self._scope(price_lists, organization_id, seller_id),
             ))
             if result.rowcount != 1:
                 raise CatalogPriceListNotFoundError("Listino non disponibile.")
+            self._refresh_light_order_costs(
+                connection,
+                organization_id,
+                seller_id,
+                provider=row["provider"],
+                feed_role=row["feed_role"],
+            )
         return {
             "id": str(row["id"]),
             "name": row["name"],
@@ -1036,10 +1265,30 @@ class SqlCatalogsRepository:
     ) -> bytes:
         """Internal retrieval used by worker adapters; never expose from the API."""
         with self.engine.connect() as connection:
-            row = connection.execute(select(price_lists.c.artifact_bytes).where(
+            row = connection.execute(select(
+                price_lists.c.artifact_bytes,
+                price_lists.c.artifact_encoding,
+                price_lists.c.artifact_stored_size,
+                price_lists.c.artifact_size,
+                price_lists.c.artifact_sha256,
+            ).where(
                 price_lists.c.id == price_list_id,
                 *self._scope(price_lists, organization_id, seller_id),
-            )).first()
-        if row is None or row[0] is None:
+            )).mappings().first()
+        if row is None or row["artifact_bytes"] is None:
             raise CatalogPriceListNotFoundError("Listino non disponibile.")
-        return bytes(row[0])
+        stored = bytes(row["artifact_bytes"])
+        encoding = row["artifact_encoding"] or "identity"
+        stored_size = (
+            int(row["artifact_stored_size"])
+            if row["artifact_stored_size"] is not None else int(row["artifact_size"])
+        )
+        if len(stored) != stored_size:
+            raise CatalogArtifactEncodingError("Il listino archiviato risulta incompleto.")
+        content = decode_catalog_artifact(stored, encoding)
+        if (
+            len(content) != int(row["artifact_size"])
+            or hashlib.sha256(content).hexdigest() != row["artifact_sha256"]
+        ):
+            raise CatalogArtifactEncodingError("Il listino archiviato non supera il controllo.")
+        return content

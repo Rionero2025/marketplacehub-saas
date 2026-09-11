@@ -34,7 +34,7 @@ const types = load("../app/lib/catalog-types.ts", {
 
 const supplier = () => ({ id: supplierId, name: "Innpro", notes: "Feed principale", price_list_count: 1 });
 const job = () => ({ id: jobId, status: "queued", processed_bytes: 0, total_bytes: null, progress: null, message: "Aggiornamento listino in coda.", error_code: null, result_version: null, created_at: "2026-09-10T08:00:00Z", updated_at: "2026-09-10T08:00:00Z" });
-const priceList = () => ({ id: priceListId, supplier_id: supplierId, supplier_name: "Innpro", name: "Listino IT", source_type: "upload", file_name: "innpro.xlsx", file_format: "xlsx", row_count: 1, status: "ready", source_host: null, source_config_revision: 1, active_version_number: null, last_checked_at: null, last_success_at: null, latest_job: null, updated_at: "2026-09-10T08:00:00Z" });
+const priceList = () => ({ id: priceListId, supplier_id: supplierId, supplier_name: "Innpro", name: "Listino IT", provider: "generic", feed_role: "standard", source_type: "upload", file_name: "innpro.xlsx", file_format: "xlsx", row_count: 1, status: "ready", source_host: null, source_config_revision: 1, active_version_number: null, last_checked_at: null, last_success_at: null, latest_job: null, updated_at: "2026-09-10T08:00:00Z" });
 const urlPriceList = () => ({ ...priceList(), source_type: "url", file_name: null, file_format: null, row_count: null, status: "queued", source_host: "feeds.innpro.example", latest_job: job() });
 const dashboard = () => ({ seller_id: sellerId, can_manage: true, suppliers: [supplier()], price_lists: [priceList()] });
 const detail = () => ({ price_list: priceList(), row_count: 1, preview_count: 1, products: [{ ean: "8050000000001", sku: "SKU-1", name: "Prodotto", cost: "12.34", shipping_cost: "1.50", total_cost: "13.84", quantity: "4" }] });
@@ -48,6 +48,14 @@ test("catalog DTOs enforce Seller/resource identity and discard unknown upstream
   assert.equal(types.readCatalogDashboard({ ...dashboard(), seller_id: otherSellerId }, sellerId), null);
   assert.equal(types.readCatalogDashboard({ ...dashboard(), suppliers: [supplier(), supplier()] }, sellerId), null);
   assert.equal(types.readCatalogDashboard({ ...dashboard(), price_lists: [{ ...priceList(), supplier_id: otherSellerId }] }, sellerId), null);
+  const innproFull = { ...priceList(), provider: "innpro", feed_role: "full" };
+  assert.deepEqual(plain(types.readCatalogDashboard({ ...dashboard(), price_lists: [innproFull] }, sellerId).price_lists[0]), innproFull);
+  for (const invalid of [
+    { provider: "generic", feed_role: "full" },
+    { provider: "innpro", feed_role: "standard" },
+    { provider: "other", feed_role: "standard" },
+    { provider: "innpro", feed_role: "prices" },
+  ]) assert.equal(types.readCatalogDashboard({ ...dashboard(), price_lists: [{ ...priceList(), ...invalid }] }, sellerId), null);
 });
 
 test("URL list and job DTOs accept pending fields while stripping URL, credentials and internal scope", () => {
@@ -100,15 +108,17 @@ test("input readers trim allowed fields, enforce exact confirmations and reject 
   assert.equal(types.isAllowedPriceListFile(new File(["ean,cost"], "listino.CSV")), true);
   assert.equal(types.isAllowedPriceListFile(new File(["unsafe"], "listino.pkl")), false);
   assert.equal(types.isAllowedPriceListFile(new File([], "vuoto.csv")), false);
-  assert.deepEqual(plain(types.readUrlPriceListInput({ supplier_id: supplierId, name: "  Feed Innpro ", url: " https://feeds.innpro.example/list.csv?lang=it ", username: " user ", password: "p@ss", seller_id: otherSellerId })), {
-    supplier_id: supplierId, name: "Feed Innpro", url: "https://feeds.innpro.example/list.csv?lang=it", username: "user", password: "p@ss",
+  assert.deepEqual(plain(types.readUrlPriceListInput({ supplier_id: supplierId, name: "  Feed Innpro ", provider: "innpro", feed_role: "light", url: " https://feeds.innpro.example/list.csv?lang=it ", username: " user ", password: "p@ss", seller_id: otherSellerId })), {
+    supplier_id: supplierId, name: "Feed Innpro", provider: "innpro", feed_role: "light", url: "https://feeds.innpro.example/list.csv?lang=it", username: "user", password: "p@ss",
   });
   for (const invalid of [
     { url: "http://feeds.innpro.example/list.csv", username: "", password: "" },
     { url: "https://user:pass@feeds.innpro.example/list.csv", username: "", password: "" },
     { url: "https://feeds.innpro.example/list.csv#secret", username: "", password: "" },
     { url: "https://feeds.innpro.example/list.csv", username: "user", password: "" },
-  ]) assert.equal(types.readUrlPriceListInput({ supplier_id: supplierId, name: "Feed", ...invalid }), null);
+  ]) assert.equal(types.readUrlPriceListInput({ supplier_id: supplierId, name: "Feed", provider: "generic", feed_role: "standard", ...invalid }), null);
+  assert.equal(types.readUrlPriceListInput({ supplier_id: supplierId, name: "Feed", provider: "generic", feed_role: "light", url: "https://feeds.example/list.csv", username: "", password: "" }), null);
+  assert.equal(types.readUrlPriceListInput({ supplier_id: supplierId, name: "Feed", provider: "innpro", feed_role: "standard", url: "https://feeds.example/list.xml", username: "", password: "" }), null);
 
   assert.deepEqual(plain(types.readUpdateUrlPriceListInput({
     url: " https://new-feeds.innpro.example/list.csv?token=opaque ", credentials_mode: "keep",
@@ -157,6 +167,7 @@ const getRequest = (cookie = "mh_session=existing") => new Request("https://app.
 function uploadRequest({ cookie = "mh_session=existing", content = "ean,cost\n805,12.34" } = {}) {
   const form = new FormData();
   form.set("supplier_id", supplierId); form.set("name", "Listino estate");
+  form.set("provider", "generic"); form.set("feed_role", "standard");
   form.set("file", new File([content], "estate.csv", { type: "text/csv" }));
   return new Request("https://app.test/api/catalogs", {
     method: "POST", headers: { cookie, origin: "https://app.test", host: "app.test" }, body: form,
@@ -203,20 +214,24 @@ test("URL feed create, config update, refresh and job polling use fixed paths an
     if (options.method === "GET" && url.endsWith(`/${sellerId}/catalogs`)) return Response.json(dashboard());
     if (options.method === "GET") return Response.json({ job: { ...completedJob, source_config_revision: 8, url: "https://secret.example/?token=x" } });
     if (url.endsWith(`/${priceListId}/url`)) return Response.json({ price_list: { ...urlPriceList(), source_host: "new-feeds.innpro.example", source_config_revision: 2, password: "never" } });
-    return Response.json({ price_list: { ...urlPriceList(), password: "never" }, job: { ...job(), organization_id: otherSellerId } }, { status: 202 });
+    return Response.json({ price_list: { ...urlPriceList(), provider: "innpro", feed_role: "light", password: "never" }, job: { ...job(), organization_id: otherSellerId } }, { status: 202 });
   });
   const create = await run(jsonRequest({
-    supplier_id: supplierId, name: "  Feed estate  ", url: "https://feeds.innpro.example/list.csv?token=upstream",
+    supplier_id: supplierId, name: "  Feed estate  ", provider: "innpro", feed_role: "light",
+    url: "https://feeds.innpro.example/list.csv?token=upstream",
     username: " api-user ", password: "api-password", organization_id: otherSellerId, callback: "https://attacker.test",
   }), sellerId, "create-price-list-url");
   assert.equal(create.status, 202);
   assert.deepEqual(JSON.parse(calls[1][1].body), {
-    supplier_id: supplierId, name: "Feed estate", url: "https://feeds.innpro.example/list.csv?token=upstream",
+    supplier_id: supplierId, name: "Feed estate", provider: "innpro", feed_role: "light",
+    url: "https://feeds.innpro.example/list.csv?token=upstream",
     username: "api-user", password: "api-password",
   });
   assert.equal(calls[1][0], `http://api.test/v1/sellers/${sellerId}/catalogs/price-lists/url`);
   const createText = await create.text();
   assert.equal(createText.includes("token=upstream"), false); assert.equal(createText.includes("api-password"), false);
+  assert.equal(JSON.parse(createText).price_list.provider, "innpro");
+  assert.equal(JSON.parse(createText).price_list.feed_role, "light");
 
   const update = await run(jsonRequest({
     url: "https://new-feeds.innpro.example/list.csv?token=new-secret", credentials_mode: "replace",
@@ -243,7 +258,7 @@ test("URL feed create, config update, refresh and job polling use fixed paths an
 });
 
 test("URL feed BFF authenticates before body reads, caps JSON and never echoes URL credentials", async () => {
-  const forged = jsonRequest({ supplier_id: supplierId, name: "Feed", url: "https://feeds.example/list.csv", username: "user", password: "secret" }, { cookie: "mh_session=forged" });
+  const forged = jsonRequest({ supplier_id: supplierId, name: "Feed", provider: "generic", feed_role: "standard", url: "https://feeds.example/list.csv", username: "user", password: "secret" }, { cookie: "mh_session=forged" });
   let calls = 0;
   const reject = proxy(async () => { calls += 1; return new Response(null, { status: 401 }); });
   const rejected = await reject(forged, sellerId, "create-price-list-url");
@@ -259,7 +274,7 @@ test("URL feed BFF authenticates before body reads, caps JSON and never echoes U
   const secretRun = proxy(async (url, options) => options.method === "GET"
     ? Response.json(dashboard())
     : Response.json({ detail: "https://feeds.example/?token=secret password=hunter2" }, { status: 422 }));
-  const secretResponse = await secretRun(jsonRequest({ supplier_id: supplierId, name: "Feed", url: "https://feeds.example/list.csv", username: "", password: "" }), sellerId, "create-price-list-url");
+  const secretResponse = await secretRun(jsonRequest({ supplier_id: supplierId, name: "Feed", provider: "generic", feed_role: "standard", url: "https://feeds.example/list.csv", username: "", password: "" }), sellerId, "create-price-list-url");
   const text = await secretResponse.text();
   assert.equal(secretResponse.status, 422); assert.equal(text.includes("token=secret"), false); assert.equal(text.includes("hunter2"), false);
 
@@ -272,23 +287,74 @@ test("URL feed BFF authenticates before body reads, caps JSON and never echoes U
   assert.equal(rejectedUpdate.status, 401); assert.equal(forgedUpdate.bodyUsed, false); assert.equal(calls, 1);
 });
 
-test("multipart import forwards only supplier, name and an allowed file", async () => {
+test("catalog BFF rejects unsupported profiles and verifies the created URL feed profile", async () => {
+  let writes = 0;
+  const run = proxy(async (url, options) => {
+    if (options.method === "GET") return Response.json(dashboard());
+    writes += 1;
+    return Response.json({ price_list: urlPriceList(), job: job() }, { status: 202 });
+  });
+  const base = { supplier_id: supplierId, name: "Feed", url: "https://feeds.example/list.xml", username: "", password: "" };
+  const invalid = await run(jsonRequest({ ...base, provider: "generic", feed_role: "full" }), sellerId, "create-price-list-url");
+  assert.equal(invalid.status, 422); assert.equal(writes, 0);
+  const mismatched = await run(jsonRequest({ ...base, provider: "innpro", feed_role: "light" }), sellerId, "create-price-list-url");
+  assert.equal(mismatched.status, 502); assert.equal(writes, 1);
+});
+
+test("multipart import forwards only supplier, profile, name and an allowed file", async () => {
   let forwarded; let preflight;
   const run = proxy(async (url, options) => {
     if (url.endsWith(`/${sellerId}/catalogs`) && options.method === "GET") {
       preflight = options; return Response.json(dashboard());
     }
-    forwarded = options; return new Response(null, { status: 201 });
+    forwarded = options;
+    return Response.json({
+      ...detail(), price_list: { ...priceList(), provider: "innpro", feed_role: "full" },
+    }, { status: 201 });
   });
   const form = new FormData();
-  form.set("supplier_id", supplierId); form.set("name", "  Listino estate  "); form.set("file", new File(["ean,cost\n805,12.34"], "estate.csv", { type: "text/csv" }));
+  form.set("supplier_id", supplierId); form.set("name", "  Listino estate  ");
+  form.set("provider", "innpro"); form.set("feed_role", "full");
+  form.set("file", new File(["ean,cost\n805,12.34"], "estate.csv", { type: "text/csv" }));
   form.set("upstream_url", "https://attacker.test"); form.set("seller_id", otherSellerId);
   const request = new Request("https://app.test/api/catalogs", { method: "POST", headers: { cookie: "mh_session=existing", origin: "https://app.test", host: "app.test" }, body: form });
   const response = await run(request, sellerId, "create-price-list");
   assert.equal(preflight.headers.cookie, "mh_session=existing"); assert.equal(preflight.cache, "no-store"); assert.equal(preflight.redirect, "error");
   assert.equal(response.status, 201); assert.equal(forwarded.method, "POST"); assert.equal(forwarded.headers["content-type"], undefined);
-  assert.deepEqual(Array.from(forwarded.body.keys()), ["supplier_id", "name", "file"]);
-  assert.equal(forwarded.body.get("name"), "Listino estate"); assert.equal(forwarded.body.get("file").name, "estate.csv");
+  assert.deepEqual(Array.from(forwarded.body.keys()), ["supplier_id", "name", "provider", "feed_role", "file"]);
+  assert.equal(forwarded.body.get("name"), "Listino estate"); assert.equal(forwarded.body.get("provider"), "innpro");
+  assert.equal(forwarded.body.get("feed_role"), "full"); assert.equal(forwarded.body.get("file").name, "estate.csv");
+  assert.equal(JSON.parse(await response.text()).price_list.feed_role, "full");
+});
+
+test("catalog upload rejects an upstream response with a different feed profile", async () => {
+  const run = proxy(async (url, options) => {
+    if (options.method === "GET") return Response.json(dashboard());
+    return Response.json({ ...detail(), price_list: priceList() }, { status: 201 });
+  });
+  const form = new FormData();
+  form.set("supplier_id", supplierId); form.set("name", "InnPro FULL");
+  form.set("provider", "innpro"); form.set("feed_role", "full");
+  form.set("file", new File(["<products />"], "full.xml", { type: "application/xml" }));
+  const request = new Request("https://app.test/api/catalogs", {
+    method: "POST", headers: { cookie: "mh_session=existing", origin: "https://app.test", host: "app.test" }, body: form,
+  });
+  assert.equal((await run(request, sellerId, "create-price-list")).status, 502);
+});
+
+test("catalog upload rejects an incompatible provider and feed role before the file reaches upstream", async () => {
+  let writes = 0;
+  const run = proxy(async (url, options) => {
+    if (options.method === "GET") return Response.json(dashboard());
+    writes += 1; return new Response(null, { status: 201 });
+  });
+  const form = new FormData();
+  form.set("supplier_id", supplierId); form.set("name", "Listino non valido");
+  form.set("provider", "generic"); form.set("feed_role", "light");
+  form.set("file", new File(["ean,cost\n805,12.34"], "estate.csv", { type: "text/csv" }));
+  const request = new Request("https://app.test/api/catalogs", { method: "POST", headers: { cookie: "mh_session=existing", origin: "https://app.test", host: "app.test" }, body: form });
+  assert.equal((await run(request, sellerId, "create-price-list")).status, 422);
+  assert.equal(writes, 0);
 });
 
 test("catalog upload preflight rejects forged cookies and read-only grants without consuming multipart", async () => {
@@ -328,7 +394,7 @@ test("catalog upload admission allows one import per Seller and at most two glob
   const excessRequest = uploadRequest(); const excess = await run(excessRequest, thirdSellerId, "create-price-list");
   assert.equal(excess.status, 429); assert.equal(excess.headers.get("retry-after"), "5"); assert.equal(excessRequest.bodyUsed, false);
 
-  for (const resolve of pending) resolve(new Response(null, { status: 201 }));
+  for (const resolve of pending) resolve(Response.json(detail(), { status: 201 }));
   assert.deepEqual((await Promise.all([first, second])).map((response) => response.status), [201, 201]);
   assert.equal(firstRequest.bodyUsed, true); assert.equal(secondRequest.bodyUsed, true);
 });
@@ -337,7 +403,7 @@ test("an interrupted catalog body read returns a timeout and releases Seller adm
   let uploads = 0;
   const run = proxy(async (url, options) => {
     if (options.method === "GET" && url.endsWith(`/${sellerId}/catalogs`)) return Response.json(dashboard());
-    uploads += 1; return new Response(null, { status: 201 });
+    uploads += 1; return Response.json(detail(), { status: 201 });
   });
   const controller = new AbortController();
   const slowRequest = new Request("https://app.test/api/catalogs", {
@@ -438,4 +504,9 @@ test("Seller catalog UI keeps feed secrets transient and cleans up real job poll
   assert.match(source, /credentials_mode: editCredentialMode/);
   assert.match(source, /expected_config_revision: editPriceList\.source_config_revision/);
   assert.match(source, /input\.credentials_mode === "keep" && !urlFeedHostMatches\(input\.url, edited\.source_host \?\? ""\)/);
+  assert.match(source, /<option value="generic">Generico<\/option><option value="innpro">InnPro IOF<\/option>/);
+  assert.match(source, /<option value="full">FULL · contenuti prodotto<\/option><option value="light">LIGHT · prezzi e disponibilità<\/option>/);
+  assert.match(source, /payload: \{[\s\S]*?provider: priceListProvider,[\s\S]*?feed_role: priceListFeedRole/);
+  assert.match(source, /form\.set\("provider", priceListProvider\); form\.set\("feed_role", priceListFeedRole\)/);
+  assert.match(source, /catalog-profile-badges/);
 });

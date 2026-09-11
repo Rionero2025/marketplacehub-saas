@@ -3,6 +3,10 @@ import { isUuid } from "./seller-settings-types";
 export const MAX_PRICE_LIST_FILE_BYTES = 20 * 1024 * 1024;
 export const PRICE_LIST_EXTENSIONS = ["csv", "txt", "tsv", "xls", "xlsx", "xml"] as const;
 
+export type CatalogProvider = "generic" | "innpro";
+export type CatalogFeedRole = "standard" | "full" | "light";
+export type CatalogFeedProfile = { provider: CatalogProvider; feed_role: CatalogFeedRole };
+
 export type CatalogSupplier = {
   id: string;
   name: string;
@@ -15,6 +19,8 @@ export type CatalogPriceList = {
   supplier_id: string;
   supplier_name: string;
   name: string;
+  provider: CatalogProvider;
+  feed_role: CatalogFeedRole;
   source_type: "upload" | "file" | "url";
   file_name: string | null;
   file_format: string | null;
@@ -77,6 +83,8 @@ export type DeleteSupplierInput = { confirmation: string };
 export type UrlPriceListInput = {
   supplier_id: string;
   name: string;
+  provider: CatalogProvider;
+  feed_role: CatalogFeedRole;
   url: string;
   username: string;
   password: string;
@@ -103,6 +111,8 @@ const decimalOrNull = (value: unknown): value is CatalogDecimal => value === nul
   || (typeof value === "string" && value.length <= 50 && /^-?\d+(?:\.\d+)?$/.test(value) && Number.isFinite(Number(value)));
 
 const sourceTypes = new Set(["upload", "file", "url"]);
+const catalogProviders = new Set<CatalogProvider>(["generic", "innpro"]);
+const catalogFeedRoles = new Set<CatalogFeedRole>(["standard", "full", "light"]);
 const priceListStatuses = new Set(["pending", "queued", "running", "error", "ready"]);
 const jobStatuses = new Set(["queued", "pending", "running", "done", "ready", "error"]);
 const jobErrorCodes = new Set([
@@ -118,7 +128,7 @@ const jobMessages = new Set([
   "La configurazione del listino è cambiata. Avvia un nuovo aggiornamento.",
   "Non è stato possibile scaricare il listino.",
   "Il contenuto scaricato non è un listino supportato.",
-  "Il listino supera il limite di 20 MiB.",
+  "Il listino supera il limite consentito: 20 MiB per i feed generici, 200 MiB per i feed URL InnPro.",
   "Il download del listino ha superato il tempo massimo.",
   "L’aggiornamento del listino non è riuscito.",
   "Aggiornamento listino interrotto dal worker. Puoi avviarlo di nuovo.",
@@ -156,12 +166,21 @@ function readSupplier(value: unknown): CatalogSupplier | null {
   return { id: value.id, name: value.name, notes: value.notes, price_list_count: value.price_list_count };
 }
 
+/** Accepts only provider/role pairs supported by the catalog contract. */
+export function readCatalogFeedProfile(provider: unknown, feedRole: unknown): CatalogFeedProfile | null {
+  if (typeof provider !== "string" || !catalogProviders.has(provider as CatalogProvider)
+    || typeof feedRole !== "string" || !catalogFeedRoles.has(feedRole as CatalogFeedRole)) return null;
+  if ((provider === "generic") !== (feedRole === "standard")) return null;
+  return { provider: provider as CatalogProvider, feed_role: feedRole as CatalogFeedRole };
+}
+
 function readPriceList(value: unknown): CatalogPriceList | null {
   if (!isObject(value)) return null;
+  const profile = readCatalogFeedProfile(value.provider, value.feed_role);
   const sourceHostValue = value.source_host === "" || value.source_host == null ? null : value.source_host;
   const lastCheckedValue = value.last_checked_at === "" || value.last_checked_at == null ? null : value.last_checked_at;
   const lastSuccessValue = value.last_success_at === "" || value.last_success_at == null ? null : value.last_success_at;
-  if (!isUuid(value.id) || !isUuid(value.supplier_id)
+  if (!profile || !isUuid(value.id) || !isUuid(value.supplier_id)
     || !requiredText(value.supplier_name, 200) || !requiredText(value.name, 200)
     || typeof value.source_type !== "string" || !sourceTypes.has(value.source_type)
     || !nullableText(value.file_name ?? null, 500) || !nullableText(value.file_format ?? null, 20)
@@ -176,7 +195,8 @@ function readPriceList(value: unknown): CatalogPriceList | null {
   if (value.source_type === "url" && sourceHostValue === null) return null;
   return {
     id: value.id, supplier_id: value.supplier_id, supplier_name: value.supplier_name,
-    name: value.name, source_type: value.source_type as CatalogPriceList["source_type"],
+    name: value.name, provider: profile.provider, feed_role: profile.feed_role,
+    source_type: value.source_type as CatalogPriceList["source_type"],
     file_name: (value.file_name ?? null) as string | null,
     file_format: (value.file_format ?? null) as string | null,
     row_count: (value.row_count ?? null) as number | null,
@@ -274,16 +294,20 @@ export function readDeleteSupplierInput(value: unknown): DeleteSupplierInput | n
 export function readUrlPriceListInput(value: unknown): UrlPriceListInput | null {
   if (!isObject(value) || !isUuid(value.supplier_id) || typeof value.name !== "string"
     || typeof value.url !== "string" || typeof value.username !== "string" || typeof value.password !== "string") return null;
+  const profile = readCatalogFeedProfile(value.provider, value.feed_role);
   const name = value.name.trim();
   const urlValue = value.url.trim();
   const username = value.username.trim();
-  if (!name || name.length > 200 || !urlValue || urlValue.length > 4_096
+  if (!profile || !name || name.length > 200 || !urlValue || urlValue.length > 4_096
     || username.length > 500 || value.password.length > 4_096 || Boolean(username) !== Boolean(value.password)) return null;
   let parsed: URL;
   try { parsed = new URL(urlValue); } catch { return null; }
   if (parsed.protocol !== "https:" || !parsed.hostname.includes(".") || parsed.username || parsed.password
     || parsed.hash || (parsed.port && parsed.port !== "443")) return null;
-  return { supplier_id: value.supplier_id, name, url: urlValue, username, password: value.password };
+  return {
+    supplier_id: value.supplier_id, name, provider: profile.provider, feed_role: profile.feed_role,
+    url: urlValue, username, password: value.password,
+  };
 }
 
 export function readUpdateUrlPriceListInput(value: unknown): UpdateUrlPriceListInput | null {

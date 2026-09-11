@@ -724,13 +724,29 @@ class SqlOrdersRepository:
                      message=message or "Sincronizzazione completata.", updated_at=now,
                      finished_at=now))
 
-    def upsert_batch(self, job, items):
+    def upsert_batch(self, job, items, *, catalog_cost_resolver=None):
         if self.engine.dialect.name == "postgresql":
             from sqlalchemy.dialects.postgresql import insert
         else:
             from sqlalchemy.dialects.sqlite import insert
         now = datetime.now(UTC)
         with self.engine.begin() as connection:
+            from marketplace_hub_core.catalogs.costing import SqlCatalogCostResolver
+
+            resolver = catalog_cost_resolver or SqlCatalogCostResolver(self.engine)
+            if resolver.applies_to(items):
+                # Cost resolution and persistence share one transaction and one
+                # stable Seller lock. Every active LIGHT mutation takes this
+                # same lock, so a sync cannot overwrite a newer recalculation.
+                resolver.lock_scope(
+                    connection, job["organization_id"], job["seller_id"],
+                )
+                items = resolver.apply(
+                    job["organization_id"],
+                    job["seller_id"],
+                    items,
+                    connection=connection,
+                )
             # During a rolling migration a new worker can briefly meet the
             # pre-0009 table. Keep writing the columns present in that schema;
             # the next compatible sync or migration materializes payment fields.

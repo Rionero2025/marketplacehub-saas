@@ -7,6 +7,7 @@ from pydantic import SecretStr
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from marketplace_hub_core.auth.models import AuthenticatedSession, AuthRealm
+from marketplace_hub_core.catalogs.costing import SqlCatalogCostResolver
 from marketplace_hub_core.marketplace_connections.repository import (
     VERIFICATION_KEY,
     SqlMarketplaceConnectionsRepository,
@@ -170,9 +171,12 @@ def item_payload(row):
 class OrdersService:
     def __init__(self, repository: SqlOrdersRepository, workspace: WorkspaceService,
                  accounts: SqlMarketplaceConnectionsRepository, queue, master_key: SecretStr,
-                 fetcher=None):
+                 fetcher=None, catalog_cost_resolver=None):
         self.repository, self.workspace, self.accounts = repository, workspace, accounts
         self.queue, self.master_key, self.fetcher = queue, master_key, fetcher
+        self.catalog_cost_resolver = (
+            catalog_cost_resolver or SqlCatalogCostResolver(repository.engine)
+        )
         self.selections = SqlOrderSelections(repository)
 
     def _scope(self, principal, seller_id, account_id, environment, *, write=False):
@@ -458,7 +462,11 @@ class OrdersService:
         async def on_batch(rows, processed, total):
             nonlocal warning_rows
             await authorized()
-            self.repository.upsert_batch(job, rows)
+            self.repository.upsert_batch(
+                job,
+                rows,
+                catalog_cost_resolver=self.catalog_cost_resolver,
+            )
             warning_rows += sum(bool(row.get("monetary_warnings")) for row in rows)
             self.repository.progress(job_id, processed=processed, total=total,
                                      message="Salvataggio ordini.")

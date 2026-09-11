@@ -120,6 +120,8 @@ class PriceListUrlCreate(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     supplier_id: UUID
     name: str
+    provider: Literal["generic", "innpro"] = "generic"
+    feed_role: Literal["standard", "full", "light"] = "standard"
     url: SecretStr
     username: SecretStr = SecretStr("")
     password: SecretStr = SecretStr("")
@@ -252,6 +254,8 @@ def create_catalogs_router(service: CatalogsService, auth, settings):
                 file_name=upload.file_name,
                 media_type=upload.media_type,
                 content=upload.content,
+                provider=upload.provider,
+                feed_role=upload.feed_role,
             ),
         )
 
@@ -269,6 +273,8 @@ def create_catalogs_router(service: CatalogsService, auth, settings):
                 url=payload.url.get_secret_value(),
                 username=payload.username.get_secret_value(),
                 password=payload.password.get_secret_value(),
+                provider=payload.provider,
+                feed_role=payload.feed_role,
             ),
         )
 

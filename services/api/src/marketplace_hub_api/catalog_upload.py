@@ -29,6 +29,8 @@ class _BodyLimitExceeded(MultiPartException):
 class CatalogUpload:
     supplier_id: UUID
     name: str
+    provider: str
+    feed_role: str
     file_name: str
     media_type: str
     content: bytes
@@ -67,7 +69,7 @@ async def read_catalog_multipart(request: Request) -> CatalogUpload:
         request.headers,
         bounded_stream(),
         max_files=1,
-        max_fields=2,
+        max_fields=4,
         max_part_size=MAX_TEXT_FIELD_BYTES,
     )
     form = None
@@ -80,14 +82,18 @@ async def read_catalog_multipart(request: Request) -> CatalogUpload:
             raise CatalogMultipartError("La richiesta multipart non è valida.") from exc
 
         values: dict[str, object] = {}
-        allowed = {"supplier_id", "name", "file"}
+        allowed = {"supplier_id", "name", "provider", "feed_role", "file"}
         for key, value in form.multi_items():
             if key not in allowed or key in values:
                 raise CatalogMultipartError("La richiesta multipart non è valida.")
             values[key] = value
-        if set(values) != allowed:
+        if not {"supplier_id", "name", "file"}.issubset(values):
             raise CatalogMultipartError("Indica fornitore, nome del listino e file.")
-        if isinstance(values["supplier_id"], UploadFile) or isinstance(values["name"], UploadFile):
+        if any(
+            isinstance(values[key], UploadFile)
+            for key in ("supplier_id", "name", "provider", "feed_role")
+            if key in values
+        ):
             raise CatalogMultipartError("I campi del listino non sono validi.")
         file = values["file"]
         if not isinstance(file, UploadFile):
@@ -112,6 +118,8 @@ async def read_catalog_multipart(request: Request) -> CatalogUpload:
         return CatalogUpload(
             supplier_id=supplier_id,
             name=name,
+            provider=str(values.get("provider", "generic")),
+            feed_role=str(values.get("feed_role", "standard")),
             file_name=file.filename or "",
             media_type=file.content_type or "application/octet-stream",
             content=b"".join(chunks),

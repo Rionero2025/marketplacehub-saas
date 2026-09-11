@@ -15,8 +15,15 @@ from sqlalchemy import (
     Uuid,
 )
 
+from marketplace_hub_core.catalogs.artifacts import (
+    MAX_REMOTE_CATALOG_SOURCE_BYTES,
+    MAX_STORED_CATALOG_ARTIFACT_BYTES,
+)
 from marketplace_hub_core.tenancy.schema import metadata
 
+# Uploads and the generic in-memory parser retain their original 20 MiB limit.
+# The durable catalog model also accepts larger remote feeds when their stored
+# representation fits the independently bounded compressed-artifact limit.
 MAX_CATALOG_ARTIFACT_BYTES = 20 * 1024 * 1024
 
 
@@ -82,6 +89,8 @@ seller_price_lists = Table(
     ),
     Column("supplier_id", Uuid(), nullable=False),
     Column("name", Text(), nullable=False),
+    Column("provider", String(32), nullable=False, server_default="generic"),
+    Column("feed_role", String(16), nullable=False, server_default="standard"),
     Column("source_type", String(16), nullable=False, server_default="upload"),
     # Opaque Fernet token. Public repository reads never select this column.
     Column("source_config_encrypted", Text()),
@@ -97,6 +106,8 @@ seller_price_lists = Table(
     Column("file_format", String(16)),
     Column("artifact_sha256", String(64)),
     Column("artifact_size", Integer()),
+    Column("artifact_encoding", String(16)),
+    Column("artifact_stored_size", Integer()),
     Column("artifact_bytes", LargeBinary()),
     Column("product_count", Integer(), nullable=False, server_default="0"),
     Column("created_at", DateTime(timezone=True), nullable=False),
@@ -125,7 +136,8 @@ seller_price_lists = Table(
         name="ck_seller_price_list_media_type_not_blank",
     ),
     CheckConstraint(
-        "file_format IS NULL OR file_format IN ('csv', 'txt', 'tsv', 'xls', 'xlsx', 'xml')",
+        "file_format IS NULL OR "
+        "file_format IN ('csv', 'txt', 'tsv', 'xls', 'xlsx', 'xml', 'iof')",
         name="ck_seller_price_list_format",
     ),
     CheckConstraint(
@@ -134,14 +146,44 @@ seller_price_lists = Table(
     ),
     CheckConstraint(
         "artifact_size IS NULL OR "
-        f"(artifact_size > 0 AND artifact_size <= {MAX_CATALOG_ARTIFACT_BYTES})",
+        f"(artifact_size > 0 AND artifact_size <= {MAX_REMOTE_CATALOG_SOURCE_BYTES})",
         name="ck_seller_price_list_artifact_size",
     ),
     CheckConstraint(
-        "artifact_bytes IS NULL OR length(artifact_bytes) = artifact_size",
+        "artifact_stored_size IS NULL OR "
+        f"(artifact_stored_size > 0 AND "
+        f"artifact_stored_size <= {MAX_STORED_CATALOG_ARTIFACT_BYTES})",
+        name="ck_seller_price_list_artifact_stored_size",
+    ),
+    CheckConstraint(
+        "artifact_encoding IS NULL OR artifact_encoding IN ('identity', 'gzip')",
+        name="ck_seller_price_list_artifact_encoding",
+    ),
+    CheckConstraint(
+        "artifact_bytes IS NULL OR "
+        "length(artifact_bytes) = coalesce(artifact_stored_size, artifact_size)",
         name="ck_seller_price_list_artifact_length",
     ),
+    CheckConstraint(
+        "(artifact_encoding IS NULL AND artifact_stored_size IS NULL) OR "
+        "(artifact_encoding IS NOT NULL AND artifact_stored_size IS NOT NULL AND "
+        "((artifact_encoding = 'identity' AND artifact_stored_size = artifact_size) OR "
+        "artifact_encoding = 'gzip'))",
+        name="ck_seller_price_list_artifact_storage",
+    ),
     CheckConstraint("product_count >= 0", name="ck_seller_price_list_product_count"),
+    CheckConstraint(
+        "provider IN ('generic', 'innpro')", name="ck_seller_price_list_provider",
+    ),
+    CheckConstraint(
+        "feed_role IN ('standard', 'full', 'light')",
+        name="ck_seller_price_list_feed_role",
+    ),
+    CheckConstraint(
+        "(provider = 'generic' AND feed_role = 'standard') OR "
+        "(provider = 'innpro' AND feed_role IN ('full', 'light'))",
+        name="ck_seller_price_list_feed_identity",
+    ),
     CheckConstraint("source_type IN ('upload', 'url')", name="ck_seller_price_list_source_type"),
     CheckConstraint(
         "source_config_revision > 0 AND active_version_number >= 0",
@@ -149,10 +191,13 @@ seller_price_lists = Table(
     ),
     CheckConstraint(
         "(artifact_bytes IS NULL AND artifact_sha256 IS NULL AND artifact_size IS NULL "
+        "AND artifact_encoding IS NULL AND artifact_stored_size IS NULL "
         "AND original_filename IS NULL AND media_type IS NULL AND file_format IS NULL "
         "AND product_count = 0 AND active_version_number = 0) OR "
         "(artifact_bytes IS NOT NULL AND artifact_sha256 IS NOT NULL "
         "AND artifact_size IS NOT NULL AND original_filename IS NOT NULL "
+        "AND ((artifact_encoding IS NULL AND artifact_stored_size IS NULL) OR "
+        "(artifact_encoding IS NOT NULL AND artifact_stored_size IS NOT NULL)) "
         "AND media_type IS NOT NULL AND file_format IS NOT NULL "
         "AND product_count > 0 AND active_version_number > 0)",
         name="ck_seller_price_list_artifact_group",
@@ -189,11 +234,17 @@ seller_price_list_versions = Table(
     ),
     Column("price_list_id", Uuid(), nullable=False),
     Column("version_number", Integer(), nullable=False),
+    Column("provider", String(32), nullable=False, server_default="generic"),
+    Column("feed_role", String(16), nullable=False, server_default="standard"),
     Column("original_filename", String(255), nullable=False),
     Column("media_type", String(200), nullable=False),
     Column("file_format", String(16), nullable=False),
     Column("artifact_sha256", String(64), nullable=False),
     Column("artifact_size", Integer(), nullable=False),
+    # Nullable only for rows written briefly by the previous release during a
+    # rolling deploy; NULL/NULL has the precise legacy meaning ``identity``.
+    Column("artifact_encoding", String(16)),
+    Column("artifact_stored_size", Integer()),
     Column("artifact_bytes", LargeBinary(), nullable=False),
     Column("product_count", Integer(), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
@@ -218,16 +269,46 @@ seller_price_list_versions = Table(
     ),
     CheckConstraint("version_number > 0", name="ck_seller_price_list_version_positive"),
     CheckConstraint(
-        "file_format IN ('csv', 'txt', 'tsv', 'xls', 'xlsx', 'xml')",
+        "provider IN ('generic', 'innpro')",
+        name="ck_seller_price_list_version_provider",
+    ),
+    CheckConstraint(
+        "feed_role IN ('standard', 'full', 'light')",
+        name="ck_seller_price_list_version_feed_role",
+    ),
+    CheckConstraint(
+        "(provider = 'generic' AND feed_role = 'standard') OR "
+        "(provider = 'innpro' AND feed_role IN ('full', 'light'))",
+        name="ck_seller_price_list_version_feed_identity",
+    ),
+    CheckConstraint(
+        "file_format IN ('csv', 'txt', 'tsv', 'xls', 'xlsx', 'xml', 'iof')",
         name="ck_seller_price_list_version_format",
     ),
     CheckConstraint(
-        f"artifact_size > 0 AND artifact_size <= {MAX_CATALOG_ARTIFACT_BYTES}",
+        f"artifact_size > 0 AND artifact_size <= {MAX_REMOTE_CATALOG_SOURCE_BYTES}",
         name="ck_seller_price_list_version_artifact_size",
     ),
     CheckConstraint(
-        "length(artifact_bytes) = artifact_size",
+        "artifact_stored_size IS NULL OR "
+        f"(artifact_stored_size > 0 AND "
+        f"artifact_stored_size <= {MAX_STORED_CATALOG_ARTIFACT_BYTES})",
+        name="ck_seller_price_list_version_artifact_stored_size",
+    ),
+    CheckConstraint(
+        "artifact_encoding IS NULL OR artifact_encoding IN ('identity', 'gzip')",
+        name="ck_seller_price_list_version_artifact_encoding",
+    ),
+    CheckConstraint(
+        "length(artifact_bytes) = coalesce(artifact_stored_size, artifact_size)",
         name="ck_seller_price_list_version_artifact_length",
+    ),
+    CheckConstraint(
+        "(artifact_encoding IS NULL AND artifact_stored_size IS NULL) OR "
+        "(artifact_encoding IS NOT NULL AND artifact_stored_size IS NOT NULL AND "
+        "((artifact_encoding = 'identity' AND artifact_stored_size = artifact_size) OR "
+        "artifact_encoding = 'gzip'))",
+        name="ck_seller_price_list_version_artifact_storage",
     ),
     CheckConstraint(
         "length(trim(original_filename)) > 0 AND length(trim(media_type)) > 0",

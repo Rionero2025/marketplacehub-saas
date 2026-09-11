@@ -15,8 +15,10 @@ import {
   urlFeedHostMatches,
   type CatalogCredentialMode,
   type CatalogDashboard,
+  type CatalogFeedRole,
   type CatalogFeedJob,
   type CatalogPriceList,
+  type CatalogProvider,
   type CatalogSupplier,
   type PriceListDetail,
 } from "../lib/catalog-types";
@@ -83,6 +85,21 @@ function statusClass(priceList: CatalogPriceList) {
   return status;
 }
 
+function providerLabel(value: CatalogProvider) {
+  return value === "innpro" ? "InnPro IOF" : "Generico";
+}
+
+function feedRoleLabel(value: CatalogFeedRole) {
+  return value === "full" ? "FULL" : value === "light" ? "LIGHT" : "Standard";
+}
+
+function feedRoleDescription(provider: CatalogProvider, role: CatalogFeedRole) {
+  if (provider === "generic") return "Usa questa modalità per CSV, fogli di calcolo, XML e feed di fornitori diversi da InnPro.";
+  return role === "full"
+    ? "FULL importa schede prodotto, descrizioni, immagini, categorie, varianti e dati tecnici."
+    : "LIGHT importa prezzi di acquisto e disponibilità: è la fonte InnPro usata dalla contabilità.";
+}
+
 function CatalogJobProgress({ job, priceListName }: { job: CatalogFeedJob | null; priceListName: string }) {
   if (!jobIsActive(job) || !job) return null;
   const progressLabel = job.progress === null ? "Avanzamento non determinato" : `${number.format(job.progress)}%`;
@@ -130,6 +147,8 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
   const [selectedSupplierId, setSelectedSupplierId] = useState("");
   const [priceListName, setPriceListName] = useState("");
   const [priceListSource, setPriceListSource] = useState<PriceListSource>("file");
+  const [priceListProvider, setPriceListProvider] = useState<CatalogProvider>("generic");
+  const [priceListFeedRole, setPriceListFeedRole] = useState<CatalogFeedRole>("standard");
   const [priceListFile, setPriceListFile] = useState<File | null>(null);
   const [feedUrl, setFeedUrl] = useState("");
   const [feedUsername, setFeedUsername] = useState("");
@@ -279,6 +298,7 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
   function resetSupplier() { setSupplierName(""); setSupplierNotes(""); setDeleteSupplier(null); setSupplierConfirmation(""); }
   function resetPriceList() {
     setPriceListName(""); setPriceListFile(null); setFeedUrl(""); setFeedUsername(""); setFeedPassword("");
+    setPriceListProvider("generic"); setPriceListFeedRole("standard");
     setDeletePriceList(null); setPriceListConfirmation("");
     if (fileInput.current) fileInput.current.value = "";
   }
@@ -420,7 +440,10 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
       setFeedPassword("");
       await enqueueFeed({
         operation: "create-price-list-url", url: `${baseUrl}/price-lists`,
-        payload: { supplier_id: selectedSupplierId, name, url, username, password },
+        payload: {
+          supplier_id: selectedSupplierId, name, provider: priceListProvider,
+          feed_role: priceListFeedRole, url, username, password,
+        },
         message: `Feed ${name} registrato. L’importazione è in corso.`, reset: resetPriceList,
       });
       return;
@@ -429,7 +452,9 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
     if (priceListFile.size > MAX_PRICE_LIST_FILE_BYTES) { setError(`Il file supera il limite di ${maximumFileLabel}.`); return; }
     if (!isAllowedPriceListFile(priceListFile)) { setError("Formato non supportato. Usa CSV, TXT, TSV, XLS, XLSX o XML."); return; }
     const form = new FormData();
-    form.set("supplier_id", selectedSupplierId); form.set("name", name); form.set("file", priceListFile, priceListFile.name);
+    form.set("supplier_id", selectedSupplierId); form.set("name", name);
+    form.set("provider", priceListProvider); form.set("feed_role", priceListFeedRole);
+    form.set("file", priceListFile, priceListFile.name);
     const supplierId = selectedSupplierId;
     await mutate({
       operation: "create-price-list", url: `${baseUrl}/price-lists`, body: form,
@@ -619,6 +644,11 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
         <div className="workspace-section-body">
           {dashboard.suppliers.length ? dashboard.can_manage ? <form className="catalog-form catalog-import-form" onSubmit={createPriceList}><fieldset disabled={!canManage}><legend className="visually-hidden">Dati del listino da importare</legend>
             <div className="catalog-source-choice" role="group" aria-label="Origine del listino"><span>Origine del listino</span><button type="button" aria-pressed={priceListSource === "file"} className={priceListSource === "file" ? "is-active" : ""} onClick={() => { setPriceListSource("file"); setFeedUrl(""); setFeedUsername(""); setFeedPassword(""); setError(""); }}>File</button><button type="button" aria-pressed={priceListSource === "url"} className={priceListSource === "url" ? "is-active" : ""} onClick={() => { setPriceListSource("url"); setPriceListFile(null); if (fileInput.current) fileInput.current.value = ""; setError(""); }}>URL</button></div>
+            <div className="catalog-profile-config">
+              <div><label htmlFor={`${domId}-list-provider`}>Tipo di listino</label><select id={`${domId}-list-provider`} aria-describedby={`${domId}-list-profile-help`} value={priceListProvider} onChange={(event) => { const provider = event.target.value as CatalogProvider; setPriceListProvider(provider); setPriceListFeedRole(provider === "innpro" ? "full" : "standard"); setError(""); }}><option value="generic">Generico</option><option value="innpro">InnPro IOF</option></select></div>
+              {priceListProvider === "innpro" && <div><label htmlFor={`${domId}-list-feed-role`}>Ruolo del feed InnPro</label><select id={`${domId}-list-feed-role`} aria-describedby={`${domId}-list-profile-help`} value={priceListFeedRole} onChange={(event) => { setPriceListFeedRole(event.target.value as CatalogFeedRole); setError(""); }}><option value="full">FULL · contenuti prodotto</option><option value="light">LIGHT · prezzi e disponibilità</option></select></div>}
+              <p id={`${domId}-list-profile-help`}>{feedRoleDescription(priceListProvider, priceListFeedRole)}</p>
+            </div>
             <div><label htmlFor={`${domId}-list-supplier`}>Fornitore</label><select id={`${domId}-list-supplier`} required value={selectedSupplierId} onChange={(event) => { setSelectedSupplierId(event.target.value); setError(""); }}>{dashboard.suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></div>
             <div><label htmlFor={`${domId}-list-name`}>Nome listino</label><input id={`${domId}-list-name`} required maxLength={200} value={priceListName} onChange={(event) => { setPriceListName(event.target.value); setError(""); }} /></div>
             <div className="catalog-source-fields">{priceListSource === "file" ? <div className="catalog-file-field"><label htmlFor={`${domId}-list-file`}>File del listino</label><input ref={fileInput} id={`${domId}-list-file`} type="file" required accept=".csv,.txt,.tsv,.xls,.xlsx,.xml" onChange={(event) => { setPriceListFile(event.target.files?.[0] ?? null); setError(""); }} /><p>{priceListFile ? `${priceListFile.name} · ${number.format(priceListFile.size / 1024)} KiB` : `Dimensione massima ${maximumFileLabel}. I file PKL non sono accettati.`}</p></div> : <>
@@ -634,7 +664,7 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
       </section>
       <section className="workspace-section catalog-list-card" aria-labelledby={`${domId}-lists-title`}>
         <div className="workspace-section-heading"><h2 id={`${domId}-lists-title`}><DashboardIcon name="file" />Listini importati <span className="count-badge">{dashboard.price_lists.length}</span></h2><button type="button" className="workspace-refresh" disabled={Boolean(pending)} onClick={refresh}><DashboardIcon name="refresh" size={14} />Aggiorna</button></div>
-        {dashboard.price_lists.length ? <div className="catalog-table-wrap" tabIndex={0} role="region" aria-label="Tabella dei listini, scorrimento orizzontale"><table className="catalog-table"><caption className="visually-hidden">Listini importati per {sellerName}</caption><thead><tr><th scope="col">Listino</th><th scope="col">Fornitore</th><th scope="col">Origine</th><th scope="col">Prodotti</th><th scope="col">Stato</th><th scope="col">Ultima sincronizzazione</th><th scope="col"><span className="visually-hidden">Azioni</span></th></tr></thead><tbody>{dashboard.price_lists.map((priceList) => <tr key={priceList.id}><td><strong>{priceList.name}</strong><span>{sourceLabel(priceList.source_type)}</span></td><td>{priceList.supplier_name}</td><td>{priceList.source_type === "url" ? <><span className="catalog-file-name">{priceList.source_host}</span><span>{priceList.active_version_number ? `Versione ${priceList.active_version_number}` : "Prima versione in preparazione"}</span></> : <><span className="catalog-file-name">{priceList.file_name ?? "File in elaborazione"}</span><span>{priceList.file_format?.toUpperCase() ?? "Formato in verifica"}</span></>}</td><td>{priceList.row_count === null ? "—" : number.format(priceList.row_count)}</td><td><span className={`catalog-state state-${statusClass(priceList)}`}>{statusLabel(priceList)}</span><CatalogJobProgress job={priceList.latest_job} priceListName={priceList.name} />{priceList.latest_job?.status === "error" && priceList.latest_job.error_code && <span className="catalog-job-error">Codice: {priceList.latest_job.error_code}</span>}</td><td>{priceList.last_success_at ? formatDate(priceList.last_success_at) : "Mai completata"}{priceList.source_type === "url" && <span>Ultimo controllo: {formatDate(priceList.last_checked_at)}</span>}</td><td><div className="catalog-row-actions"><button type="button" className="workspace-refresh" disabled={Boolean(pending) || !hasActiveCatalog(priceList)} onClick={() => void openDetail(priceList)}>{pending === "detail" ? "Apertura…" : "Anteprima"}</button>{priceList.source_type === "url" && dashboard.can_manage && <><button type="button" className="workspace-refresh" disabled={!canManage || jobIsActive(priceList.latest_job)} onClick={() => openFeedEditor(priceList)}>Modifica feed</button><button type="button" className="workspace-refresh" disabled={!canManage || jobIsActive(priceList.latest_job)} onClick={() => void refreshFeed(priceList)}>{pending === "refresh-price-list" ? "Avvio…" : jobIsActive(priceList.latest_job) ? "In corso…" : "Aggiorna ora dal feed"}</button></>}{dashboard.can_manage && <button type="button" className="settings-delete" disabled={!canManage || jobIsActive(priceList.latest_job)} onClick={() => { setDeletePriceList(priceList); setPriceListConfirmation(""); resetFeedEditor(); setError(""); }}>Elimina</button>}</div></td></tr>)}</tbody></table></div>
+        {dashboard.price_lists.length ? <div className="catalog-table-wrap" tabIndex={0} role="region" aria-label="Tabella dei listini, scorrimento orizzontale"><table className="catalog-table"><caption className="visually-hidden">Listini importati per {sellerName}</caption><thead><tr><th scope="col">Listino</th><th scope="col">Fornitore</th><th scope="col">Origine</th><th scope="col">Prodotti</th><th scope="col">Stato</th><th scope="col">Ultima sincronizzazione</th><th scope="col"><span className="visually-hidden">Azioni</span></th></tr></thead><tbody>{dashboard.price_lists.map((priceList) => <tr key={priceList.id}><td><strong>{priceList.name}</strong><span>{sourceLabel(priceList.source_type)}</span><div className="catalog-profile-badges"><span>{providerLabel(priceList.provider)}</span><span className={`role-${priceList.feed_role}`}>{feedRoleLabel(priceList.feed_role)}</span></div></td><td>{priceList.supplier_name}</td><td>{priceList.source_type === "url" ? <><span className="catalog-file-name">{priceList.source_host}</span><span>{priceList.active_version_number ? `Versione ${priceList.active_version_number}` : "Prima versione in preparazione"}</span></> : <><span className="catalog-file-name">{priceList.file_name ?? "File in elaborazione"}</span><span>{priceList.file_format?.toUpperCase() ?? "Formato in verifica"}</span></>}</td><td>{priceList.row_count === null ? "—" : number.format(priceList.row_count)}</td><td><span className={`catalog-state state-${statusClass(priceList)}`}>{statusLabel(priceList)}</span><CatalogJobProgress job={priceList.latest_job} priceListName={priceList.name} />{priceList.latest_job?.status === "error" && priceList.latest_job.error_code && <span className="catalog-job-error">Codice: {priceList.latest_job.error_code}</span>}</td><td>{priceList.last_success_at ? formatDate(priceList.last_success_at) : "Mai completata"}{priceList.source_type === "url" && <span>Ultimo controllo: {formatDate(priceList.last_checked_at)}</span>}</td><td><div className="catalog-row-actions"><button type="button" className="workspace-refresh" disabled={Boolean(pending) || !hasActiveCatalog(priceList)} onClick={() => void openDetail(priceList)}>{pending === "detail" ? "Apertura…" : "Anteprima"}</button>{priceList.source_type === "url" && dashboard.can_manage && <><button type="button" className="workspace-refresh" disabled={!canManage || jobIsActive(priceList.latest_job)} onClick={() => openFeedEditor(priceList)}>Modifica feed</button><button type="button" className="workspace-refresh" disabled={!canManage || jobIsActive(priceList.latest_job)} onClick={() => void refreshFeed(priceList)}>{pending === "refresh-price-list" ? "Avvio…" : jobIsActive(priceList.latest_job) ? "In corso…" : "Aggiorna ora dal feed"}</button></>}{dashboard.can_manage && <button type="button" className="settings-delete" disabled={!canManage || jobIsActive(priceList.latest_job)} onClick={() => { setDeletePriceList(priceList); setPriceListConfirmation(""); resetFeedEditor(); setError(""); }}>Elimina</button>}</div></td></tr>)}</tbody></table></div>
           : <div className="workspace-section-body catalog-empty"><DashboardIcon name="file" size={24} /><strong>Nessun listino importato</strong><p>Carica un file o collega un feed HTTPS per visualizzare qui prodotti, origine e stato.</p></div>}
         {editPriceList && <form className="catalog-feed-edit" onSubmit={updateFeed}>
           <fieldset disabled={!canManage || jobIsActive(editPriceList.latest_job)}><legend>Modifica feed · {editPriceList.name}</legend>

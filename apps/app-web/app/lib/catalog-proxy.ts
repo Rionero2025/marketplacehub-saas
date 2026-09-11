@@ -3,6 +3,7 @@ import { apiUrl } from "./api-url";
 import {
   MAX_PRICE_LIST_FILE_BYTES,
   isAllowedPriceListFile,
+  readCatalogFeedProfile,
   readCatalogFeedJobResponse,
   readCatalogFeedMutation,
   readCatalogPriceListMutation,
@@ -203,6 +204,7 @@ export async function catalogProxy(
     let body: BodyInit | undefined;
     let contentType: string | undefined;
     let expectedSupplierId: string | undefined;
+    let expectedFeedProfile: ReturnType<typeof readCatalogFeedProfile> = null;
     if (operation === "create-supplier") {
       const input = readSupplierInput(await limitedJson(request).catch(() => null));
       if (!input) return failure("Inserisci un nome fornitore valido e controlla le note.", 422);
@@ -239,6 +241,7 @@ export async function catalogProxy(
         }
         if (!input) return failure("Controlla URL HTTPS e credenziali del feed.", 422);
         expectedSupplierId = input.supplier_id;
+        expectedFeedProfile = { provider: input.provider, feed_role: input.feed_role };
         body = JSON.stringify(input);
         contentType = "application/json";
       } else if (operation === "update-price-list-url") {
@@ -291,16 +294,21 @@ export async function catalogProxy(
         }
         const supplierId = form.get("supplier_id");
         const nameValue = form.get("name");
+        const profile = readCatalogFeedProfile(form.get("provider"), form.get("feed_role"));
         const file = form.get("file");
         const name = typeof nameValue === "string" ? nameValue.trim() : "";
-        if (!isUuid(supplierId) || !name || name.length > 200 || !(file instanceof File)) {
-          return failure("Seleziona il fornitore, inserisci il nome e scegli un file valido.", 422);
+        if (!isUuid(supplierId) || !name || name.length > 200 || !profile || !(file instanceof File)) {
+          return failure("Seleziona fornitore, tipo di listino e file validi.", 422);
         }
         if (file.size > MAX_PRICE_LIST_FILE_BYTES) return failure("Il file supera il limite di 20 MiB.", 413);
         if (!isAllowedPriceListFile(file)) return failure("Formato non supportato. Usa CSV, TXT, TSV, XLS, XLSX o XML.", 422);
+        expectedSupplierId = supplierId;
+        expectedFeedProfile = profile;
         const safeForm = new FormData();
         safeForm.set("supplier_id", supplierId);
         safeForm.set("name", name);
+        safeForm.set("provider", profile.provider);
+        safeForm.set("feed_role", profile.feed_role);
         safeForm.set("file", file, file.name);
         body = safeForm;
       }
@@ -352,6 +360,10 @@ export async function catalogProxy(
       if (expectedSupplierId && mutation.price_list.supplier_id !== expectedSupplierId) {
         return failure("Risposta catalogo non valida.", 502);
       }
+      if (expectedFeedProfile && (mutation.price_list.provider !== expectedFeedProfile.provider
+        || mutation.price_list.feed_role !== expectedFeedProfile.feed_role)) {
+        return failure("Risposta catalogo non valida.", 502);
+      }
       return NextResponse.json(mutation, { status: 202, headers: { "cache-control": "no-store" } });
     }
     if (operation === "update-price-list-url") {
@@ -360,8 +372,22 @@ export async function catalogProxy(
       if (!priceList || priceList.source_type !== "url") return failure("Risposta catalogo non valida.", 502);
       return NextResponse.json({ price_list: priceList }, { headers: { "cache-control": "no-store" } });
     }
+    if (operation === "create-price-list") {
+      const payload: unknown = await upstream.json().catch(() => null);
+      const candidateId = payload && typeof payload === "object" && "price_list" in payload
+        && payload.price_list && typeof payload.price_list === "object" && "id" in payload.price_list
+        ? payload.price_list.id : null;
+      if (!isUuid(candidateId)) return failure("Risposta catalogo non valida.", 502);
+      const detail = readPriceListDetail(payload, candidateId);
+      if (!detail || detail.price_list.supplier_id !== expectedSupplierId
+        || detail.price_list.provider !== expectedFeedProfile?.provider
+        || detail.price_list.feed_role !== expectedFeedProfile.feed_role) {
+        return failure("Risposta catalogo non valida.", 502);
+      }
+      return NextResponse.json(detail, { status: 201, headers: { "cache-control": "no-store" } });
+    }
     return NextResponse.json({ ok: true }, {
-      status: operation === "create-supplier" || operation === "create-price-list" ? 201 : 200,
+      status: operation === "create-supplier" ? 201 : 200,
       headers: { "cache-control": "no-store" },
     });
   } finally {

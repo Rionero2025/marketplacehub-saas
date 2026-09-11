@@ -7,7 +7,7 @@ import test_tenancy_api
 from fastapi.testclient import TestClient
 from marketplace_hub_api import catalogs as catalogs_api
 from marketplace_hub_api.main import create_app
-from marketplace_hub_core.catalogs.fetching import DownloadedCatalog
+from marketplace_hub_core.catalogs.fetching import DownloadedCatalog, DownloadedCatalogFile
 from marketplace_hub_core.catalogs.repository import SqlCatalogsRepository
 from marketplace_hub_core.catalogs.schema import seller_price_lists
 from marketplace_hub_core.catalogs.service import CatalogsService
@@ -17,6 +17,22 @@ from pydantic import SecretStr
 from sqlalchemy import select
 
 workspace = test_tenancy_api.workspace
+
+INNPRO_LIGHT = b"""<?xml version="1.0" encoding="UTF-8"?>
+<offer file_format="IOF" version="3.0"><products currency="EUR">
+<product id="4145"><price net="37.70"/><srp net="49.59"/><sizes>
+<size id="0" code_producer="SKU-LIGHT" code_external="6930460000040"
+ weight="1030"><stock quantity="140"/></size>
+</sizes></product></products></offer>"""
+
+INNPRO_FULL = b"""<?xml version="1.0" encoding="UTF-8"?>
+<offer file_format="IOF" version="3.0"><products language="eng" currency="EUR">
+<product id="4145"><producer id="7" name="InnPro"/><category id="8" name="Casa"/>
+<description><name xml:lang="eng">Product full name</name>
+<long_desc xml:lang="eng">Complete description</long_desc></description>
+<price net="49.59"/><sizes><size id="0" code_producer="SKU-FULL"
+ code_external="6930460000040"><stock quantity="12"/></size></sizes>
+</product></products></offer>"""
 
 
 class RecordingQueue:
@@ -121,6 +137,75 @@ def test_url_feed_is_encrypted_queued_and_public_response_is_redacted(configured
     assert "super-secret" not in encrypted and "feed-password" not in encrypted
 
 
+def test_innpro_full_and_light_url_feeds_coexist_with_immutable_identity(configured):
+    client, seller, organization, _ = owner(configured)
+    supplier_id = add_supplier(client, seller)
+
+    full = create_feed(
+        client,
+        seller,
+        supplier_id,
+        name="InnPro FULL",
+        provider="innpro",
+        feed_role="full",
+    )
+    light = create_feed(
+        client,
+        seller,
+        supplier_id,
+        name="InnPro LIGHT",
+        provider="innpro",
+        feed_role="light",
+    )
+    assert full.status_code == light.status_code == 202
+    assert (full.json()["price_list"]["provider"], full.json()["price_list"]["feed_role"]) == (
+        "innpro", "full"
+    )
+    assert (
+        light.json()["price_list"]["provider"], light.json()["price_list"]["feed_role"]
+    ) == ("innpro", "light")
+
+    duplicate_name = create_feed(
+        client,
+        seller,
+        supplier_id,
+        name="InnPro FULL",
+        provider="innpro",
+        feed_role="light",
+    )
+    assert duplicate_name.status_code == 409
+
+    invalid = create_feed(
+        client,
+        seller,
+        supplier_id,
+        name="InnPro standard non valido",
+        provider="innpro",
+        feed_role="standard",
+    )
+    assert invalid.status_code == 422
+    assert "innpro/full" in invalid.json()["detail"]
+
+    with configured.engine.connect() as connection:
+        rows = connection.execute(select(
+            seller_price_lists.c.name,
+            seller_price_lists.c.provider,
+            seller_price_lists.c.feed_role,
+        ).where(
+            seller_price_lists.c.organization_id == organization,
+            seller_price_lists.c.seller_id == seller,
+        ).order_by(seller_price_lists.c.name)).all()
+    assert rows == [
+        ("InnPro FULL", "innpro", "full"),
+        ("InnPro LIGHT", "innpro", "light"),
+    ]
+    for job_id in configured.catalog_queue.jobs:
+        source = configured.catalog_repository.source_for_job(job_id)
+        assert (source["provider"], source["feed_role"]) in {
+            ("innpro", "full"), ("innpro", "light")
+        }
+
+
 def test_worker_activates_versions_and_deduplicates_unchanged_feed(configured):
     client, seller, organization, _ = owner(configured)
     supplier_id = add_supplier(client, seller)
@@ -163,6 +248,128 @@ def test_worker_activates_versions_and_deduplicates_unchanged_feed(configured):
         organization, seller, UUID(price_list_id)
     )
     assert len(versions) == 1
+
+
+def test_worker_parses_innpro_light_with_declared_role(configured):
+    client, seller, organization, _ = owner(configured)
+    supplier_id = add_supplier(client, seller)
+    created = create_feed(
+        client,
+        seller,
+        supplier_id,
+        name="InnPro LIGHT",
+        provider="innpro",
+        feed_role="light",
+        url="https://feeds.example.com/stock-light.xml",
+    ).json()
+    job_id = configured.catalog_queue.jobs[-1]
+    configured.catalogs.fetcher = lambda *args, **kwargs: DownloadedCatalog(
+        content=INNPRO_LIGHT,
+        file_name="stock-light.xml",
+        media_type="application/xml",
+        source_host="feeds.example.com",
+        total_bytes=len(INNPRO_LIGHT),
+    )
+
+    configured.catalogs.run_refresh_job(job_id)
+
+    detail = client.get(
+        catalog_path(seller, f"/price-lists/{created['price_list']['id']}")
+    )
+    assert detail.status_code == 200, detail.text
+    body = detail.json()
+    assert body["price_list"]["status"] == "ready"
+    assert body["price_list"]["provider"] == "innpro"
+    assert body["price_list"]["feed_role"] == "light"
+    assert body["price_list"]["file_format"] == "iof"
+    assert len(body["products"]) == 1
+    product = body["products"][0]
+    assert product["ean"] == "6930460000040"
+    assert product["sku"] == "SKU-LIGHT"
+    assert product["name"] == ""
+    assert product["cost"] == "37.7"
+    assert product["quantity"] == "140"
+    versions = configured.catalog_repository.version_metadata(
+        organization, seller, UUID(created["price_list"]["id"])
+    )
+    assert versions[0]["provider"] == "innpro"
+    assert versions[0]["feed_role"] == "light"
+
+
+def test_worker_rejects_innpro_role_mismatch_without_activating_version(configured):
+    client, seller, organization, _ = owner(configured)
+    supplier_id = add_supplier(client, seller)
+    create_feed(
+        client,
+        seller,
+        supplier_id,
+        name="InnPro FULL",
+        provider="innpro",
+        feed_role="full",
+        url="https://feeds.example.com/stock-full.xml",
+    )
+    job_id = configured.catalog_queue.jobs[-1]
+    configured.catalogs.fetcher = lambda *args, **kwargs: DownloadedCatalog(
+        content=INNPRO_LIGHT,
+        file_name="wrong-role.xml",
+        media_type="application/xml",
+        source_host="feeds.example.com",
+        total_bytes=len(INNPRO_LIGHT),
+    )
+
+    configured.catalogs.run_refresh_job(job_id)
+
+    job = configured.catalog_repository.job(organization, seller, job_id)
+    assert job["status"] == "error"
+    assert job["error_code"] == "invalid_feed"
+    dashboard = client.get(catalog_path(seller)).json()
+    assert dashboard["price_lists"][0]["status"] == "error"
+    assert dashboard["price_lists"][0]["active_version_number"] == 0
+
+
+def test_innpro_builtin_worker_uses_disk_spool_and_cleans_it(
+    configured, monkeypatch, tmp_path,
+):
+    client, seller, _, _ = owner(configured)
+    supplier_id = add_supplier(client, seller)
+    created = create_feed(
+        client,
+        seller,
+        supplier_id,
+        name="InnPro FULL",
+        provider="innpro",
+        feed_role="full",
+        url="https://feeds.example.com/stock-full.xml",
+    ).json()
+    job_id = configured.catalog_queue.jobs[-1]
+    spool = tmp_path / "innpro-full.download"
+    spool.write_bytes(INNPRO_FULL)
+
+    def spooled_fetcher(*args, **kwargs):
+        assert kwargs["maximum_bytes"] == 200 * 1024 * 1024
+        assert kwargs["deadline_seconds"] == 300
+        return DownloadedCatalogFile(
+            path=spool,
+            file_name="stock-full.xml",
+            media_type="application/xml",
+            source_host="feeds.example.com",
+            total_bytes=len(INNPRO_FULL),
+        )
+
+    monkeypatch.setattr(
+        "marketplace_hub_core.catalogs.fetching.fetch_catalog_to_file",
+        spooled_fetcher,
+    )
+    configured.catalogs.fetcher = None
+
+    configured.catalogs.run_refresh_job(job_id)
+
+    assert not spool.exists()
+    detail = client.get(
+        catalog_path(seller, f"/price-lists/{created['price_list']['id']}")
+    ).json()
+    assert detail["price_list"]["status"] == "ready"
+    assert detail["products"][0]["name"] == "Product full name"
 
 
 def test_queue_failure_is_sanitized_and_keeps_visible_error_job(configured):

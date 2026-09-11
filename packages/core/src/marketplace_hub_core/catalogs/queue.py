@@ -5,13 +5,15 @@ from rq import Queue
 from rq.exceptions import NoSuchJobError
 from rq.job import Job
 
+CATALOG_QUEUE_NAME = "marketplace-hub-catalog-v2"
+
 
 class RQCatalogsQueue:
     """Enqueue catalog work using durable identifiers only."""
 
     def __init__(self, connection: Redis) -> None:
         self.connection = connection
-        self.queue = Queue("marketplace-hub", connection=connection)
+        self.queue = Queue(CATALOG_QUEUE_NAME, connection=connection)
 
     @staticmethod
     def _rq_job_id(job_id) -> str:

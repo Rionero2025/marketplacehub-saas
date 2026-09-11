@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
+from uuid import uuid4
 
+import marketplace_hub_core.catalogs.repository as catalog_repository
 import pytest
 import test_tenancy_api
 from marketplace_hub_core.catalogs.repository import (
@@ -116,3 +119,31 @@ def test_repository_artifact_and_mutations_cannot_cross_tenant_scope(workspace):
     dashboard = repository.dashboard(first_organization, first_seller)
     assert [item["id"] for item in dashboard["suppliers"]] == [str(first_supplier)]
     assert [item["id"] for item in dashboard["price_lists"]] == [str(price_list_id)]
+
+
+def test_product_inserts_are_bounded_by_canonical_payload_bytes(monkeypatch):
+    class RecordingConnection:
+        def __init__(self) -> None:
+            self.batch_sizes: list[int] = []
+
+        def execute(self, _statement, rows) -> None:
+            self.batch_sizes.append(len(rows))
+
+    connection = RecordingConnection()
+    rows = [_product(index + 1) for index in range(3)]
+    for row in rows:
+        row["canonical_json"] = "x" * 6
+    monkeypatch.setattr(catalog_repository, "PRODUCT_INSERT_BATCH_BYTES", 10)
+    monkeypatch.setattr(catalog_repository, "PRODUCT_INSERT_BATCH_ROWS", 100)
+
+    SqlCatalogsRepository._insert_products(
+        connection,
+        organization_id=uuid4(),
+        seller_id=uuid4(),
+        price_list_id=uuid4(),
+        version_number=1,
+        normalized_products=rows,
+        now=datetime.now(UTC),
+    )
+
+    assert connection.batch_sizes == [1, 1, 1]

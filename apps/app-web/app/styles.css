@@ -378,6 +378,12 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .catalog-source-choice button:last-child { margin-left: -6px; border-radius: 0 4px 4px 0; }
 .catalog-source-choice button.is-active { position: relative; z-index: 1; border-color: #008ada; color: #0075b7; background: #eaf5fc; }
 .catalog-source-choice button:focus-visible { outline: 2px solid #008ada; outline-offset: 2px; }
+.catalog-profile-config { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 8px 12px; padding: 12px; border: 1px solid #dce6ed; border-radius: 5px; background: #f8fbfd; }
+.catalog-profile-config > p { grid-column: 1 / -1; margin: 0; color: #607284; font-size: 10px; line-height: 1.5; }
+.catalog-profile-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.catalog-profile-badges > span { display: inline-flex; width: max-content; padding: 2px 6px; border-radius: 10px; color: #4e6577; background: #edf2f6; font-size: 8px; font-weight: 700; letter-spacing: .025em; }
+.catalog-profile-badges > .role-full { color: #6d52a1; background: #f1ecfa; }
+.catalog-profile-badges > .role-light { color: #287456; background: #e7f5ed; }
 .catalog-source-fields { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(300px, 1.6fr) minmax(180px, .7fr) minmax(180px, .7fr); align-items: end; gap: 12px; }
 .catalog-url-primary { min-width: 0; }
 .catalog-url-help { grid-column: 1 / -1; margin: -3px 0 0; color: #728391; font-size: 9px; line-height: 1.5; }
@@ -445,6 +451,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 @media (max-width: 600px) {
   .catalog-page { padding: 19px 12px 28px; }
   .catalog-import-form fieldset { grid-template-columns: 1fr; }
+  .catalog-profile-config { grid-template-columns: 1fr; }
+  .catalog-profile-config > p { grid-column: 1; }
   .catalog-source-fields { grid-template-columns: 1fr; }
   .catalog-source-fields > *, .catalog-url-primary { grid-column: 1; }
   .catalog-feed-edit { margin-inline: 12px; }

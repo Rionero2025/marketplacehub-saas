@@ -29,6 +29,7 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B10.2 — Collega marketplace, Seller Enterprise | completato nel perimetro Kaufland/Worten; altri connettori pendenti | 8 | **4,33%** |
 | B12.1a — Fornitori e listini da file | implementato; collaudo funzionale staging pendente | 0 | **7,31%** |
 | B12.1b1 — Feed listino generici HTTPS | implementato e verificato localmente; collaudo funzionale staging pendente | 0 | **7,31%** |
+| B12.1b2 — Feed InnPro FULL/LIGHT | gate locale completato; pubblicazione e collaudo staging pendenti | 0 | **7,31%** |
 | B20.1 / B21.1 — Archivio ordini Kaufland/Worten e navigazione Seller | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 23 | **5,47%** |
 | B20.2 / B21.2 — Filtri, selezione, riepilogo e CSV ordini | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 6 | **5,77%** |
 | B20.3 — Importazione e correzione tracking | collaudato e pubblicato nello staging; invio ai marketplace escluso | 10 | **6,27%** |
@@ -38,6 +39,24 @@ Calcolo corrente: `147 / 2.011 = 7,3098%`, mostrato con due decimali. I totali B
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
+
+B12.1b2 trasferisce i due ruoli InnPro senza confonderli: FULL conserva contenuti e
+anagrafica prodotto, LIGHT è l'unica sorgente InnPro ammessa per costo all'ingrosso e
+stock. Il costo degli ordini viene risolto lato server solo da LIGHT attivo, nello stesso
+scope multi-tenant e per EAN esatto; errori o corrispondenze incomplete falliscono in modo
+chiuso senza fallback su FULL o SKU. Il worker gestisce i feed grandi su disco e conserva
+gli artefatti oltre 20 MiB con gzip verificato. Le prove locali sui file originali hanno
+prodotto esattamente 6.880 righe FULL da 111.012.011 byte e 5.000 righe LIGHT da
+1.621.952 byte. Il FULL completo è stato elaborato con un picco RSS di 129,31 MiB;
+parser, ricalcolo ordini e persistenza restano limitati tramite spool su disco e batch
+da 250 righe. La suite finale conta 615/615 test Python, 156/156 test web, build
+19/19, TypeScript, Ruff, dipendenze e head Alembic 0013 superati. I nuovi job Catalogo
+usano una coda dedicata non ascoltata dai worker precedenti. `MASTER-0228`,
+`MASTER-0229` e `MASTER-0230` restano candidati pending
+fino al collaudo autenticato nello staging: il totale certificato rimane
+**147/2.011 = 7,31%**; diventerebbe **150/2.011 = 7,46%** solo dopo la verifica dei tre.
+Vedere `docs/blocks/B12_1B2_INNPRO_SOURCE_CONTRACT.md` e
+`docs/blocks/B12_1B2_INNPRO_RELEASE.md`.
 
 B12.1b1 trasferisce il feed HTTPS generico con credenziali cifrate, versioni immutabili,
 worker, avanzamento, modifica e aggiornamento manuale. Sono superati 533 test Python,

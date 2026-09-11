@@ -274,6 +274,54 @@ def test_csv_upload_preserves_identifiers_decimals_artifact_and_public_dto(confi
     assert dashboard.json()["price_lists"][0]["row_count"] == 1
 
 
+def test_upload_feed_identity_defaults_validates_and_versions_innpro_light(configured):
+    client, seller, organization, _ = owner(configured)
+    supplier_id = add_supplier(client, seller, name="InnPro")
+    raw = b"ean;sku;name;cost\n0012345678901;A;Uno;1\n"
+    light_raw = b"""<offer file_format="IOF"><products currency="EUR">
+    <product id="1"><price net="1.25"/><sizes><size code_producer="SKU-A"
+    code_external="0012345678901"><stock quantity="4"/></size></sizes></product>
+    </products></offer>"""
+
+    generic = upload(client, seller, supplier_id, raw, name="Generico")
+    assert generic.status_code == 201, generic.text
+    assert generic.json()["price_list"]["provider"] == "generic"
+    assert generic.json()["price_list"]["feed_role"] == "standard"
+
+    light = client.post(
+        path(seller, "/price-lists"),
+        data={
+            "supplier_id": supplier_id,
+            "name": "InnPro LIGHT",
+            "provider": "innpro",
+            "feed_role": "light",
+        },
+        files={"file": ("light.xml", light_raw, "application/xml")},
+    )
+    assert light.status_code == 201, light.text
+    light_list = light.json()["price_list"]
+    assert (light_list["provider"], light_list["feed_role"]) == ("innpro", "light")
+    versions = configured.catalog_repository.version_metadata(
+        organization, seller, UUID(light_list["id"]),
+    )
+    assert [(item["provider"], item["feed_role"]) for item in versions] == [
+        ("innpro", "light")
+    ]
+
+    invalid = client.post(
+        path(seller, "/price-lists"),
+        data={
+            "supplier_id": supplier_id,
+            "name": "Ruolo incoerente",
+            "provider": "generic",
+            "feed_role": "full",
+        },
+        files={"file": ("feed.csv", raw, "text/csv")},
+    )
+    assert invalid.status_code == 422
+    assert "generic/standard" in invalid.json()["detail"]
+
+
 def test_feed_level_hurtel_repair_swaps_reference_and_ean_columns():
     _, rows = parse_catalog(
         "hurtel.csv",

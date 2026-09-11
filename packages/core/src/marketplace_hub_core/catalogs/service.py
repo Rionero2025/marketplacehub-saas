@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from pydantic import SecretStr
 
 from marketplace_hub_core.auth.models import AuthenticatedSession, AuthRealm
+from marketplace_hub_core.catalogs.artifacts import (
+    MAX_REMOTE_CATALOG_SOURCE_BYTES,
+    CatalogArtifactEncodingError,
+    EncodedCatalogArtifact,
+    encode_catalog_artifact,
+)
 from marketplace_hub_core.catalogs.fetching import (
     CatalogFetchError,
     CatalogFetchLimitError,
@@ -14,7 +23,13 @@ from marketplace_hub_core.catalogs.fetching import (
     CatalogFetchSecurityError,
     CatalogFetchTimeoutError,
     CatalogFetchValidationError,
+    DownloadedCatalogFile,
     validate_catalog_url,
+)
+from marketplace_hub_core.catalogs.innpro import (
+    InnproLimitError,
+    InnproValidationError,
+    parse_innpro_iof,
 )
 from marketplace_hub_core.catalogs.parsing import (
     CatalogFileLimitError,
@@ -56,7 +71,10 @@ JOB_MESSAGES = {
     "source_changed": "La configurazione del listino è cambiata. Avvia un nuovo aggiornamento.",
     "download_failed": "Non è stato possibile scaricare il listino.",
     "invalid_feed": "Il contenuto scaricato non è un listino supportato.",
-    "file_too_large": "Il listino supera il limite di 20 MiB.",
+    "file_too_large": (
+        "Il listino supera il limite consentito: 20 MiB per i feed generici, "
+        "200 MiB per i feed URL InnPro."
+    ),
     "timeout": "Il download del listino ha superato il tempo massimo.",
     "refresh_failed": "L’aggiornamento del listino non è riuscito.",
     "worker_interrupted": (
@@ -205,6 +223,49 @@ class CatalogsService:
             raise CatalogValidationError(f"Il nome del {label} è troppo lungo.")
         return value
 
+    @staticmethod
+    def _feed_identity(provider: str, feed_role: str) -> tuple[str, str]:
+        provider = provider.strip().casefold()
+        feed_role = feed_role.strip().casefold()
+        if provider == "generic" and feed_role == "standard":
+            return provider, feed_role
+        if provider == "innpro" and feed_role in {"full", "light"}:
+            return provider, feed_role
+        raise CatalogValidationError(
+            "La tipologia del feed non è valida: usa generic/standard oppure "
+            "innpro/full o innpro/light."
+        )
+
+    @staticmethod
+    def _parse_feed(
+        provider: str,
+        feed_role: str,
+        file_name: str,
+        source: bytes | Path,
+    ) -> tuple[str, Sequence[dict[str, Any]]]:
+        if provider == "generic":
+            if not isinstance(source, bytes):
+                try:
+                    source = source.read_bytes()
+                except OSError as exc:
+                    raise CatalogFileValidationError(
+                        "Il listino scaricato non può essere letto."
+                    ) from exc
+            return parse_catalog(file_name, source)
+        try:
+            parsed = parse_innpro_iof(source, expected_role=feed_role)
+        except InnproLimitError as exc:
+            raise CatalogFileLimitError(str(exc)) from None
+        except InnproValidationError as exc:
+            raise CatalogFileValidationError(str(exc)) from None
+        return parsed.file_format, parsed.rows
+
+    @staticmethod
+    def _close_parsed_rows(rows: object | None) -> None:
+        close = getattr(rows, "close", None)
+        if close is not None:
+            close()
+
     def add_supplier(
         self, principal: AuthenticatedSession, seller_id: UUID, *, name: str, notes: str,
     ) -> dict:
@@ -248,27 +309,45 @@ class CatalogsService:
         file_name: str,
         media_type: str,
         content: bytes,
+        provider: str = "generic",
+        feed_role: str = "standard",
     ) -> dict:
         seller = self._seller(principal, seller_id, write=True)
         name = self._name(name, label="listino")
-        file_format, normalized = parse_catalog(file_name, content)
-        safe_media_type = (media_type or "application/octet-stream").strip()
-        if len(safe_media_type) > 200 or "\r" in safe_media_type or "\n" in safe_media_type:
-            safe_media_type = "application/octet-stream"
-        price_list_id = self.repository.add_price_list(
-            UUID(seller["organization_id"]),
-            seller_id,
-            supplier_id,
-            name=name,
-            original_filename=file_name,
-            media_type=safe_media_type,
-            file_format=file_format,
-            artifact=content,
-            normalized_products=normalized,
+        provider, feed_role = self._feed_identity(provider, feed_role)
+        file_format, normalized = self._parse_feed(
+            provider, feed_role, file_name, content,
         )
-        return self.repository.detail(
-            UUID(seller["organization_id"]), seller_id, price_list_id, limit=100,
-        )
+        try:
+            encoded = encode_catalog_artifact(content)
+            safe_media_type = (media_type or "application/octet-stream").strip()
+            if (
+                len(safe_media_type) > 200
+                or "\r" in safe_media_type
+                or "\n" in safe_media_type
+            ):
+                safe_media_type = "application/octet-stream"
+            price_list_id = self.repository.add_price_list(
+                UUID(seller["organization_id"]),
+                seller_id,
+                supplier_id,
+                name=name,
+                original_filename=file_name,
+                media_type=safe_media_type,
+                file_format=file_format,
+                artifact=encoded.content,
+                artifact_encoding=encoded.encoding,
+                artifact_size=encoded.raw_size,
+                artifact_sha256=encoded.raw_sha256,
+                normalized_products=normalized,
+                provider=provider,
+                feed_role=feed_role,
+            )
+            return self.repository.detail(
+                UUID(seller["organization_id"]), seller_id, price_list_id, limit=100,
+            )
+        finally:
+            self._close_parsed_rows(normalized)
 
     @staticmethod
     def _remote_source(url: str, username: str, password: str) -> tuple[str, dict[str, str]]:
@@ -320,10 +399,13 @@ class CatalogsService:
         url: str,
         username: str = "",
         password: str = "",
+        provider: str = "generic",
+        feed_role: str = "standard",
     ) -> dict:
         seller = self._seller(principal, seller_id, write=True)
         organization_id = UUID(seller["organization_id"])
         name = self._name(name, label="listino")
+        provider, feed_role = self._feed_identity(provider, feed_role)
         source_host, source = self._remote_source(url, username, password)
         encrypted = encrypt_credentials(source, self.master_key)
         created = self.repository.create_url_price_list(
@@ -335,6 +417,8 @@ class CatalogsService:
             source_host=source_host,
             requested_by=principal.user_id,
             realm=principal.realm.value,
+            provider=provider,
+            feed_role=feed_role,
         )
         self._queue_job(organization_id, seller_id, created)
         return {
@@ -491,6 +575,8 @@ class CatalogsService:
                 message=JOB_MESSAGES[code],
             )
 
+        downloaded: Any | None = None
+        normalized: Sequence[dict[str, Any]] | None = None
         try:
             authorize()
             if int(source["current_source_config_revision"]) != int(
@@ -502,11 +588,10 @@ class CatalogsService:
             if isinstance(encrypted, bytes):
                 encrypted = encrypted.decode("ascii")
             config = decrypt_credentials(encrypted, self.master_key)
+            provider = str(source.get("provider", "generic"))
+            feed_role = str(source.get("feed_role", "standard"))
+            provider, feed_role = self._feed_identity(provider, feed_role)
             fetcher = self.fetcher
-            if fetcher is None:
-                from marketplace_hub_core.catalogs.fetching import fetch_catalog
-
-                fetcher = fetch_catalog
 
             def progress(processed_bytes: int, total_bytes: int | None = None) -> None:
                 authorize()
@@ -522,13 +607,47 @@ class CatalogsService:
                     message=JOB_MESSAGES["running"],
                 )
 
-            downloaded = fetcher(
-                config.get("url", ""),
-                username=config.get("username", ""),
-                password=config.get("password", ""),
-                on_progress=progress,
+            if fetcher is None:
+                if provider == "innpro":
+                    from marketplace_hub_core.catalogs.fetching import fetch_catalog_to_file
+
+                    downloaded = fetch_catalog_to_file(
+                        config.get("url", ""),
+                        username=config.get("username", ""),
+                        password=config.get("password", ""),
+                        on_progress=progress,
+                        maximum_bytes=MAX_REMOTE_CATALOG_SOURCE_BYTES,
+                        deadline_seconds=300,
+                    )
+                else:
+                    from marketplace_hub_core.catalogs.fetching import fetch_catalog
+
+                    downloaded = fetch_catalog(
+                        config.get("url", ""),
+                        username=config.get("username", ""),
+                        password=config.get("password", ""),
+                        on_progress=progress,
+                    )
+            else:
+                downloaded = fetcher(
+                    config.get("url", ""),
+                    username=config.get("username", ""),
+                    password=config.get("password", ""),
+                    on_progress=progress,
+                )
+
+            downloaded_source = (
+                downloaded.path
+                if isinstance(downloaded, DownloadedCatalogFile)
+                else downloaded.content
             )
-            file_format, normalized = parse_catalog(downloaded.file_name, downloaded.content)
+            file_format, normalized = self._parse_feed(
+                provider,
+                feed_role,
+                downloaded.file_name,
+                downloaded_source,
+            )
+            encoded: EncodedCatalogArtifact = encode_catalog_artifact(downloaded_source)
             authorize()
             activated = self.repository.activate_remote_version(
                 job_id,
@@ -536,7 +655,10 @@ class CatalogsService:
                 original_filename=downloaded.file_name,
                 media_type=downloaded.media_type,
                 file_format=file_format,
-                artifact=downloaded.content,
+                artifact=encoded.content,
+                artifact_encoding=encoded.encoding,
+                artifact_size=encoded.raw_size,
+                artifact_sha256=encoded.raw_sha256,
                 normalized_products=normalized,
             )
             # The repository atomically finishes the job together with activation.
@@ -552,6 +674,8 @@ class CatalogsService:
             fail("file_too_large")
         except CatalogFileValidationError:
             fail("invalid_feed")
+        except CatalogArtifactEncodingError:
+            fail("file_too_large")
         except (TimeoutError, CatalogFetchTimeoutError):
             fail("timeout")
         except CatalogFetchLimitError:
@@ -566,6 +690,10 @@ class CatalogsService:
             if code not in JOB_MESSAGES:
                 code = "refresh_failed"
             fail(code)
+        finally:
+            self._close_parsed_rows(normalized)
+            if isinstance(downloaded, DownloadedCatalogFile):
+                downloaded.cleanup()
 
     def detail(
         self,

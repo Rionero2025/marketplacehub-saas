@@ -5,11 +5,13 @@ from rq import Queue
 from rq.exceptions import NoSuchJobError
 from rq.job import Job
 
+ORDERS_QUEUE_NAME = "marketplace-hub"
+
 
 class RQOrdersQueue:
     def __init__(self, connection: Redis):
         self.connection = connection
-        self.queue = Queue("marketplace-hub", connection=connection)
+        self.queue = Queue(ORDERS_QUEUE_NAME, connection=connection)
 
     def enqueue(self, job_id):
         self.queue.enqueue("marketplace_hub_worker.jobs.sync_orders", str(job_id),
