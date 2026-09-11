@@ -17,7 +17,8 @@ class RQCatalogsQueue:
 
     @staticmethod
     def _rq_job_id(job_id) -> str:
-        return f"catalog-feed:{job_id}"
+        # RQ reserves ':' for execution identifiers and rejects it in job IDs.
+        return f"catalog-feed-{job_id}"
 
     def enqueue(self, job_id) -> None:
         self.queue.enqueue(

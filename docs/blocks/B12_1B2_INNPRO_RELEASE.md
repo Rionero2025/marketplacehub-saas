@@ -119,7 +119,10 @@ Questa separazione elimina il rischio principale del deploy sovrapposto: un
 worker vecchio, che conosce soltanto `marketplace-hub`, non può prelevare un job
 InnPro pubblicato dalla nuova API. Se la nuova API diventa raggiungibile prima del
 nuovo worker, il job resta durevolmente in attesa sulla coda v2 e conserva lo
-stesso identificatore `catalog-feed:<uuid>` usato dal recupero applicativo.
+stesso identificatore `catalog-feed-<uuid>` usato dal recupero applicativo.
+Il separatore è un trattino: RQ 2.6 rifiuta `:` negli ID dei job. I tentativi
+precedenti falliti con `queue_unavailable` possono essere rilanciati dal listino
+esistente; non hanno generato job Redis validi da migrare.
 
 ### Gate prima del rilascio
 

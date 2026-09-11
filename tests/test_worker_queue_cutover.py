@@ -43,7 +43,7 @@ def test_catalog_and_order_jobs_use_separate_named_queues(monkeypatch) -> None:
         (
             ("marketplace_hub_worker.jobs.refresh_catalog", str(catalog_job_id)),
             {
-                "job_id": f"catalog-feed:{catalog_job_id}",
+                "job_id": f"catalog-feed-{catalog_job_id}",
                 "job_timeout": 1_200,
                 "result_ttl": 86_400,
                 "failure_ttl": 86_400,
@@ -126,4 +126,29 @@ def test_catalog_state_recovery_keeps_the_durable_job_identity(monkeypatch) -> N
 
     assert adapter.state(job_id) == "queued"
     assert adapter.queue.name == "marketplace-hub-catalog-v2"
-    assert fetch_calls == [(f"catalog-feed:{job_id}", connection)]
+    assert fetch_calls == [(f"catalog-feed-{job_id}", connection)]
+
+
+def test_catalog_enqueue_passes_real_rq_job_validation(monkeypatch) -> None:
+    """Exercise real Queue/Job construction; replace only Redis persistence."""
+    from redis import Redis
+    from rq.job import parse_job_id
+
+    adapter = catalog_queue.RQCatalogsQueue(Redis())
+    saved_jobs = []
+
+    def persist(job, **kwargs):
+        saved_jobs.append(job)
+        return job
+
+    monkeypatch.setattr(adapter.queue, "enqueue_job", persist)
+    job_id = UUID(int=104)
+    adapter.enqueue(job_id)
+
+    assert len(saved_jobs) == 1
+    job = saved_jobs[0]
+    assert job.id == adapter._rq_job_id(job_id)
+    assert parse_job_id(job.id) == job.id
+    assert job.func_name == "marketplace_hub_worker.jobs.refresh_catalog"
+    assert job.args == (str(job_id),)
+    assert job.origin == catalog_queue.CATALOG_QUEUE_NAME

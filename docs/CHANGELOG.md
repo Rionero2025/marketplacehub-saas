@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-09-11 — Correzione avvio import listini
+
+- riprodotto in staging il listino senza prodotti con errore `queue_unavailable`;
+- identificata e riprodotta localmente la causa: RQ 2.6 rifiuta gli ID
+  `catalog-feed:<uuid>` prima di comunicare con Redis;
+- sostituito il separatore con `catalog-feed-<uuid>` sia nell'invio sia nella
+  lettura dello stato del job;
+- aggiunto un test che usa Queue e Job reali di RQ, simulando soltanto la
+  persistenza Redis; superati 35 test mirati su coda, recupero e API feed;
+- nessuna migrazione dati richiesta; i listini falliti si possono aggiornare
+  nuovamente dopo il deploy. Collaudo staging ancora da completare.
+
 ## 2026-09-11 — B12.1b2: feed InnPro FULL/LIGHT
 
 - aggiunta in Catalogo → Listini la scelta esplicita `InnPro IOF` con ruolo FULL

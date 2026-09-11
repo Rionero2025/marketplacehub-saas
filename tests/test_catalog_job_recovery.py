@@ -218,7 +218,7 @@ def test_rq_catalog_queue_state_uses_prefixed_job_id(monkeypatch):
 
     assert _queue_adapter(connection).state(UUID(int=12)) == "queued"
     assert captured == {
-        "job_id": f"catalog-feed:{UUID(int=12)}",
+        "job_id": f"catalog-feed-{UUID(int=12)}",
         "connection": connection,
     }
 
