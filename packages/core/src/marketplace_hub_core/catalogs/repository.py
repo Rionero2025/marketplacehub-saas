@@ -18,6 +18,7 @@ from marketplace_hub_core.catalogs.artifacts import (
     encode_catalog_artifact,
     verify_encoded_catalog_artifact,
 )
+from marketplace_hub_core.catalogs.postgres_artifacts import artifact_write_value
 from marketplace_hub_core.catalogs.progress import forecast_job
 from marketplace_hub_core.catalogs.schema import (
     seller_price_list_products as products,
@@ -587,6 +588,7 @@ class SqlCatalogsRepository:
                 provider=provider,
                 feed_role=feed_role,
             )
+            artifact_values["artifact_bytes"] = artifact_write_value(connection, encoded.content)
             connection.execute(price_lists.insert().values(
                 id=price_list_id,
                 organization_id=organization_id,
@@ -1026,7 +1028,9 @@ class SqlCatalogsRepository:
             ).with_for_update()).mappings().first()
             if job is None:
                 raise CatalogRefreshJobNotFoundError("Aggiornamento listino non disponibile.")
-            current = connection.execute(select(price_lists).where(
+            current = connection.execute(select(
+                *[c for c in price_lists.c if c.name != "artifact_bytes"],
+            ).where(
                 price_lists.c.id == job["price_list_id"],
                 price_lists.c.organization_id == job["organization_id"],
                 price_lists.c.seller_id == job["seller_id"],
@@ -1048,7 +1052,9 @@ class SqlCatalogsRepository:
                 feed_role=current["feed_role"],
             )
 
-            duplicate = connection.execute(select(versions).where(
+            duplicate = connection.execute(select(
+                *[c for c in versions.c if c.name != "artifact_bytes"],
+            ).where(
                 versions.c.price_list_id == current["id"],
                 versions.c.organization_id == current["organization_id"],
                 versions.c.seller_id == current["seller_id"],
@@ -1069,6 +1075,9 @@ class SqlCatalogsRepository:
                     **_artifact_persistence_values(encoded),
                     "product_count": len(normalized_products),
                 }
+                artifact_values["artifact_bytes"] = artifact_write_value(
+                    connection, encoded.content,
+                )
                 connection.execute(versions.insert().values(
                     id=uuid4(),
                     organization_id=current["organization_id"],
@@ -1096,9 +1105,14 @@ class SqlCatalogsRepository:
                     for key in (
                         "original_filename", "media_type", "file_format", "artifact_sha256",
                         "artifact_size", "artifact_encoding", "artifact_stored_size",
-                        "artifact_bytes", "product_count",
+                        "product_count",
                     )
                 }
+                artifact_values["artifact_bytes"] = select(versions.c.artifact_bytes).where(
+                    versions.c.id == duplicate["id"],
+                    versions.c.organization_id == current["organization_id"],
+                    versions.c.seller_id == current["seller_id"],
+                ).scalar_subquery()
 
             connection.execute(price_lists.update().where(
                 price_lists.c.id == current["id"],
