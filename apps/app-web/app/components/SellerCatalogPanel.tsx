@@ -32,6 +32,7 @@ type PendingAction = "read" | "create-supplier" | "delete-supplier" | "create-pr
   | "create-price-list-url" | "update-price-list-url" | "refresh-price-list" | "delete-price-list" | "detail";
 
 const number = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 3 });
+const physicalMeasure = (value: string | null | undefined) => value == null ? "—" : number.format(Number(value));
 const maximumFileLabel = `${MAX_PRICE_LIST_FILE_BYTES / 1024 / 1024} MiB`;
 
 function fallbackError(status: number, operation: PendingAction) {
@@ -159,6 +160,10 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
   const busy = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const previewHeading = useRef<HTMLHeadingElement>(null);
+  const [measure, setMeasure] = useState("weight_kg");
+  const [exclusion, setExclusion] = useState("none");
+  const [measureFrom, setMeasureFrom] = useState("0");
+  const [measureTo, setMeasureTo] = useState("0");
   const baseUrl = `/api/sellers/${sellerId}/catalogs`;
   const canManage = Boolean(dashboard?.can_manage) && !pending && !needsReload;
   const totalRows = dashboard?.price_lists.reduce((sum, item) => sum + (item.row_count ?? 0), 0) ?? 0;
@@ -563,8 +568,9 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
     });
   }
 
-  async function openDetail(priceList: CatalogPriceList) {
+  async function openDetail(priceList: CatalogPriceList, filterQuery = "") {
     if (busy.current || !hasActiveCatalog(priceList)) return;
+    if (!filterQuery) { setMeasure("weight_kg"); setExclusion("none"); setMeasureFrom("0"); setMeasureTo("0"); }
     busy.current = true;
     const requestVersion = ++version.current;
     const abort = new AbortController();
@@ -572,7 +578,7 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
     setPending("detail"); setError(""); setSuccess(""); setDetail(null);
     const timeout = setTimeout(() => abort.abort(), 32_000);
     try {
-      const response = await fetch(`${baseUrl}/price-lists/${priceList.id}`, { cache: "no-store", signal: abort.signal });
+      const response = await fetch(`${baseUrl}/price-lists/${priceList.id}${filterQuery ? `?${filterQuery}` : ""}`, { cache: "no-store", signal: abort.signal });
       if (!current(requestVersion)) return;
       if (response.status === 401) { expireSession(); return; }
       if (!response.ok) { setError(await responseError(response, "detail")); return; }
@@ -676,9 +682,26 @@ export function SellerCatalogPanel({ sellerId, sellerName, view }: { sellerId: s
         {deletePriceList && <div className="catalog-delete-confirm catalog-list-delete"><strong>Eliminare «{deletePriceList.name}»?</strong><p>Il listino e i dati importati saranno rimossi. Scrivi ELIMINA per confermare.</p><label htmlFor={`${domId}-delete-list`}>Conferma eliminazione</label><input id={`${domId}-delete-list`} autoFocus autoComplete="off" value={priceListConfirmation} disabled={!canManage} onChange={(event) => setPriceListConfirmation(event.target.value)} /><div className="catalog-form-actions"><button type="button" className="settings-delete" disabled={!canManage || priceListConfirmation !== "ELIMINA"} onClick={removePriceList}>{pending === "delete-price-list" ? "Eliminazione…" : "Elimina definitivamente"}</button><button type="button" className="workspace-refresh" disabled={Boolean(pending)} onClick={() => { setDeletePriceList(null); setPriceListConfirmation(""); }}>Annulla</button></div></div>}
       </section>
       {detail && <section className="workspace-section catalog-preview" aria-labelledby={`${domId}-preview-title`}>
-        <div className="workspace-section-heading"><div><h2 ref={previewHeading} tabIndex={-1} id={`${domId}-preview-title`}><DashboardIcon name="catalog" />Anteprima · {detail.price_list.name}</h2><p>Prime {detail.products.length} righe su {number.format(detail.total)} prodotti.</p></div><button type="button" className="workspace-refresh" onClick={() => setDetail(null)}><DashboardIcon name="close" size={14} />Chiudi</button></div>
-        {detail.products.length ? <div className="catalog-table-wrap" tabIndex={0} role="region" aria-label="Anteprima prodotti, scorrimento orizzontale"><table className="catalog-table catalog-products"><caption className="visually-hidden">Anteprima prodotti del listino {detail.price_list.name}</caption><thead><tr><th scope="col">Nome prodotto</th><th scope="col">EAN</th><th scope="col">SKU</th><th scope="col">Costo</th><th scope="col">Spedizione</th><th scope="col">Costo totale</th><th scope="col">Quantità</th></tr></thead><tbody>{detail.products.map((product, index) => <tr key={`${product.ean}-${product.sku}-${index}`}><td>{product.name || "—"}</td><td>{product.ean || "—"}</td><td>{product.sku || "—"}</td><td>{formatCatalogMoney(product.cost)}</td><td>{formatCatalogMoney(product.shipping_cost)}</td><td>{formatCatalogMoney(product.total_cost)}</td><td>{product.quantity === null ? "—" : number.format(Number(product.quantity))}</td></tr>)}</tbody></table></div>
-          : <div className="workspace-section-body catalog-empty"><strong>Nessun prodotto disponibile</strong><p>Il listino non contiene righe visualizzabili.</p></div>}
+        <div className="workspace-section-heading"><div><h2 ref={previewHeading} tabIndex={-1} id={`${domId}-preview-title`}><DashboardIcon name="catalog" />Anteprima · {detail.price_list.name}</h2><p>Prime {detail.products.length} righe · {number.format(detail.filtered_count ?? detail.total)} prodotti inclusi su {number.format(detail.total)}.</p></div><button type="button" className="workspace-refresh" onClick={() => setDetail(null)}><DashboardIcon name="close" size={14} />Chiudi</button></div>
+        <form className="catalog-form workspace-section-body" onSubmit={(event) => {
+          event.preventDefault();
+          if (exclusion === "between" && Number(measureFrom) > Number(measureTo)) { setError("Il valore Da non può superare il valore A."); return; }
+          void openDetail(detail.price_list, new URLSearchParams({ measure, exclude: exclusion, lower: measureFrom, upper: measureTo }).toString());
+        }}>
+          <fieldset disabled={Boolean(pending)}><legend>Escludi prodotti per peso o dimensioni</legend>
+            <div className="catalog-measure-filters">
+              <label htmlFor={`${domId}-measure`}>Misura<select id={`${domId}-measure`} value={measure} onChange={(event) => setMeasure(event.target.value)}><option value="weight_kg">Peso (kg)</option><option value="length_cm">Lunghezza imballo (cm)</option><option value="width_cm">Larghezza imballo (cm)</option><option value="height_cm">Altezza imballo (cm)</option></select></label>
+              <label htmlFor={`${domId}-exclusion`}>Escludi<select id={`${domId}-exclusion`} value={exclusion} onChange={(event) => setExclusion(event.target.value)}><option value="none">Nessuna esclusione</option><option value="above">Superiori a</option><option value="below">Inferiori a</option><option value="between">Compresi tra Da e A</option></select></label>
+              <label htmlFor={`${domId}-measure-from`}>{exclusion === "between" ? "Da" : "Soglia"}<input id={`${domId}-measure-from`} type="number" min="0" max="999999999" step="any" required value={measureFrom} disabled={exclusion === "none"} onChange={(event) => setMeasureFrom(event.target.value)} /></label>
+              {exclusion === "between" && <label htmlFor={`${domId}-measure-to`}>A<input id={`${domId}-measure-to`} type="number" min="0" max="999999999" step="any" required value={measureTo} onChange={(event) => setMeasureTo(event.target.value)} /></label>}
+            </div>
+            <div className="catalog-form-actions"><button className="settings-save" type="submit">Applica filtro</button><button className="workspace-refresh" type="button" onClick={() => void openDetail(detail.price_list)}>Azzera filtro</button></div>
+          </fieldset>
+          <p className="workspace-field-note">Il filtro si applica all’intero listino. Le misure mancanti restano incluse; tra Da e A gli estremi sono inclusi. Nessun prodotto viene cancellato.</p>
+          {detail.products.some((product) => product.dimensions_unconfirmed) && <p className="workspace-field-note">InnPro fornisce le dimensioni dell’imballo senza dichiarare l’unità: i valori originali sono visibili, ma non vengono confrontati con soglie in centimetri finché l’unità non è confermata.</p>}
+        </form>
+        {detail.products.length ? <div className="catalog-table-wrap" tabIndex={0} role="region" aria-label="Anteprima prodotti, scorrimento orizzontale"><table className="catalog-table catalog-products"><caption className="visually-hidden">Anteprima prodotti del listino {detail.price_list.name}</caption><thead><tr><th scope="col">Nome prodotto</th><th scope="col">EAN</th><th scope="col">SKU</th><th scope="col">Costo</th><th scope="col">Spedizione</th><th scope="col">Costo totale</th><th scope="col">Quantità</th><th scope="col">Peso (kg)</th><th scope="col">Lunghezza (cm)</th><th scope="col">Larghezza (cm)</th><th scope="col">Altezza (cm)</th></tr></thead><tbody>{detail.products.map((product, index) => <tr key={`${product.ean}-${product.sku}-${index}`}><td>{product.name || "—"}</td><td>{product.ean || "—"}</td><td>{product.sku || "—"}</td><td>{formatCatalogMoney(product.cost)}</td><td>{formatCatalogMoney(product.shipping_cost)}</td><td>{formatCatalogMoney(product.total_cost)}</td><td>{product.quantity === null ? "—" : number.format(Number(product.quantity))}</td><td>{physicalMeasure(product.weight_kg)}</td>{product.dimensions_unconfirmed ? <td colSpan={3}>{product.dimensions_unconfirmed} · unità non specificata</td> : <><td>{physicalMeasure(product.length_cm)}</td><td>{physicalMeasure(product.width_cm)}</td><td>{physicalMeasure(product.height_cm)}</td></>}</tr>)}</tbody></table></div>
+          : <div className="workspace-section-body catalog-empty"><strong>Nessun prodotto incluso</strong><p>{detail.total ? "Modifica o azzera il filtro per visualizzare i prodotti." : "Il listino non contiene righe visualizzabili."}</p></div>}
       </section>}
     </>}
   </div>;

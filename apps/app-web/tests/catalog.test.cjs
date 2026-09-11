@@ -19,7 +19,7 @@ function load(relativePath, context = {}) {
   const exports = {};
   vm.runInNewContext(compiled, {
     exports, AbortController, AbortSignal, Blob, File, FormData, Headers, Request, Response,
-    URL, Uint8Array, crypto, setTimeout, clearTimeout, ...context,
+    URL, URLSearchParams, Uint8Array, crypto, setTimeout, clearTimeout, ...context,
   });
   return exports;
 }
@@ -566,4 +566,25 @@ test("overall forecast survives the BFF and displays a changing estimate without
     const parsed = types.readCatalogFeedJobResponse({ job: { ...job(), forecast: bad } }, jobId);
     assert.equal(parsed.forecast, undefined);
   }
+});
+
+test("physical measurements are validated and filter query is forwarded with a fixed preview limit", async () => {
+  const raw = detail();
+  raw.filtered_count = 1;
+  Object.assign(raw.products[0], { weight_kg: "1.03", length_cm: null, width_cm: null, height_cm: null, dimensions_unconfirmed: "29 × 18 × 5" });
+  assert.equal(types.readPriceListDetail(raw, priceListId).products[0].weight_kg, "1.03");
+  raw.products[0].weight_kg = "-1";
+  assert.equal(types.readPriceListDetail(raw, priceListId), null);
+  raw.products[0].weight_kg = "1.03";
+  raw.filtered_count = 0;
+  assert.equal(types.readPriceListDetail(raw, priceListId), null);
+  raw.filtered_count = 1;
+  const calls = [];
+  const run = proxy(async (url) => { calls.push(url); return Response.json(raw); });
+  const request = (query) => new Request(`https://app.test/api/catalogs?${query}`, { headers: { cookie: "mh_session=existing", host: "app.test" } });
+  const response = await run(request("measure=weight_kg&exclude=above&lower=10&limit=9999&seller_id=other"), sellerId, "detail", priceListId);
+  assert.equal(response.status, 200);
+  assert.equal(new URL(calls[0]).search, "?limit=200&measure=weight_kg&exclude=above&lower=10");
+  assert.equal((await run(request("lower=1&lower=2"), sellerId, "detail", priceListId)).status, 422);
+  assert.equal(calls.length, 1);
 });

@@ -256,6 +256,11 @@ def test_csv_upload_preserves_identifiers_decimals_artifact_and_public_dto(confi
         "shipping_cost": "1.2",
         "total_cost": "13.54",
         "quantity": "7",
+        "weight_kg": None,
+        "length_cm": None,
+        "width_cm": None,
+        "height_cm": None,
+        "dimensions_unconfirmed": None,
     }
     with configured.engine.connect() as connection:
         stored = connection.execute(select(seller_price_lists).where(
@@ -473,3 +478,24 @@ def test_exact_delete_confirmations_and_supplier_cascade_report_counts(configure
     }
     assert client.get(path(seller, f"/price-lists/{second}")).status_code == 404
     assert client.get(path(seller)).json()["suppliers"] == []
+
+def test_physical_measurements_upload_filter_and_validation(configured):
+    client, seller, _, _ = owner(configured)
+    supplier = add_supplier(client, seller)
+    raw = (b'ean;sku;name;cost;weight_kg;length_cm\n'
+           b'001;A;One;1;2.5;30\n002;B;Two;2;12;10\n003;C;Unknown;3;;\n')
+    response = upload(client, seller, supplier, raw)
+    assert response.status_code == 201, response.text
+    resource = response.json()['price_list']['id']
+    endpoint = path(seller, f'/price-lists/{resource}')
+    filtered = client.get(endpoint, params={
+        'measure': 'weight_kg', 'exclude': 'above', 'lower': '10',
+    })
+    assert filtered.status_code == 200, filtered.text
+    assert filtered.json()['filtered_count'] == 2
+    assert [p['sku'] for p in filtered.json()['products']] == ['A', 'C']
+    assert filtered.json()['products'][0]['weight_kg'] == '2.5'
+    assert filtered.json()['products'][0]['length_cm'] == '30'
+    for params in ({'measure': 'secret'}, {'exclude': 'between', 'lower': '20', 'upper': '10'},
+                   {'lower': '-1'}, {'lower': 'NaN'}):
+        assert client.get(endpoint, params=params).status_code == 422

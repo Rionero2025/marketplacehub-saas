@@ -314,6 +314,15 @@ export async function catalogProxy(
       }
     }
 
+    const detailQuery = new URLSearchParams({ limit: "200" });
+    if (operation === "detail") {
+      const incoming = new URL(request.url).searchParams;
+      for (const key of ["measure", "exclude", "lower", "upper"]) {
+        const values = incoming.getAll(key);
+        if (values.length > 1 || (values[0]?.length ?? 0) > 40) return failure("Filtro misure non valido.", 422);
+        if (values.length) detailQuery.set(key, values[0]);
+      }
+    }
     const suffix = operation === "dashboard" ? "catalogs"
       : operation === "create-supplier" ? "catalogs/suppliers"
         : operation === "delete-supplier" ? `catalogs/suppliers/${resourceId}`
@@ -322,7 +331,7 @@ export async function catalogProxy(
               : operation === "update-price-list-url" ? `catalogs/price-lists/${resourceId}/url`
                 : operation === "refresh-price-list" ? `catalogs/price-lists/${resourceId}/refresh`
                   : operation === "job" ? `catalogs/price-lists/${resourceId}/jobs/${jobId}`
-                    : `catalogs/price-lists/${resourceId}${operation === "detail" ? "?limit=200" : ""}`;
+                    : `catalogs/price-lists/${resourceId}${operation === "detail" ? `?${detailQuery}` : ""}`;
     const method = operation === "dashboard" || operation === "detail" || operation === "job" ? "GET"
       : operation === "delete-supplier" || operation === "delete-price-list" ? "DELETE" : "POST";
     const headers: Record<string, string> = { cookie, accept: "application/json" };

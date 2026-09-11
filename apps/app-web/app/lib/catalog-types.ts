@@ -76,6 +76,11 @@ export type CatalogProduct = {
   shipping_cost: CatalogDecimal;
   total_cost: CatalogDecimal;
   quantity: CatalogDecimal;
+  weight_kg?: CatalogDecimal;
+  length_cm?: CatalogDecimal;
+  width_cm?: CatalogDecimal;
+  height_cm?: CatalogDecimal;
+  dimensions_unconfirmed?: string | null;
 };
 
 export type CatalogDecimal = string | null;
@@ -83,6 +88,7 @@ export type CatalogDecimal = string | null;
 export type PriceListDetail = {
   price_list: CatalogPriceList;
   products: CatalogProduct[];
+  filtered_count?: number;
   total: number;
 };
 
@@ -264,14 +270,27 @@ export function readPriceListDetail(value: unknown, priceListId: string): PriceL
       || !(typeof candidate.name === "string" || candidate.name === null)
       || !decimalOrNull(candidate.cost) || !decimalOrNull(candidate.shipping_cost)
       || !decimalOrNull(candidate.total_cost) || !decimalOrNull(candidate.quantity)) return null;
+    const physical: Partial<CatalogProduct> = {};
+    for (const field of ["weight_kg", "length_cm", "width_cm", "height_cm"] as const) {
+      if (field in candidate) {
+        if (!decimalOrNull(candidate[field]) || (candidate[field] !== null && Number(candidate[field]) <= 0)) return null;
+        physical[field] = candidate[field];
+      }
+    }
+    if ("dimensions_unconfirmed" in candidate) {
+      if (candidate.dimensions_unconfirmed !== null && (typeof candidate.dimensions_unconfirmed !== "string" || candidate.dimensions_unconfirmed.length > 100)) return null;
+      physical.dimensions_unconfirmed = candidate.dimensions_unconfirmed;
+    }
     products.push({
       ean: candidate.ean ?? "", sku: candidate.sku ?? "", name: candidate.name ?? "",
       cost: candidate.cost, shipping_cost: candidate.shipping_cost,
       total_cost: candidate.total_cost, quantity: candidate.quantity,
+      ...physical,
     });
   }
   if (products.length > total) return null;
-  return { price_list: priceList, products, total };
+  if ("filtered_count" in value && (!count(value.filtered_count) || value.filtered_count > total || products.length > value.filtered_count)) return null;
+  return { price_list: priceList, products, total, ...("filtered_count" in value ? { filtered_count: value.filtered_count as number } : {}) };
 }
 
 /** Parses a 202 response and strips every field outside the public feed contract. */

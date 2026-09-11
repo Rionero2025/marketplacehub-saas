@@ -31,6 +31,7 @@ from marketplace_hub_core.catalogs.innpro import (
     InnproValidationError,
     parse_innpro_iof,
 )
+from marketplace_hub_core.catalogs.measurements import MeasurementFilter
 from marketplace_hub_core.catalogs.parsing import (
     CatalogFileLimitError,
     CatalogFileValidationError,
@@ -719,10 +720,12 @@ class CatalogsService:
         price_list_id: UUID,
         *,
         limit: int,
+        measurement_filter: MeasurementFilter | None = None,
     ) -> dict:
         seller = self._seller(principal, seller_id)
         return self.repository.detail(
             UUID(seller["organization_id"]), seller_id, price_list_id, limit=limit,
+            measurement_filter=measurement_filter,
         )
 
     def delete_price_list(

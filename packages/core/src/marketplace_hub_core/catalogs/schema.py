@@ -353,6 +353,10 @@ seller_price_list_products = Table(
     Column("shipping_cost", Numeric(38, 8), nullable=False, server_default="0"),
     Column("total_cost", Numeric(38, 8), nullable=False, server_default="0"),
     Column("quantity", Numeric(38, 8), nullable=False, server_default="0"),
+    Column("weight_kg", Numeric(18, 6)),
+    Column("length_cm", Numeric(18, 6)),
+    Column("width_cm", Numeric(18, 6)),
+    Column("height_cm", Numeric(18, 6)),
     Column("canonical_json", Text(), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     ForeignKeyConstraint(

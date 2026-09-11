@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from marketplace_hub_core.catalogs.measurements import MeasurementFilter
 from marketplace_hub_core.catalogs.parsing import (
     CatalogFileLimitError,
     CatalogFileValidationError,
@@ -327,10 +329,19 @@ def create_catalogs_router(service: CatalogsService, auth, settings):
         price_list_id: UUID,
         request: Request,
         limit: int = Query(100, ge=1, le=200),
+        measure: Literal["weight_kg", "length_cm", "width_cm", "height_cm"] = "weight_kg",
+        exclude: Literal["none", "above", "below", "between"] = "none",
+        lower: Decimal = Query(Decimal(0), ge=0, lt=1_000_000_000),
+        upper: Decimal = Query(Decimal(0), ge=0, lt=1_000_000_000),
     ):
         session = principal(request)
+        try:
+            measurement_filter = MeasurementFilter(measure, exclude, lower, upper)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
         return execute(lambda: service.detail(
             session, seller_id, price_list_id, limit=limit,
+            measurement_filter=measurement_filter,
         ))
 
     @router.delete("/price-lists/{price_list_id}")

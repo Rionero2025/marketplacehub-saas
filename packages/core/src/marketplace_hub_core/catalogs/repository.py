@@ -18,6 +18,12 @@ from marketplace_hub_core.catalogs.artifacts import (
     encode_catalog_artifact,
     verify_encoded_catalog_artifact,
 )
+from marketplace_hub_core.catalogs.measurements import (
+    FIELDS,
+    MeasurementFilter,
+    measurements,
+    unknown_dimensions,
+)
 from marketplace_hub_core.catalogs.postgres_artifacts import artifact_write_value
 from marketplace_hub_core.catalogs.progress import forecast_job
 from marketplace_hub_core.catalogs.schema import (
@@ -311,7 +317,7 @@ class SqlCatalogsRepository:
         }
 
     @staticmethod
-    def _product_public(row) -> dict:
+    def _product_public(row, *, provider: str = "generic") -> dict:
         return {
             "id": str(row["id"]),
             "source_row": int(row["source_row"]),
@@ -322,6 +328,9 @@ class SqlCatalogsRepository:
             "shipping_cost": _decimal_text(row["shipping_cost"]),
             "total_cost": _decimal_text(row["total_cost"]),
             "quantity": _decimal_text(row["quantity"]),
+            **{field: _decimal_text(row[field]) if row[field] is not None else None
+               for field in FIELDS},
+            "dimensions_unconfirmed": unknown_dimensions(row["canonical_json"], provider=provider),
         }
 
     @staticmethod
@@ -362,6 +371,11 @@ class SqlCatalogsRepository:
     ) -> None:
         batch: list[dict] = []
         batch_bytes = 0
+        provider = connection.scalar(select(price_lists.c.provider).where(
+            price_lists.c.id == price_list_id,
+            price_lists.c.organization_id == organization_id,
+            price_lists.c.seller_id == seller_id,
+        )) or "generic"
         for product in normalized_products:
             canonical_bytes = len(str(product.get("canonical_json", "")).encode("utf-8"))
             if batch and (
@@ -379,6 +393,7 @@ class SqlCatalogsRepository:
                 "version_number": version_number,
                 "created_at": now,
                 **product,
+                **measurements(product.get("canonical_json", ""), provider=provider),
             })
             batch_bytes += canonical_bytes
             if batch_bytes >= PRODUCT_INSERT_BATCH_BYTES:
@@ -1195,6 +1210,7 @@ class SqlCatalogsRepository:
         price_list_id: UUID,
         *,
         limit: int,
+        measurement_filter: MeasurementFilter | None = None,
     ) -> dict:
         with self.engine.connect() as connection:
             row = connection.execute(select(
@@ -1212,17 +1228,54 @@ class SqlCatalogsRepository:
             if row is None:
                 raise CatalogPriceListNotFoundError("Listino non disponibile.")
             latest = self._latest_jobs(connection, [price_list_id]).get(price_list_id)
-            product_rows = connection.execute(select(products).where(
+            conditions = (
                 products.c.price_list_id == price_list_id,
                 products.c.version_number == row["active_version_number"],
                 *self._scope(products, organization_id, seller_id),
+                (measurement_filter or MeasurementFilter()).condition(products),
+            )
+            filtered_count = int(connection.scalar(
+                select(func.count()).select_from(products).where(*conditions),
+            ) or 0)
+            product_rows = connection.execute(select(products).where(
+                *conditions,
             ).order_by(products.c.source_row).limit(limit)).mappings().all()
         return {
             "price_list": self._price_list_public(row, latest_job=latest),
-            "products": [self._product_public(item) for item in product_rows],
+            "products": [
+                self._product_public(item, provider=row["provider"]) for item in product_rows
+            ],
             "preview_count": len(product_rows),
             "row_count": int(row["product_count"]),
+            "filtered_count": filtered_count,
         }
+
+    def backfill_measurements(self, seller_id: UUID) -> int:
+        """Rebuild derived measurements in small committed batches for one Seller."""
+        last_id = None
+        total = 0
+        while True:
+            with self.engine.begin() as connection:
+                conditions = [products.c.seller_id == seller_id]
+                if last_id is not None:
+                    conditions.append(products.c.id > last_id)
+                rows = connection.execute(select(
+                    products.c.id, products.c.organization_id, products.c.canonical_json,
+                    price_lists.c.provider,
+                ).join(price_lists, (
+                    (products.c.price_list_id == price_lists.c.id)
+                    & (products.c.organization_id == price_lists.c.organization_id)
+                    & (products.c.seller_id == price_lists.c.seller_id)
+                )).where(*conditions).order_by(products.c.id).limit(10)).mappings().all()
+                if not rows:
+                    return total
+                for row in rows:
+                    connection.execute(products.update().where(
+                        products.c.id == row["id"],
+                        *self._scope(products, row["organization_id"], seller_id),
+                    ).values(**measurements(row["canonical_json"], provider=row["provider"])))
+                last_id = rows[-1]["id"]
+                total += len(rows)
 
     def delete_price_list(
         self, organization_id: UUID, seller_id: UUID, price_list_id: UUID,
