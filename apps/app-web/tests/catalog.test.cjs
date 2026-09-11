@@ -498,8 +498,6 @@ test("Seller catalog UI keeps feed secrets transient and cleans up real job poll
   assert.equal(/localStorage|sessionStorage/.test(source), false);
   assert.match(source, /priceList\.source_host/);
   assert.doesNotMatch(source, /priceList\.(?:url|password|username)/);
-  assert.match(source, /<progress aria-label=\{`Avanzamento aggiornamento \$\{priceListName\}`\}/);
-  assert.match(source, /value=\{job\.progress \?\? undefined\}/);
   assert.match(source, /setEditFeedUrl\(""\)/);
   assert.match(source, /credentials_mode: editCredentialMode/);
   assert.match(source, /expected_config_revision: editPriceList\.source_config_revision/);
@@ -509,4 +507,38 @@ test("Seller catalog UI keeps feed secrets transient and cleans up real job poll
   assert.match(source, /payload: \{[\s\S]*?provider: priceListProvider,[\s\S]*?feed_role: priceListFeedRole/);
   assert.match(source, /form\.set\("provider", priceListProvider\); form\.set\("feed_role", priceListFeedRole\)/);
   assert.match(source, /catalog-profile-badges/);
+});
+
+test("catalog progress renders measured download changes and honest unknown/processing states", () => {
+  const { CatalogJobProgress } = load("../app/components/CatalogJobProgress.tsx", { require });
+  const { createElement } = require("react");
+  const { renderToStaticMarkup } = require("react-dom/server");
+  const render = (overrides) => renderToStaticMarkup(createElement(CatalogJobProgress, {
+    priceListName: "InnPro FULL", job: { ...job(), status: "running", ...overrides },
+  }));
+  for (const value of [25, 75]) {
+    const html = render({ processed_bytes: value * 1_000_000, total_bytes: 100_000_000 });
+    assert.match(html, new RegExp(`aria-valuenow="${value}"`));
+    assert.match(html, new RegExp(`width:${value}%`));
+    assert.match(html, new RegExp(`${value}% · Download`));
+    assert.match(html, new RegExp(`${value} MB di 100 MB`));
+  }
+  const unknown = render({ processed_bytes: 12_500_000 });
+  assert.match(unknown, /is-indeterminate/);
+  assert.match(unknown, /12,5 MB scaricati/);
+  assert.doesNotMatch(unknown, /aria-valuenow=|\d+%/);
+  for (const message of ["Elaborazione prodotti in corso.", "Salvataggio prodotti in corso."]) {
+    const raw = { ...job(), status: "running", progress: 99, processed_bytes: 100, total_bytes: 100, message };
+    const parsed = types.readCatalogDashboard({ ...dashboard(), price_lists: [{ ...urlPriceList(), latest_job: raw }] }, sellerId);
+    assert.equal(parsed.price_lists[0].latest_job.message, message);
+    const html = render(raw);
+    assert.match(html, /is-indeterminate/);
+    assert.doesNotMatch(html, /aria-valuenow=|100%/);
+    assert.ok(html.includes(message));
+  }
+  assert.match(render({ status: "done", progress: 100 }), /100% · Completato/);
+  assert.doesNotMatch(render({ status: "done" }), /is-indeterminate/);
+  assert.match(render({ status: "queued" }), /In attesa di avvio/);
+  assert.doesNotMatch(render({ status: "queued" }), /is-indeterminate/);
+  assert.equal(render({ status: "error" }), "");
 });

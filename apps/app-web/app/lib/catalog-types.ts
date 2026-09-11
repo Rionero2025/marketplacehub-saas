@@ -122,6 +122,7 @@ const jobErrorCodes = new Set([
 const jobMessages = new Set([
   "Importazione listino in coda.", "Aggiornamento listino in coda.",
   "Download del listino in corso.", "Download listino in corso.", "Listino aggiornato.",
+  "Elaborazione prodotti in corso.", "Salvataggio prodotti in corso.",
   "Listino invariato: versione già acquisita.",
   "Il servizio di importazione non è disponibile. Riprova tra poco.",
   "L’accesso al catalogo non è più autorizzato.", "La sorgente del listino non è disponibile.",

@@ -24,6 +24,7 @@ import {
 } from "../lib/catalog-types";
 import type { WorkspaceResult } from "../lib/workspace";
 import { DashboardIcon } from "./DashboardIcon";
+import { CatalogJobProgress } from "./CatalogJobProgress";
 
 type CatalogView = "suppliers" | "price-lists";
 type PriceListSource = "file" | "url";
@@ -98,15 +99,6 @@ function feedRoleDescription(provider: CatalogProvider, role: CatalogFeedRole) {
   return role === "full"
     ? "FULL importa schede prodotto, descrizioni, immagini, categorie, varianti e dati tecnici."
     : "LIGHT importa prezzi di acquisto e disponibilità: è la fonte InnPro usata dalla contabilità.";
-}
-
-function CatalogJobProgress({ job, priceListName }: { job: CatalogFeedJob | null; priceListName: string }) {
-  if (!jobIsActive(job) || !job) return null;
-  const progressLabel = job.progress === null ? "Avanzamento non determinato" : `${number.format(job.progress)}%`;
-  return <span className="catalog-job-progress">
-    <progress aria-label={`Avanzamento aggiornamento ${priceListName}`} max={100} value={job.progress ?? undefined} />
-    <span>{progressLabel}</span>
-  </span>;
 }
 
 export function SellerCatalogPage({ result, view }: { result: WorkspaceResult; view: CatalogView }) {

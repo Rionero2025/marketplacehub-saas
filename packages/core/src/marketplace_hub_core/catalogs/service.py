@@ -64,6 +64,8 @@ class CatalogQueueUnavailableError(RuntimeError):
 JOB_MESSAGES = {
     "queued": "Importazione listino in coda.",
     "running": "Download del listino in corso.",
+    "processing": "Elaborazione prodotti in corso.",
+    "saving": "Salvataggio prodotti in corso.",
     "done": "Listino aggiornato.",
     "queue_unavailable": "Il servizio di importazione non è disponibile. Riprova tra poco.",
     "permission_revoked": "L’accesso al catalogo non è più autorizzato.",
@@ -641,6 +643,15 @@ class CatalogsService:
                 if isinstance(downloaded, DownloadedCatalogFile)
                 else downloaded.content
             )
+            authorize()
+            self.repository.job_progress(
+                organization_id,
+                seller_id,
+                job_id,
+                processed_bytes=downloaded.total_bytes,
+                total_bytes=downloaded.total_bytes,
+                message=JOB_MESSAGES["processing"],
+            )
             file_format, normalized = self._parse_feed(
                 provider,
                 feed_role,
@@ -649,6 +660,12 @@ class CatalogsService:
             )
             encoded: EncodedCatalogArtifact = encode_catalog_artifact(downloaded_source)
             authorize()
+            self.repository.job_progress(
+                organization_id,
+                seller_id,
+                job_id,
+                message=JOB_MESSAGES["saving"],
+            )
             activated = self.repository.activate_remote_version(
                 job_id,
                 expected_config_revision=int(source["source_config_revision"]),

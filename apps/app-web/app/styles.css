@@ -404,12 +404,18 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .catalog-state { display: inline-flex !important; width: max-content; margin: 0 !important; padding: 3px 7px; border-radius: 10px; color: #276c52 !important; background: #eaf6ef; font-size: 9px !important; font-weight: 650; }
 .catalog-state.state-error, .catalog-state.state-failed { color: #a33c32 !important; background: #fceeed; }
 .catalog-state.state-importing, .catalog-state.state-processing, .catalog-state.state-running, .catalog-state.state-pending, .catalog-state.state-queued { color: #86611b !important; background: #fbf5e7; }
-.catalog-job-progress { display: flex !important; width: 122px; margin-top: 7px !important; align-items: center; gap: 7px; color: #86611b !important; font-variant-numeric: tabular-nums; }
-.catalog-job-progress progress { width: 84px; height: 7px; overflow: hidden; border: 0; border-radius: 999px; accent-color: #c38b21; background: #f1e8d3; }
-.catalog-job-progress progress::-webkit-progress-bar { border-radius: 999px; background: #f1e8d3; }
-.catalog-job-progress progress::-webkit-progress-value { border-radius: 999px; background: #c38b21; }
-.catalog-job-progress progress::-moz-progress-bar { border-radius: 999px; background: #c38b21; }
-.catalog-job-progress > span { flex: 0 0 auto; color: inherit; font-size: 9px; white-space: nowrap; }
+.catalog-job-progress { display: flex !important; flex-direction: column; width: 170px; margin-top: 8px !important; gap: 5px; color: #526779 !important; font-variant-numeric: tabular-nums; }
+.catalog-progress-track { display: block; flex: none; width: 100%; height: 7px; overflow: hidden; border-radius: 999px; background: #e3edf4; }
+.catalog-progress-fill { display: block; height: 100%; border-radius: inherit; background: #0087c4; transition: width .35s ease; }
+.catalog-progress-track.is-indeterminate .catalog-progress-fill { width: 40%; animation: catalog-progress-slide 1.6s ease-in-out infinite; }
+.catalog-progress-label { font-size: 10px; font-weight: 600; line-height: 1.4; }
+.catalog-progress-bytes { color: #758694; font-size: 9px; }
+.catalog-job-progress.is-complete .catalog-progress-fill { background: #28a477; }
+@keyframes catalog-progress-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) {
+  .catalog-progress-fill { transition: none; }
+  .catalog-progress-track.is-indeterminate .catalog-progress-fill { animation: none; transform: translateX(75%); }
+}
 .catalog-job-error { color: #a33c32 !important; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
 .catalog-row-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
 .catalog-row-actions button { white-space: nowrap; }

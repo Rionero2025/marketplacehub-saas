@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-11 — Avanzamento dinamico dei feed
+
+- barra a larghezza stabile con percentuale sotto, calcolata dai byte realmente
+  scaricati quando la sorgente comunica il totale; MB ricevuti aggiornati dal polling;
+- barra indeterminata animata quando il totale non è disponibile, durante parsing
+  e salvataggio; nessuna percentuale simulata e rispetto di reduced motion;
+- il worker pubblica le fasi di elaborazione e salvataggio; completamento al 100%
+  soltanto dopo l'attivazione, stato di errore senza animazione;
+- verificati 157 test web e 31 test API/coda catalogo, più Ruff; nessuna migrazione.
+  Il collaudo del FULL reale resta aperto dopo l'interruzione worker osservata.
+
 ## 2026-09-11 — Correzione avvio import listini
 
 - riprodotto in staging il listino senza prodotti con errore `queue_unavailable`;

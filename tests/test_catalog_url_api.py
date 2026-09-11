@@ -206,7 +206,7 @@ def test_innpro_full_and_light_url_feeds_coexist_with_immutable_identity(configu
         }
 
 
-def test_worker_activates_versions_and_deduplicates_unchanged_feed(configured):
+def test_worker_activates_versions_and_deduplicates_unchanged_feed(configured, monkeypatch):
     client, seller, organization, _ = owner(configured)
     supplier_id = add_supplier(client, seller)
     created = create_feed(client, seller, supplier_id).json()
@@ -227,6 +227,33 @@ def test_worker_activates_versions_and_deduplicates_unchanged_feed(configured):
         )
 
     configured.catalogs.fetcher = fetcher
+    original_parse = configured.catalogs._parse_feed
+    original_activate = configured.catalog_repository.activate_remote_version
+
+    def assert_phase(message):
+        current_job_id = configured.catalog_queue.jobs[-1]
+        response = client.get(catalog_path(
+            seller, f"/price-lists/{price_list_id}/jobs/{current_job_id}"
+        ))
+        assert response.status_code == 200
+        current = response.json()["job"]
+        assert current["status"] == "running"
+        assert current["message"] == message
+        assert current["processed_bytes"] == current["total_bytes"] == len(csv)
+        assert current["progress"] < 100
+
+    def parse_with_progress(*args, **kwargs):
+        assert_phase("Elaborazione prodotti in corso.")
+        return original_parse(*args, **kwargs)
+
+    def activate_with_progress(*args, **kwargs):
+        assert_phase("Salvataggio prodotti in corso.")
+        return original_activate(*args, **kwargs)
+
+    monkeypatch.setattr(configured.catalogs, "_parse_feed", parse_with_progress)
+    monkeypatch.setattr(
+        configured.catalog_repository, "activate_remote_version", activate_with_progress
+    )
     configured.catalogs.run_refresh_job(first_job_id)
     detail = client.get(catalog_path(seller, f"/price-lists/{price_list_id}"))
     assert detail.status_code == 200, detail.text
