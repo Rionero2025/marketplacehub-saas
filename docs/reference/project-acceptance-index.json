@@ -10,11 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 147,
+    "verified": 159,
     "baseline_total": 2017,
     "excluded": 6,
     "total": 2011,
-    "percent": 7.31
+    "percent": 7.91
   },
   "criteria": [
     {
@@ -6764,84 +6764,108 @@
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:28",
       "requirement": "selectbox: \"Listino da lavorare\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0241",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:174",
       "requirement": "checkbox: \"Seleziona tutti i prodotti filtrati\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0242",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:178",
       "requirement": "data_editor: df[visible]",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0243",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:206",
       "requirement": "text_input: \"Nome della vista\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0244",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:210",
       "requirement": "checkbox: \"Sovrascrivi una vista esistente\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0245",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:212",
       "requirement": "selectbox: \"Vista da sovrascrivere\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0246",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:214",
       "requirement": "button: \"Salva vista e destinazioni\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0247",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:251",
       "requirement": "selectbox: \"Vista da lavorare\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0248",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:273",
       "requirement": "data_editor: view_df[edit_columns]",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0249",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:293",
       "requirement": "text_input: \"Nome vista\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0250",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:336",
       "requirement": "text_input: \"Digita ELIMINA\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0251",
       "kind": "legacy_interaction",
       "source": "pages/3_Lavora_sui_Listini.py:337",
       "requirement": "button: \"Elimina definitivamente\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     },
     {
       "id": "LEGACY-UI-0252",

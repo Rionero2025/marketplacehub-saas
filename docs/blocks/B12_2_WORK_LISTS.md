@@ -51,5 +51,27 @@ le lavorazioni specialistiche presenti nel progetto originale.
 
 39 test Python mirati (API, autorizzazioni, isolamento, lifecycle snapshot,
 selezione oltre la prima pagina, arrotondamenti e migrazione); 163 test web;
-TypeScript e build Next da 20 pagine superati. Collaudo staging da registrare
-prima di promuovere i criteri LEGACY-UI-0240…0251 nel ledger.
+TypeScript e build Next da 20 pagine superati.
+
+
+## Collaudo staging — 11 settembre 2026
+
+Versione applicativa `6dd8328582b3af52a6b68f7c9ebfa328513e0915`, web, API e worker
+Live su Render. Health API e readiness web HTTP 200; PostgreSQL e Redis up. Pagina autenticata `/seller/catalog/work`, negozio RioneroShop.
+
+- Scelta InnPro LIGHT con FULL dello stesso fornitore: 5.449 prodotti, 109 pagine;
+  selezione globale 5.449 → 0 → tutti, ricerca EAN 6930460000040 → una riga.
+- Nome Charger SkyRC iMax B6AC V2, peso 1,03 kg, costo LIGHT 37,93 euro,
+  prezzo iniziale 51,21 e minimo 41,72. Con spedizione aggiuntiva 2 euro:
+  totale 39,93, prezzo 53,91 e minimo 43,92.
+- Vista temporanea con destinazione Kaufland: prezzo modificato a 52,34,
+  salvato e conservato nella riapertura. Nome prodotto e nome vista modificati;
+  aggiunta riga TEST-CODEX con prezzo manuale 12,345 mantenuto dopo reload.
+- Riga manuale rimossa e salvataggio riuscito; nuova lavorazione usata per
+  sovrascrivere la stessa vista, un solo elemento presente nella raccolta.
+- Eliminazione della sola vista di collaudo con conferma ELIMINA; raccolta finale
+  vuota. Nessun prodotto pubblicato sui marketplace né feed modificato.
+
+I criteri di interazione LEGACY-UI-0240–0251 sono verificati. Le regole specifiche
+fornitori e gli altri requisiti di catalogo restano pendenti; questi 12 criteri
+non certificano la parità completa del modulo.

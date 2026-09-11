@@ -34,8 +34,9 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B20.2 / B21.2 — Filtri, selezione, riepilogo e CSV ordini | collaudato e pubblicato nello staging; moduli Ordini ancora parziali | 6 | **5,77%** |
 | B20.3 — Importazione e correzione tracking | collaudato e pubblicato nello staging; invio ai marketplace escluso | 10 | **6,27%** |
 | B20.4 — Scadenziario pagamenti e ritardi ticket | collaudato e pubblicato nello staging per Kaufland; settlement escluso | 21 | **7,31%** |
+| B12.2 — Lavora sui listini | flusso base pubblicato e collaudato; regole fornitori speciali pendenti | 12 | **7,91%** |
 
-Calcolo corrente: `147 / 2.011 = 7,3098%`, mostrato con due decimali. I totali B01–B04 nella
+Calcolo corrente: `159 / 2.011 = 7,9065%`, mostrato con due decimali. I totali B01–B04 nella
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
@@ -53,8 +54,8 @@ da 250 righe. La suite finale conta 615/615 test Python, 156/156 test web, build
 19/19, TypeScript, Ruff, dipendenze e head Alembic 0013 superati. I nuovi job Catalogo
 usano una coda dedicata non ascoltata dai worker precedenti. `MASTER-0228`,
 `MASTER-0229` e `MASTER-0230` restano candidati pending
-fino al collaudo autenticato nello staging: il totale certificato rimane
-**147/2.011 = 7,31%**; diventerebbe **150/2.011 = 7,46%** solo dopo la verifica dei tre.
+fino al collaudo autenticato nello staging: i tre criteri restano fuori dal totale certificato. Dopo B12.2 il totale è
+**159/2.011 = 7,91%**; diventerebbe **162/2.011 = 8,06%** dopo la loro verifica.
 Vedere `docs/blocks/B12_1B2_INNPRO_SOURCE_CONTRACT.md` e
 `docs/blocks/B12_1B2_INNPRO_RELEASE.md`.
 
@@ -147,3 +148,12 @@ I primi 26 criteri soddisfatti sono gli output della Fase 0 e i documenti perman
 la fondazione eseguibile. B03 aggiunge autenticazione e sessioni. B04 aggiunge organizzazioni,
 membership, autorizzazione backend e selezione del negozio con i dati precedenti. Gestione completa
 di utenti/Seller, abbonamenti e altri moduli operativi Streamlit restano pendenti.
+
+
+B12.2 aggiunge 12 interazioni verificate della pagina originale Lavora sui Listini:
+scelta sorgente, selezione globale, tabella modificabile, nome, scelta e conferma
+sovrascrittura, salvataggio con destinazioni, riapertura, modifica e cancellazione.
+Collaudo autenticato completato su InnPro LIGHT/FULL con vista temporanea poi
+rimossa. 39 test Python mirati, 163 web, TypeScript e build superati. Regole
+Cecotec e ActiveShop e pubblicazione marketplace restano fuori da questo blocco.
+Vedere `docs/blocks/B12_2_WORK_LISTS.md`.

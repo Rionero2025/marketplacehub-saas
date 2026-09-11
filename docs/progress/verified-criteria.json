@@ -734,6 +734,66 @@
       "id": "MASTER-0821",
       "block": "B20.4",
       "evidence": "docs/blocks/B20_4_PAYMENTS_RELEASE.md"
+    },
+    {
+      "id": "LEGACY-UI-0240",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0241",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0242",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0243",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0244",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0245",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0246",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0247",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0248",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0249",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0250",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0251",
+      "block": "B12.2",
+      "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
     }
   ]
 }
