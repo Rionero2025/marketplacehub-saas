@@ -18,6 +18,7 @@ from marketplace_hub_core.catalogs.artifacts import (
     encode_catalog_artifact,
     verify_encoded_catalog_artifact,
 )
+from marketplace_hub_core.catalogs.progress import forecast_job
 from marketplace_hub_core.catalogs.schema import (
     seller_price_list_products as products,
 )
@@ -248,6 +249,7 @@ class SqlCatalogsRepository:
             "processed_bytes": processed,
             "total_bytes": total,
             "progress": progress,
+            "forecast": forecast_job(row, row.get("_history", ())),
             "message": row["message"],
             "error_code": _safe_error_code(row["error_code"]),
             "result_version": (
@@ -339,7 +341,11 @@ class SqlCatalogsRepository:
         )).mappings()
         latest = {}
         for row in rows:
-            latest.setdefault(row["price_list_id"], row)
+            current = latest.setdefault(row["price_list_id"], {**row, "_history": []})
+            if (row["id"] != current["id"] and row["total_bytes"]
+                    and row["source_config_revision"] == current["source_config_revision"]
+                    and len(current["_history"]) < 5):
+                current["_history"].append(row)
         return latest
 
     @staticmethod
@@ -869,6 +875,15 @@ class SqlCatalogsRepository:
                 refresh_jobs.c.id == job_id,
                 *self._scope(refresh_jobs, organization_id, seller_id),
             )).mappings().first()
+            if row is not None:
+                history = connection.execute(select(refresh_jobs).where(
+                    *self._scope(refresh_jobs, organization_id, seller_id),
+                    refresh_jobs.c.price_list_id == row["price_list_id"],
+                    refresh_jobs.c.source_config_revision == row["source_config_revision"],
+                    refresh_jobs.c.created_at < row["created_at"],
+                    refresh_jobs.c.total_bytes > 0,
+                ).order_by(refresh_jobs.c.created_at.desc()).limit(5)).mappings().all()
+                row = {**row, "_history": history}
         if row is None:
             raise CatalogRefreshJobNotFoundError("Aggiornamento listino non disponibile.")
         return self._job_public(row)

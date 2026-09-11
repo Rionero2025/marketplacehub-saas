@@ -217,6 +217,17 @@ def test_worker_activates_versions_and_deduplicates_unchanged_feed(configured, m
     def fetcher(url, *, username, password, on_progress):
         assert url.endswith("token=super-secret")
         assert (username, password) == ("feed-user", "feed-password")
+        on_progress(len(csv) // 2, None)
+        if len(configured.catalog_queue.jobs) > 1:
+            current_id = configured.catalog_queue.jobs[-1]
+            snapshot = client.get(catalog_path(
+                seller, f"/price-lists/{price_list_id}/jobs/{current_id}"
+            )).json()["job"]
+            assert 30 <= snapshot["forecast"]["percent"] <= 35
+            assert snapshot["forecast"]["basis"] == "previous-size"
+            listed = client.get(catalog_path(seller)).json()["price_lists"][0]
+            assert listed["latest_job"]["forecast"]["percent"] == snapshot["forecast"]["percent"]
+            assert "_history" not in snapshot
         on_progress(len(csv), len(csv))
         return DownloadedCatalog(
             content=csv,

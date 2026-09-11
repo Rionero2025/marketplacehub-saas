@@ -409,6 +409,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .catalog-progress-fill { display: block; height: 100%; border-radius: inherit; background: #0087c4; transition: width .35s ease; }
 .catalog-progress-track.is-indeterminate .catalog-progress-fill { width: 40%; animation: catalog-progress-slide 1.6s ease-in-out infinite; }
 .catalog-progress-label { font-size: 10px; font-weight: 600; line-height: 1.4; }
+.catalog-progress-eta { color: #526779; font-size: 10px; line-height: 1.4; }
 .catalog-progress-bytes { color: #758694; font-size: 9px; }
 .catalog-job-progress.is-complete .catalog-progress-fill { background: #28a477; }
 @keyframes catalog-progress-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }

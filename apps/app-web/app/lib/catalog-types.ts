@@ -41,11 +41,19 @@ export type CatalogFeedJob = {
   processed_bytes: number;
   total_bytes: number | null;
   progress: number | null;
+  forecast?: CatalogJobForecast;
   message: string | null;
   error_code: string | null;
   result_version: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type CatalogJobForecast = {
+  percent: number | null;
+  remaining_seconds: number | null;
+  state: "available" | "estimating" | "recalculating" | "stalled" | "waiting" | "done" | "error";
+  basis: "phase" | "measured-size" | "previous-size" | "learning";
 };
 
 export type CatalogFeedMutation = {
@@ -154,11 +162,22 @@ function readFeedJob(value: unknown): CatalogFeedJob | null {
     || !timestampOrNull(value.updated_at) || value.updated_at === null) return null;
   const message = value.message !== null && jobMessages.has(value.message) ? value.message : null;
   const errorCode = value.error_code !== null && jobErrorCodes.has(value.error_code) ? value.error_code : null;
+  const forecast = readForecast(value.forecast);
   return {
     id: value.id, status: value.status as CatalogFeedJob["status"], processed_bytes: value.processed_bytes,
     total_bytes: value.total_bytes, progress: value.progress, message, error_code: errorCode,
     result_version: value.result_version, created_at: value.created_at, updated_at: value.updated_at,
+    ...(forecast ? { forecast } : {}),
   };
+}
+
+function readForecast(value: unknown): CatalogJobForecast | null {
+  if (!isObject(value) || !nullableCount(value.percent) || (value.percent !== null && value.percent > 100)
+    || !nullableCount(value.remaining_seconds)
+    || !["available", "estimating", "recalculating", "stalled", "waiting", "done", "error"].includes(String(value.state))
+    || !["phase", "measured-size", "previous-size", "learning"].includes(String(value.basis))) return null;
+  return { percent: value.percent, remaining_seconds: value.remaining_seconds,
+    state: value.state as CatalogJobForecast["state"], basis: value.basis as CatalogJobForecast["basis"] };
 }
 
 function readSupplier(value: unknown): CatalogSupplier | null {

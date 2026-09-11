@@ -542,3 +542,28 @@ test("catalog progress renders measured download changes and honest unknown/proc
   assert.doesNotMatch(render({ status: "queued" }), /is-indeterminate/);
   assert.equal(render({ status: "error" }), "");
 });
+
+test("overall forecast survives the BFF and displays a changing estimate without a false success", () => {
+  const { CatalogJobProgress } = load("../app/components/CatalogJobProgress.tsx", { require });
+  const render = (forecast, status = "running") => {
+    const parsed = types.readCatalogFeedJobResponse({ job: { ...job(), status, forecast } }, jobId);
+    return require("react-dom/server").renderToStaticMarkup(require("react").createElement(CatalogJobProgress, {
+      job: parsed, priceListName: "FULL",
+    }));
+  };
+  const first = { percent: 35, remaining_seconds: 186, state: "available", basis: "previous-size", private: "secret" };
+  assert.match(render(first), /35% · Completamento stimato/);
+  assert.match(render(first), /Tempo residuo: circa 4 min/);
+  assert.match(render(first), /download precedenti/);
+  assert.doesNotMatch(render(first), /secret/);
+  assert.match(render({ ...first, percent: 52, remaining_seconds: 91 }), /circa 2 min/);
+  assert.match(render({ ...first, percent: 99, remaining_seconds: null, state: "recalculating" }), /ricalcolo in corso/);
+  assert.match(render({ ...first, state: "stalled", remaining_seconds: null }), /In attesa di nuovi dati/);
+  assert.doesNotMatch(render({ ...first, percent: 100 }), /100%/);
+  assert.match(render(first, "done"), /100% · Completato/);
+  assert.doesNotMatch(render(first, "done"), /Tempo residuo/);
+  for (const bad of [{ ...first, percent: 101 }, { ...first, remaining_seconds: -1 }, { ...first, state: "secret" }]) {
+    const parsed = types.readCatalogFeedJobResponse({ job: { ...job(), forecast: bad } }, jobId);
+    assert.equal(parsed.forecast, undefined);
+  }
+});

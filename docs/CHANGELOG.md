@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-09-11 — Percentuale complessiva e tempo residuo dei feed
+
+- aggiunta previsione lato API, condivisa tra elenco e polling e conservata dopo
+  ricaricamento della pagina, senza modifiche allo schema dati;
+- stima esplicita per fasi: download 70%, elaborazione 20%, salvataggio 10%; la
+  velocità media osservata calibra il tempo residuo, il 100% richiede stato done;
+- senza Content-Length usa la mediana delle ultime cinque dimensioni note dello
+  stesso listino, Seller e revisione della sorgente, indicandolo nell'interfaccia;
+- al primo download senza totale mostra 0% e calcolo in corso; nessun conto alla
+  rovescia inventato. Se il file supera la stima o non arrivano dati, la previsione
+  indica ricalcolo/attesa, senza annunciare il completamento;
+- aggiunti test di velocità, fasi, stallo, isolamento della cronologia e percorso
+  API/BFF/interfaccia. Copertura funzionale complessiva invariata: 147/2011.
+
 ## 2026-09-11 — Avanzamento dinamico dei feed
 
 - barra a larghezza stabile con percentuale sotto, calcolata dai byte realmente
