@@ -14,4 +14,8 @@ Salvataggio e conferma richiedono la versione SHA-256 dello snapshot letto. Il c
 
 ## Stato
 
-Implementazione pronta per il rilascio e verifica autenticata. Copertura complessiva ancora 163/2011 (8,11%); nessun criterio promosso prima del collaudo visibile.
+Commit `135a56f27c21e529626676d5c80765a68095e03c` verificato Live su Render web, API e worker. Deploy rispettivi: `dep-dainu6gjo6nc73bplfl0`, `dep-dainu6gjo6nc73bplfpg`, `dep-dainu6ojo6nc73bplg30`.
+
+Collaudo autenticato RioneroShop: vista Innpro di 3363 prodotti; intervallo 2–3 genera esattamente due righe. Deseleziona tutti: 0/2, seleziona tutti: 2/2, deselezione singola: 1/2. EAN 6930460000798: modifica vendita da 53,33 a 54,50 EUR accettata con virgola, salvata dal server, commissione ricalcolata a 8,18 EUR e guadagno a 6,82 EUR. Riapertura conferma 54,50 e 8,18. Prezzo e commissione originali ripristinati dopo il test. Nessuna offerta inviata al marketplace; conferma PUBBLICA vuota.
+
+Promosso solo LEGACY-UI-0275 (editor Kaufland). L’editor comune Worten è coperto dai test del payload ma non da un account Worten reale, pertanto il criterio di collaudo Worten resta pendente. Copertura complessiva 164/2011 (8,16%).

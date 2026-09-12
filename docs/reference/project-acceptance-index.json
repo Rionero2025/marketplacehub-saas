@@ -10,11 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 163,
+    "verified": 164,
     "baseline_total": 2017,
     "excluded": 6,
     "total": 2011,
-    "percent": 8.11
+    "percent": 8.16
   },
   "criteria": [
     {
@@ -7065,7 +7065,9 @@
       "kind": "legacy_interaction",
       "source": "pages/3_Pubblicazione_Kaufland.py:313",
       "requirement": "data_editor: df[view_cols]",
-      "status": "pending"
+      "status": "verified",
+      "block": "B16.2",
+      "evidence": "docs/blocks/B16_2_PUBLICATION_EDITOR.md"
     },
     {
       "id": "LEGACY-UI-0276",

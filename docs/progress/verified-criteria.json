@@ -814,6 +814,11 @@
       "id": "LEGACY-UI-0272",
       "block": "B16.1",
       "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
+    },
+    {
+      "id": "LEGACY-UI-0275",
+      "block": "B16.2",
+      "evidence": "docs/blocks/B16_2_PUBLICATION_EDITOR.md"
     }
   ]
 }

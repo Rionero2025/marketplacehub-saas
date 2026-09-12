@@ -82,8 +82,10 @@ Copertura finale: 163/2.011 = 8,11%.
 ## Ancora da trasferire dall'originale
 
 Salvataggio/riuso autonomo delle regole commerciali, cambio BCE automatico,
-esecuzione simultanea su più Paesi, editor dell'anteprima, download CSV Worten
+esecuzione simultanea su più Paesi, download CSV Worten
 e memoria trasversale agli invii separati. Le regole speciali dei fornitori
 restano nel relativo blocco cataloghi; non vengono sostituite silenziosamente.
 Il monitoraggio dell'esito definitivo Mirakl e della visibilità delle offerte
 non è incluso nella ricevuta di accettazione di questo primo blocco.
+
+Editor dell’anteprima completato successivamente nel blocco B16.2: vedere `B16_2_PUBLICATION_EDITOR.md`.
