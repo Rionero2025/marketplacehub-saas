@@ -59,7 +59,7 @@ export function SellerPublicationPanel({sellerId}:{sellerId:string}) {
   async function open(id:string) {
     const value=readPublicationJob(await request(`/jobs/${id}`),sellerId);
     if(!value||value.id!==id)throw new Error("Invio non valido.");
-    setJob(value);setSelected(value.rows.filter(r=>r.status==="pending").map(r=>r.id));setConfirmation("");setUncertain(false);
+    setRules({...value.rules});setOptions({});setJob(value);setSelected(value.rows.filter(r=>r.status==="pending").map(r=>r.id));setConfirmation("");setUncertain(false);
   }
   useEffect(()=>{
     if(!job||!["queued","running"].includes(job.status))return;
@@ -81,7 +81,8 @@ export function SellerPublicationPanel({sellerId}:{sellerId:string}) {
   const metadata=(key:"shipping_group"|"warehouse"|"logistic_class"|"state_code",label:string,list:string)=><label>{label}{options[list]?.length?<select value={rules[key]} onChange={e=>change({[key]:e.target.value})}><option value="">Scegli dalla configurazione collegata</option>{options[list].map(o=><option key={o.id} value={o.id}>{o.name} · {o.id}</option>)}</select>:<input value={rules[key]} onChange={e=>change({[key]:e.target.value})}/>}</label>;
   const processed=job?job.total-(job.counts.pending??0)-(job.counts.sending??0):0;
   const percent=job?Math.floor(processed/job.total*100):0;
-  const canSubmit=job&&["draft","interrupted"].includes(job.status)&&editable&&!uncertain&&confirmation==="PUBBLICA"&&selected.length>0;
+  const missingShipping=job?.marketplace==="kaufland"&&(!job.rules.shipping_group||!job.rules.warehouse);
+  const canSubmit=job&&["draft","interrupted"].includes(job.status)&&editable&&!uncertain&&!missingShipping&&confirmation==="PUBBLICA"&&selected.length>0;
   return <div className={styles.panel}>
     {error&&<div role="alert" className={styles.error}>{error}</div>}
     <section className={styles.card}><h2>1. Destinazione e vista</h2><fieldset disabled={!editable}><div className={styles.grid}>
@@ -111,6 +112,7 @@ export function SellerPublicationPanel({sellerId}:{sellerId:string}) {
       <p className={styles.note}>Importi base in EUR. {["cz","pl"].includes(job.rules.storefront)&&`Prezzi inviati in ${job.rules.storefront==="cz"?"CZK":"PLN"}, moltiplicatore ${job.rules.multiplier} del ${job.rules.fx_date}. `}L’accettazione dell’API non certifica ancora la visibilità dell’offerta. Per gli esiti incerti verifica il portale marketplace prima di preparare un altro invio.</p>
       <div className={styles.table}><table><thead><tr><th>Invia</th><th>Prodotto</th><th>EAN / SKU</th><th>Quantità</th><th>Costo totale</th><th>Vendita</th><th>Minimo</th><th>Commissione stimata</th><th>Guadagno stimato</th><th>Esito</th></tr></thead><tbody>{job.rows.map(r=><tr key={r.id}><td><input aria-label={`Seleziona ${r.ean}`} type="checkbox" disabled={!editable||r.status!=="pending"||!["draft","interrupted"].includes(job.status)||uncertain} checked={selected.includes(r.id)} onChange={e=>setSelected(e.target.checked?[...selected,r.id]:selected.filter(id=>id!==r.id))}/></td><td>{r.name||"Nome non disponibile"}</td><td>{r.ean}<br/>{r.sku}</td><td>{r.quantity}</td>{[r.cost,r.price,r.minimum_price,r.commission,r.profit].map((v,i)=><td key={i} className={styles.money}>{euro.format(Number(v))}</td>)}<td>{r.problem||labels[r.status]}{r.result_code&&<div>{r.result_code}</div>}</td></tr>)}</tbody></table></div>
       {["draft","interrupted"].includes(job.status)&&<><p className={styles.note}>{job.rules.playground?"Confermi l’invio al Playground Kaufland.":"Confermando invii prezzi e disponibilità all’account reale. Le offerte con lo stesso SKU possono essere aggiornate."} {job.status==="interrupted"&&"Puoi riprendere solo le righe ancora da inviare; gli esiti incerti restano esclusi."}</p><div className={styles.actions}><label>Scrivi PUBBLICA <input className={styles.confirm} value={confirmation} disabled={!editable||uncertain} onChange={e=>setConfirmation(e.target.value)}/></label><button className={styles.primary} disabled={!canSubmit} onClick={()=>void run(submit)}>{job.rules.playground?"Invia al Playground":"Pubblica selezionati"} ({selected.length})</button></div></>}
+      {missingShipping&&job.status==="draft"&&<p className={styles.note}>Per inviare, scegli gruppo spedizione e magazzino nelle regole e prepara una nuova anteprima.</p>}
       <div className={styles.actions}><button disabled={pending} onClick={()=>void run(async()=>{await open(job.id);await refresh();})}>Aggiorna esiti</button>{uncertain&&<span className={styles.note}>Richiesta non confermata: aggiorna gli esiti prima di riprovare.</span>}</div>
     </section>}
     <section className={styles.card}><h2>Storico invii e anteprime</h2>{!index?.jobs.length?<p className={styles.note}>Nessun invio preparato.</p>:index.jobs.map(j=><div className={styles.history} key={j.id}><div><strong>{j.view_name} · {j.account_name}</strong><div className={styles.note}>{new Date(j.created_at).toLocaleString("it-IT")} · {j.rules.storefront.toUpperCase()} · {j.rules.playground?"Playground":"Reale"} · {labels[j.status]}</div></div><button disabled={pending} onClick={()=>void run(()=>open(j.id))}>Apri</button></div>)}</section>
