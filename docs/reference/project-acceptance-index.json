@@ -10,11 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 164,
+    "verified": 165,
     "baseline_total": 2017,
     "excluded": 6,
     "total": 2011,
-    "percent": 8.16
+    "percent": 8.2
   },
   "criteria": [
     {
@@ -9941,8 +9941,9 @@
       "source": "MARKETPLACE_HUB_MASTER_SPEC_CODEX.md:498",
       "section": "9. INTEGRAZIONI FORNITORI ESISTENTI/DA PRESERVARE > 9.3 Innpro",
       "requirement": "feed full/light;",
-      "status": "pending",
-      "evidence": ""
+      "status": "verified",
+      "evidence": "docs/blocks/B12_3_INNPRO_EAN_MATCH.md",
+      "block": "B12.3"
     },
     {
       "id": "MASTER-0229",

@@ -819,6 +819,11 @@
       "id": "LEGACY-UI-0275",
       "block": "B16.2",
       "evidence": "docs/blocks/B16_2_PUBLICATION_EDITOR.md"
+    },
+    {
+      "id": "MASTER-0228",
+      "block": "B12.3",
+      "evidence": "docs/blocks/B12_3_INNPRO_EAN_MATCH.md"
     }
   ]
 }

@@ -37,8 +37,9 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B12.2 — Lavora sui listini | flusso base pubblicato e collaudato; regole fornitori speciali pendenti | 12 | **7,91%** |
 | B16.1 / B17.1 — Pubblica sui marketplace | flusso iniziale implementato; anteprima Kaufland collaudata; invio reale da collaudare | 4 | **8,11%** |
 | B16.2 — Editor anteprima e selezione intervalli | pubblicato e collaudato per Kaufland; payload Worten verificato nei test | 1 | **8,16%** |
+| B12.3 — Match EAN InnPro LIGHT/FULL | pubblicato e collaudato sulla vista esistente e nuova anteprima | 1 | **8,20%** |
 
-Calcolo corrente: `164 / 2.011 = 8,1551%`, mostrato con due decimali. I totali B01–B04 nella
+Calcolo corrente: `165 / 2.011 = 8,2049%`, mostrato con due decimali. I totali B01–B04 nella
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.
@@ -54,10 +55,10 @@ prodotto esattamente 6.880 righe FULL da 111.012.011 byte e 5.000 righe LIGHT da
 parser, ricalcolo ordini e persistenza restano limitati tramite spool su disco e batch
 da 250 righe. La suite finale conta 615/615 test Python, 156/156 test web, build
 19/19, TypeScript, Ruff, dipendenze e head Alembic 0013 superati. I nuovi job Catalogo
-usano una coda dedicata non ascoltata dai worker precedenti. `MASTER-0228`,
-`MASTER-0229` e `MASTER-0230` restano candidati pending
-fino al collaudo autenticato nello staging: i tre criteri restano fuori dal totale certificato. Dopo B12.2 il totale è
-**159/2.011 = 7,91%**; diventerebbe **162/2.011 = 8,06%** dopo la loro verifica.
+usano una coda dedicata non ascoltata dai worker precedenti. `MASTER-0228` è ora verificato con il collaudo autenticato B12.3 sui feed FULL/LIGHT e relativo match.
+`MASTER-0229` e `MASTER-0230` restano pending e fuori dal totale certificato.
+Il collaudo B12.3 attesta 3.337 match FULL univoci e 3.363 stock LIGHT verificati;
+25 EAN FULL mancanti e un duplicato rimangono segnalati senza abbinamenti arbitrari.
 Vedere `docs/blocks/B12_1B2_INNPRO_SOURCE_CONTRACT.md` e
 `docs/blocks/B12_1B2_INNPRO_RELEASE.md`.
 
