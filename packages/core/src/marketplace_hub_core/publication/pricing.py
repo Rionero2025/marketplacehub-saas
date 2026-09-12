@@ -3,6 +3,7 @@ import io
 import re
 from decimal import ROUND_HALF_UP, Decimal
 
+from marketplace_hub_core.catalogs.measurements import FIELDS
 from marketplace_hub_core.catalogs.work import legacy_round
 from marketplace_hub_core.publication.models import Rules
 
@@ -85,7 +86,12 @@ def prepare(row: dict, supplier: str, marketplace: str, rules: Rules):
             "description-pt": str(row.get("name") or ""),
             "ship-from-country-offer": rules.ship_from,
         }
+    if (row.get("innpro_match") or {}).get("light", "matched") not in {"matched", "manual"}:
+        problem = "Stock LIGHT non verificato: controlla il match EAN"
     public = {
+        **{field: row.get(field) for field in FIELDS},
+        "product_info": row.get("product_info"),
+        "innpro_match": row.get("innpro_match"),
         "name": str(row.get("name") or ""),
         "ean": ean,
         "sku": sku,
@@ -224,5 +230,11 @@ def edit_offer(public, payload, changes, marketplace, rules):
                 "price[channel=WRT_PT_ONLINE]": public["price"],
             }
         )
+    match = public.get("innpro_match")
+    if match:
+        if "quantity" in changes:
+            public["innpro_match"] = {**match, "light": "manual"}
+        elif match.get("light") not in {"matched", "manual"}:
+            problem = "Stock LIGHT non verificato: controlla il match EAN"
     public["problem"] = problem
     return public, payload

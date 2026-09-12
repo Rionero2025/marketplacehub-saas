@@ -26,7 +26,7 @@ from marketplace_hub_core.catalogs.service import (
     CatalogValidationError,
 )
 from marketplace_hub_core.catalogs.work import CatalogWorkRepository
-from marketplace_hub_core.catalogs.work_models import ViewDelete, ViewSave, ViewUpdate, WorkPreview
+from marketplace_hub_core.catalogs.work_models import ViewDelete, ViewEnrich, ViewSave, ViewUpdate, WorkPreview
 from marketplace_hub_core.seller_settings.security import CredentialStorageUnavailableError
 from marketplace_hub_core.tenancy.service import SellerNotAccessibleError, WorkspacePermissionError
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
@@ -406,6 +406,13 @@ def create_catalogs_router(service: CatalogsService, auth, settings):
         return await run_in_threadpool(
             execute, lambda: work.update(org, seller_id, view_id, payload),
         )
+
+    @router.post("/work/views/{view_id}/enrich")
+    async def work_enrich(seller_id: UUID, view_id: UUID, request: Request):
+        from marketplace_hub_core.catalogs.work_enrichment import enrich_view
+        org, _ = await run_in_threadpool(execute, lambda: work_scope(seller_id, request, True))
+        payload = await parse_catalog_json(request, ViewEnrich)
+        return await run_in_threadpool(execute, lambda: enrich_view(work, org, seller_id, view_id, payload))
 
     @router.delete("/work/views/{view_id}")
     async def work_delete(seller_id: UUID, view_id: UUID, request: Request):

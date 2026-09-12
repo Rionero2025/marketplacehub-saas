@@ -1,8 +1,8 @@
 import { isUuid } from "./seller-settings-types";
-import { readWorkIndex, type WorkIndex } from "./catalog-work-types";
+import { readProductInfo, readInnproMatch, type ProductInfo, type InnproMatch, readWorkIndex, type WorkIndex } from "./catalog-work-types";
 
 export type PublicationRules = {account_id:string; view_id:string; revision:number; storefront:string; playground:boolean; margin:number; minimum_margin:number; commission:number; min_qty:number; min_cost:number; min_profit:number; weight_mode:string; weight_from:number; weight_to:number; composite_sku:boolean; shipping_group:string; warehouse:string; handling:number; vat:string; multiplier:number; fx_date:string; logistic_class:string; state_code:string; ship_from:string; start:number; limit:number};
-export type PublicationRow = {id:string; position:number; status:string; result_code:string; name:string; ean:string; sku:string; quantity:number; cost:string; price:string; minimum_price:string; commission:string; profit:string; weight_kg:string|null; problem:string};
+export type PublicationRow = {product_info?:ProductInfo; innpro_match?:InnproMatch; length_cm?:string|null; width_cm?:string|null; height_cm?:string|null;id:string; position:number; status:string; result_code:string; name:string; ean:string; sku:string; quantity:number; cost:string; price:string; minimum_price:string; commission:string; profit:string; weight_kg:string|null; problem:string};
 export type PublicationJob = {version:string; id:string; seller_id:string; account_id:string; marketplace:string; account_name:string; view_name:string; status:string; total:number; filtered_total:number; counts:Record<string,number>; rules:PublicationRules; created_at:string; rows:PublicationRow[]};
 export type PublicationIndex = WorkIndex & {jobs:PublicationJob[]};
 export type Options = Record<string,{id:string;name:string}[]>;
@@ -19,7 +19,7 @@ export function readPublicationJob(v:unknown,seller:string):PublicationJob|null 
   if(rules.account_id!==v.account_id||!isUuid(rules.view_id))return null;
   const rows:PublicationRow[]=[];
   for(const r of v.rows){if(!object(r)||!isUuid(r.id)||!count(r.position)||!count(r.quantity)||!str(r.status)||!rowStatuses.includes(r.status)||!["result_code","name","ean","sku","cost","price","minimum_price","commission","profit","problem"].every(k=>str(r[k]))||(r.weight_kg!==null&&!str(r.weight_kg)))return null;
-    rows.push({id:r.id,position:r.position,status:r.status,result_code:r.result_code as string,name:r.name as string,ean:r.ean as string,sku:r.sku as string,quantity:r.quantity,cost:r.cost as string,price:r.price as string,minimum_price:r.minimum_price as string,commission:r.commission as string,profit:r.profit as string,weight_kg:r.weight_kg as string|null,problem:r.problem as string});}
+    rows.push({product_info:readProductInfo(r.product_info),innpro_match:readInnproMatch(r.innpro_match),length_cm:str(r.length_cm)?r.length_cm:null,width_cm:str(r.width_cm)?r.width_cm:null,height_cm:str(r.height_cm)?r.height_cm:null,id:r.id,position:r.position,status:r.status,result_code:r.result_code as string,name:r.name as string,ean:r.ean as string,sku:r.sku as string,quantity:r.quantity,cost:r.cost as string,price:r.price as string,minimum_price:r.minimum_price as string,commission:r.commission as string,profit:r.profit as string,weight_kg:r.weight_kg as string|null,problem:r.problem as string});}
   return {version:v.version,id:v.id,seller_id:seller,account_id:v.account_id,marketplace:v.marketplace,account_name:v.account_name,view_name:v.view_name,status:v.status,total:v.total,filtered_total:v.filtered_total,counts,rules,created_at:v.created_at,rows};
 }
 export function readPublicationIndex(v:unknown,seller:string):PublicationIndex|null {

@@ -100,3 +100,9 @@ class ViewDelete(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     expected_revision: int = Field(ge=1)
     confirmation: Literal["ELIMINA"]
+
+
+class ViewEnrich(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    expected_revision: int = Field(ge=1)
+    recipe: WorkRecipe

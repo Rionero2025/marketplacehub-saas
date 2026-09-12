@@ -70,3 +70,14 @@ test('draft edits retain review version and pass only the scoped edit endpoint',
   assert.equal((await res.json()).version,body.version);
   assert.equal(types.readPublicationJob({...job(),version:undefined},seller),null);
 });
+
+
+test('enriched product details survive both Seller and publication DTOs without source secrets',()=>{
+ const info={brand:'Brand',description:'Product',token:'private'};
+ const match={light:'matched',full:'matched',light_version:2,full_version:1,checked_at:'2026-09-12T12:00:00Z'};
+ const row={id:view,ean:'123',sku:'SKU',name:'Named product',cost:'10.00',shipping_cost:'0',total_cost:'10',quantity:'7',price:'20',minimum_price:'15',weight_kg:'1.2',length_cm:'20',width_cm:'10',height_cm:'5',product_info:info,innpro_match:match};
+ const viewData=work.readWorkData({seller_id:seller,page:1,total:1,rows:[row]},seller);
+ assert.equal(viewData.rows[0].product_info.brand,'Brand');assert.ok(!JSON.stringify(viewData).includes('private'));
+ const receipt=types.readPublicationJob({...job(),rows:[{...row,quantity:7,position:1,status:'pending',result_code:'',commission:'3',profit:'7',problem:''}]},seller);
+ assert.equal(receipt.rows[0].length_cm,'20');assert.equal(receipt.rows[0].innpro_match.light,'matched');assert.equal(receipt.rows[0].name,'Named product');
+});

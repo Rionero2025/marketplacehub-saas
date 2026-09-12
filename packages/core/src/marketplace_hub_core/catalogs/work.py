@@ -425,6 +425,7 @@ class CatalogWorkRepository:
         return {
             "seller_id": str(seller),
             "view": self._public(row),
+            "recipe": json.loads(row["recipe_json"]),
             "page": page,
             "total": row["row_count"],
             "rows": [json.loads(r) for r in data],
