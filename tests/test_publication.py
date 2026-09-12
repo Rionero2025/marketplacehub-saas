@@ -280,3 +280,145 @@ def test_arithmetic_filters_currency_and_composite_sku():
     loss = rules.model_copy(update={"margin": 0, "commission": 15})
     assert prepare(row, "InnPro", "kaufland", loss) is not None
     assert prepare(row, "InnPro", "worten", loss) is None
+
+
+def test_edit_snapshot_then_send_exact_manual_values_and_only_selection(configured):
+    from marketplace_hub_core.publication.models import EditDraft
+
+    captured = []
+    connector = PublicationConnector(
+        httpx.MockTransport(
+            lambda r: captured.append(json.loads(r.content))
+            or httpx.Response(201, json={"data": {}})
+        )
+    )
+    service, principal, seller, rules, client = setup(configured, connector)
+    j = service.preview(principal, seller, rules)
+    job_id, row_id = UUID(j["id"]), j["rows"][0]["id"]
+    body = EditDraft.model_validate(
+        {
+            "version": j["version"],
+            "rows": [
+                {
+                    "id": row_id,
+                    "name": "Nome corretto",
+                    "ean": "1234567890123",
+                    "price": "25.50",
+                    "cost": "12.00",
+                    "minimum_price": "20.00",
+                    "quantity": 7,
+                    "weight_kg": 1.2,
+                }
+            ],
+        }
+    )
+    edited = service.edit(principal, seller, job_id, body)
+    row = edited["rows"][0]
+    assert row["price"] == "25.50" and row["commission"] == "3.83" and row["profit"] == "9.67"
+    assert row["sku"].endswith("_1234567890123_12.00_20.00")
+    assert edited["rows"][1:] == j["rows"][1:]
+    assert edited["version"] != j["version"]
+    with pytest.raises(PublicationError, match="altra sessione"):
+        service.edit(principal, seller, job_id, body)
+    with pytest.raises(PublicationError, match="cambiata"):
+        service.submit(principal, seller, job_id, [UUID(row_id)], j["version"])
+    service.submit(principal, seller, job_id, [UUID(row_id)], edited["version"])
+    with pytest.raises(PublicationError, match="non ancora inviata"):
+        service.edit(principal, seller, job_id, body)
+    service.run(job_id)
+    assert len(captured) == 1
+    assert captured[0]["listing_price"] == 2550 and captured[0]["minimum_price"] == 2000
+    assert captured[0]["amount"] == 7 and captured[0]["id_offer"] == row["sku"]
+    # Editing the publication does not change the source view or its normal pricing.
+    fresh = service.preview(principal, seller, rules)
+    assert fresh["rows"][0]["price"] == "14.85"
+
+
+def test_edit_api_validates_scope_numbers_duplicates_and_version(configured):
+    service, principal, seller, rules, client = setup(configured)
+    j = service.preview(principal, seller, rules)
+    root = f"/v1/sellers/{seller}/publication/jobs/{j['id']}"
+    row_id = j["rows"][0]["id"]
+
+    def body(rows, version=None):
+        return {"version": version or j["version"], "rows": rows}
+
+    assert client.post(root + "/edit", json=body([{"id": row_id, "price": -1}])).status_code == 422
+    assert (
+        client.post(root + "/edit", json=body([{"id": row_id, "quantity": 1.5}])).status_code == 422
+    )
+    assert (
+        client.post(root + "/edit", json=body([{"id": str(uuid4()), "price": 20}])).status_code
+        == 422
+    )
+    assert (
+        client.post(root + "/edit", json=body([{"id": row_id}, {"id": row_id}])).status_code == 422
+    )
+    assert TestClient(configured.app).post(root + "/edit", content="bad").status_code == 401
+    other, _, _, _, _, _ = work.setup(configured)
+    assert other.post(root + "/edit", content="bad").status_code == 404
+    changed = client.post(
+        root + "/edit", json=body([{"id": r["id"], "sku": "DUPLICATO"} for r in j["rows"]])
+    )
+    assert changed.status_code == 200, changed.text
+    dup = changed.json()
+    assert dup["counts"] == {"invalid": 3}
+    fixed = client.post(
+        root + "/edit",
+        json=body(
+            [{"id": r["id"], "sku": f"MANUALE-{i}"} for i, r in enumerate(j["rows"])],
+            dup["version"],
+        ),
+    )
+    assert fixed.status_code == 200 and fixed.json()["counts"] == {"pending": 3}
+    assert (
+        client.post(
+            root + "/submit", json={"confirmation": "PUBBLICA", "selected": [row_id]}
+        ).status_code
+        == 422
+    )
+
+
+def test_worten_manual_prices_are_exported_without_repricing():
+    from marketplace_hub_core.publication.pricing import edit_offer
+
+    rules = Rules(
+        account_id=uuid4(), view_id=uuid4(), revision=1, storefront="pt", playground=False
+    )
+    public, payload = prepare(
+        {"cost": 10, "quantity": 2, "ean": "123", "sku": "A", "name": "Old"},
+        "Supplier",
+        "worten",
+        rules,
+    )
+    public, payload = edit_offer(
+        public,
+        payload,
+        {
+            "name": "Nuovo nome",
+            "sku": "MANUALE",
+            "price": 19.99,
+            "minimum_price": 15,
+            "commission": 1.25,
+            "quantity": 4,
+        },
+        "worten",
+        rules,
+    )
+    assert payload["price"] == payload["price[channel=WRT_PT_ONLINE]"] == "19.99"
+    assert payload["description-pt"] == "Nuovo nome" and payload["sku"] == "MANUALE"
+    assert public["profit"] == "8.74"
+    assert b"19.99" in worten_csv([payload])
+    rules.composite_sku = True
+    public, payload = edit_offer(
+        public, payload, {"cost": 11, "minimum_price": 16}, "worten", rules
+    )
+    assert public["sku"] == "MANUALE" and payload["sku"] == "MANUALE"
+
+
+def test_preview_inclusive_range(configured):
+    service, principal, seller, rules, client = setup(configured)
+    rules.start, rules.limit = 2, 2  # inclusive rows 2 through 3
+    j = service.preview(principal, seller, rules)
+    assert [r["position"] for r in j["rows"]] == [2, 3]
+    assert j["total"] == 2 and j["filtered_total"] == 3

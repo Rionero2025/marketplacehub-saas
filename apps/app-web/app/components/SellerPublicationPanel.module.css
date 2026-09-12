@@ -25,3 +25,7 @@
 .history { display:flex; gap:10px; justify-content:space-between; align-items:center; border-top:1px solid #e0e8ef; padding:12px 0; }
 .check { display:flex; gap:8px; align-items:center; font-size:13px; }
 .check input,.table input[type="checkbox"] { width:auto; flex:0 0 auto; margin:0; }
+
+.cell { min-width:105px; width:100%; padding:8px; border:1px solid #cbd9e7; border-radius:4px; background:#fff; color:#173551; font-variant-numeric:tabular-nums; }
+.cell:focus { outline:2px solid #0084bf; }
+.cell:disabled { background:#f3f7fa; opacity:1; }

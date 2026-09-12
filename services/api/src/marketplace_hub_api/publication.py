@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request
 from marketplace_hub_core.catalogs.repository import CatalogPriceListNotFoundError
 from marketplace_hub_core.publication.connectors import RemoteFailure
-from marketplace_hub_core.publication.models import Confirm, Rules
+from marketplace_hub_core.publication.models import Confirm, EditDraft, Rules
 from marketplace_hub_core.publication.service import PublicationError
 from marketplace_hub_core.seller_settings.repository import MarketplaceAccountNotFoundError
 from marketplace_hub_core.seller_settings.security import CredentialStorageUnavailableError
@@ -89,13 +89,20 @@ def create_publication_router(service, auth, settings):
         p = principal(request)
         return await run_in_threadpool(execute, lambda: service.detail(p, seller_id, job_id))
 
+    @router.post("/jobs/{job_id}/edit")
+    async def edit(seller_id: UUID, job_id: UUID, request: Request):
+        p = principal(request)
+        await run_in_threadpool(execute, lambda: service.scope(p, seller_id, True))
+        body = await parse_catalog_json(request, EditDraft, maximum=524288)
+        return await run_in_threadpool(execute, lambda: service.edit(p, seller_id, job_id, body))
+
     @router.post("/jobs/{job_id}/submit")
     async def submit(seller_id: UUID, job_id: UUID, request: Request):
         p = principal(request)
         await run_in_threadpool(execute, lambda: service.scope(p, seller_id, True))
         body = await parse_catalog_json(request, Confirm)
         return await run_in_threadpool(
-            execute, lambda: service.submit(p, seller_id, job_id, body.selected)
+            execute, lambda: service.submit(p, seller_id, job_id, body.selected, body.version)
         )
 
     return router

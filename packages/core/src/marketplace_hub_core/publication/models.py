@@ -48,3 +48,24 @@ class Confirm(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     confirmation: Literal["PUBBLICA"]
     selected: list[UUID] = Field(min_length=1, max_length=100)
+    version: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class RowEdit(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    id: UUID
+    name: str = Field(default="", max_length=1000)
+    ean: str = Field(default="", max_length=30)
+    sku: str = Field(default="", max_length=100)
+    quantity: int = Field(default=0, ge=0, le=99999)
+    cost: Number = 0
+    price: Number = 0
+    minimum_price: Number = 0
+    commission: Number = 0
+    weight_kg: Number | None = None
+
+
+class EditDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    version: str = Field(pattern=r"^[a-f0-9]{64}$")
+    rows: list[RowEdit] = Field(min_length=1, max_length=100)

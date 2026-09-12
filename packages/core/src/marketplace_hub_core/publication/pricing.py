@@ -1,6 +1,7 @@
 import csv
 import io
 import re
+from decimal import ROUND_HALF_UP, Decimal
 
 from marketplace_hub_core.catalogs.work import legacy_round
 from marketplace_hub_core.publication.models import Rules
@@ -152,3 +153,76 @@ def worten_csv(rows):
     writer.writeheader()
     writer.writerows(rows)
     return out.getvalue().encode("utf-8-sig")
+
+
+def edit_offer(public, payload, changes, marketplace, rules):
+    """Edit a draft snapshot without applying commercial markups a second time."""
+    public, payload = dict(public), dict(payload)
+    public.update(changes)
+
+    def money(v):
+        return Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    for key in ("cost", "price", "minimum_price", "commission"):
+        public[key] = str(money(public[key]))
+    if "price" in changes and "commission" not in changes:
+        public["commission"] = str(
+            money(Decimal(public["price"]) * Decimal(str(rules.commission)) / 100)
+        )
+    if {"price", "cost", "commission"} & changes.keys():
+        public["profit"] = str(
+            money(
+                Decimal(public["price"]) - Decimal(public["cost"]) - Decimal(public["commission"])
+            )
+        )
+    public["ean"] = str(public["ean"]).strip()
+    public["sku"] = str(public["sku"]).strip()
+    if "sku" in changes:
+        public["sku_manual"] = True
+    if (
+        rules.composite_sku
+        and not public.get("sku_manual", False)
+        and {"ean", "cost", "minimum_price"} & changes.keys()
+    ):
+        prefix = public["sku"].rsplit("_", 3)[0]
+        suffix = f"_{public['ean']}_{public['cost']}_{public['minimum_price']}"
+        public["sku"] = (
+            prefix[: max(1, 40 - len(suffix))] if marketplace == "worten" else prefix
+        ) + suffix
+    weight = public.get("weight_kg")
+    public["weight_kg"] = None if weight is None else str(weight)
+    price, minimum = float(public["price"]), float(public["minimum_price"])
+    problem = ""
+    if not public["ean"] or public["ean"].lower() in {"nan", "none", "null", "<na>"}:
+        problem = "EAN mancante"
+    elif not public["sku"] or len(public["sku"]) > (40 if marketplace == "worten" else 100):
+        problem = "SKU mancante o troppo lungo"
+    elif minimum <= 0 or price <= 0 or minimum > price:
+        problem = "Il prezzo minimo deve essere positivo e non superiore alla vendita"
+    if marketplace == "kaufland":
+        listing, floor = (int(round(v * rules.multiplier * 100)) for v in (price, minimum))
+        maximum = {"cz": 2500000000, "pl": 450000000}.get(rules.storefront, 100000000)
+        if min(listing, floor) < 1 or max(listing, floor) > maximum:
+            problem = "Prezzi fuori dai limiti del marketplace"
+        payload.update(
+            ean=public["ean"],
+            id_offer=public["sku"],
+            amount=public["quantity"],
+            listing_price=listing,
+            minimum_price=floor,
+        )
+    else:
+        payload.update(
+            {
+                "sku": public["sku"],
+                "product-id": public["ean"],
+                "description": public["name"],
+                "internal-description": public["name"],
+                "description-pt": public["name"],
+                "quantity": str(public["quantity"]),
+                "price": public["price"],
+                "price[channel=WRT_PT_ONLINE]": public["price"],
+            }
+        )
+    public["problem"] = problem
+    return public, payload

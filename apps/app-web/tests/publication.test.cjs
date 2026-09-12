@@ -19,7 +19,7 @@ const settings=load('seller-settings-types.ts');
 const work=load('catalog-work-types.ts',{'./seller-settings-types':settings});
 const types=load('publication-types.ts',{'./seller-settings-types':settings,'./catalog-work-types':work});
 const index=()=>({seller_id:seller,can_manage:true,accounts:[{id:account,name:'Target',marketplace:'kaufland'}],views:[{id:view,name:'Vista',source_name:'Listino',row_count:1,revision:1,account_ids:[account],updated_at:'2026-09-12T12:00:00Z'}],jobs:[]});
-const job=()=>({id:jobId,seller_id:seller,account_id:account,marketplace:'kaufland',account_name:'Target',view_name:'Vista',status:'queued',total:1,filtered_total:1,counts:{pending:1},rules:{...types.defaultRules,account_id:account,view_id:view},created_at:'2026-09-12T12:00:00Z',rows:[]});
+const job=()=>({version:"a".repeat(64),id:jobId,seller_id:seller,account_id:account,marketplace:'kaufland',account_name:'Target',view_name:'Vista',status:'queued',total:1,filtered_total:1,counts:{pending:1},rules:{...types.defaultRules,account_id:account,view_id:view},created_at:'2026-09-12T12:00:00Z',rows:[]});
 function proxy(fetch) {
   class NextResponse extends Response {static json(v,options){return new NextResponse(JSON.stringify(v),options);}}
   return load('publication-proxy.ts',{'next/server':{NextResponse},'./api-url':{apiUrl:'https://api.test'},'./seller-settings-types':settings,'./publication-types':types,'./catalog-proxy':{requestOrigin:r=>new URL(r.url).origin,boundedBody:async r=>new Uint8Array(await r.arrayBuffer())}},{fetch}).publicationProxy;
@@ -57,4 +57,16 @@ test('publication route is under the plug macro menu',()=>{
   const area=nav.sellerAreas.find(a=>a.id==='marketplaces');
   assert.equal(area.icon,'plug');
   assert.equal(area.sections.find(s=>s.page==='publication').href,'/seller/marketplaces/publish');
+});
+
+
+test('draft edits retain review version and pass only the scoped edit endpoint',async()=>{
+  const calls=[];const fn=proxy(async(url,options)=>{calls.push({url,options});return Response.json(options.method==='POST'?{...job(),status:'draft'}:index());});
+  const body={version:'a'.repeat(64),rows:[{id:jobId,price:'25.50'}]};
+  const req=new Request('https://app.test/api',{method:'POST',headers:{origin:'https://app.test',cookie:'mh_session=test','content-type':'application/json'},body:JSON.stringify(body)});
+  const res=await fn(req,seller,['jobs',jobId,'edit']);assert.equal(res.status,200);
+  assert.equal(calls.length,2);assert.ok(calls[1].url.endsWith(`/sellers/${seller}/publication/jobs/${jobId}/edit`));
+  assert.deepEqual(JSON.parse(calls[1].options.body),body);
+  assert.equal((await res.json()).version,body.version);
+  assert.equal(types.readPublicationJob({...job(),version:undefined},seller),null);
 });

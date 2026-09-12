@@ -18,7 +18,7 @@ from marketplace_hub_core.marketplace_connections.repository import (
 from marketplace_hub_core.marketplace_connections.security import decrypt_credentials
 from marketplace_hub_core.publication.connectors import PublicationConnector, RemoteFailure
 from marketplace_hub_core.publication.models import Rules
-from marketplace_hub_core.publication.pricing import prepare
+from marketplace_hub_core.publication.pricing import edit_offer, prepare
 from marketplace_hub_core.publication.schema import items, jobs
 
 
@@ -32,6 +32,16 @@ def now():
 
 def digest(account):
     return hashlib.sha256(account["credentials_encrypted"].encode()).hexdigest()
+
+
+def draft_version(job, rows):
+    value = [
+        str(job["id"]),
+        job["status"],
+        job["rules_json"],
+        [(str(r["id"]), r["public_json"], r["payload_json"], r["status"]) for r in rows],
+    ]
+    return hashlib.sha256(json.dumps(value).encode()).hexdigest()
 
 
 class PublicationService:
@@ -228,6 +238,7 @@ class PublicationService:
             counts = Counter(r["status"] for r in data)
             result = {
                 "id": str(j["id"]),
+                "version": draft_version(j, data),
                 "seller_id": str(seller),
                 "account_id": str(j["account_id"]),
                 "marketplace": j["marketplace"],
@@ -254,10 +265,70 @@ class PublicationService:
             }
         return result
 
-    def submit(self, principal, seller, job_id, selected):
+    def edit(self, principal, seller, job_id, body):
         org, _ = self.scope(principal, seller, True)
         with self.engine.begin() as c:
             j = self._job(c, org, seller, job_id, lock=True)
+            if j["status"] != "draft":
+                raise PublicationError("Puoi modificare solo un’anteprima non ancora inviata.")
+            data = (
+                c.execute(select(items).where(items.c.job_id == job_id).order_by(items.c.position))
+                .mappings()
+                .all()
+            )
+            if body.version != draft_version(j, data):
+                raise PublicationError(
+                    "Anteprima modificata in un’altra sessione. Riaprila prima di salvare."
+                )
+            changes = {r.id: r.model_dump(exclude_unset=True, exclude={"id"}) for r in body.rows}
+            if len(changes) != len(body.rows) or not set(changes) <= {r["id"] for r in data}:
+                raise PublicationError("Righe non appartenenti all’anteprima.")
+            rules = Rules.model_validate_json(j["rules_json"])
+            prepared = [
+                (
+                    r,
+                    *edit_offer(
+                        json.loads(r["public_json"]),
+                        json.loads(r["payload_json"]),
+                        changes.get(r["id"], {}),
+                        j["marketplace"],
+                        rules,
+                    ),
+                )
+                for r in data
+            ]
+            duplicates = Counter(p["sku"] for _, p, _ in prepared)
+            for row, public, payload in prepared:
+                if duplicates[public["sku"]] > 1:
+                    public["problem"] = "SKU duplicato nell’intervallo"
+                c.execute(
+                    update(items)
+                    .where(items.c.id == row["id"])
+                    .values(
+                        public_json=json.dumps(public),
+                        payload_json=json.dumps(payload),
+                        status="invalid" if public["problem"] else "pending",
+                    )
+                )
+            c.execute(update(jobs).where(jobs.c.id == job_id).values(updated_at=now()))
+        return self.detail(principal, seller, job_id)
+
+    def submit(self, principal, seller, job_id, selected, version=None):
+        org, _ = self.scope(principal, seller, True)
+        with self.engine.begin() as c:
+            j = self._job(c, org, seller, job_id, lock=True)
+            if version is not None:
+                data = (
+                    c.execute(
+                        select(items).where(items.c.job_id == job_id).order_by(items.c.position)
+                    )
+                    .mappings()
+                    .all()
+                )
+                if version != draft_version(j, data):
+                    raise PublicationError(
+                        "Anteprima cambiata. Riaprila e controlla i valori prima dell’invio."
+                    )
             if j["status"] not in {"draft", "interrupted"}:
                 raise PublicationError(
                     "Invio già registrato. Consulta lo storico: nessun secondo invio creato."
