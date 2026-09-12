@@ -35,8 +35,9 @@ verifiche su costi, margini, export e dashboard. Gli override espliciti sono rip
 | B20.3 — Importazione e correzione tracking | collaudato e pubblicato nello staging; invio ai marketplace escluso | 10 | **6,27%** |
 | B20.4 — Scadenziario pagamenti e ritardi ticket | collaudato e pubblicato nello staging per Kaufland; settlement escluso | 21 | **7,31%** |
 | B12.2 — Lavora sui listini | flusso base pubblicato e collaudato; regole fornitori speciali pendenti | 12 | **7,91%** |
+| B16.1 / B17.1 — Pubblica sui marketplace | flusso iniziale implementato; anteprima Kaufland collaudata; invio reale da collaudare | 4 | **8,11%** |
 
-Calcolo corrente: `159 / 2.011 = 7,9065%`, mostrato con due decimali. I totali B01–B04 nella
+Calcolo corrente: `163 / 2.011 = 8,1054%`, mostrato con due decimali. I totali B01–B04 nella
 tabella sono quelli storici al rilascio. Il precedente passaggio da 3,97% a 3,93% derivava
 dal nuovo perimetro: dei 6 criteri esclusi, uno era verificato e cinque pendenti. La rimozione
 non viene conteggiata come nuova funzione completata.

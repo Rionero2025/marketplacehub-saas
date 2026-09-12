@@ -10,11 +10,11 @@
     "master_spec": 923
   },
   "summary": {
-    "verified": 159,
+    "verified": 163,
     "baseline_total": 2017,
     "excluded": 6,
     "total": 2011,
-    "percent": 7.91
+    "percent": 8.11
   },
   "criteria": [
     {
@@ -7008,21 +7008,27 @@
       "kind": "legacy_interaction",
       "source": "pages/3_Pubblicazione_Kaufland.py:36",
       "requirement": "selectbox: \"Account Kaufland\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B16.1",
+      "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
     },
     {
       "id": "LEGACY-UI-0269",
       "kind": "legacy_interaction",
       "source": "pages/3_Pubblicazione_Kaufland.py:38",
       "requirement": "checkbox: \"Playground (test)\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B16.1",
+      "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
     },
     {
       "id": "LEGACY-UI-0270",
       "kind": "legacy_interaction",
       "source": "pages/3_Pubblicazione_Kaufland.py:49",
       "requirement": "selectbox: \"Vista salvata\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B16.1",
+      "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
     },
     {
       "id": "LEGACY-UI-0271",
@@ -7036,7 +7042,9 @@
       "kind": "legacy_interaction",
       "source": "pages/3_Pubblicazione_Kaufland.py:239",
       "requirement": "checkbox: \"Usa SKU composto: NOMEFORNITORE_EAN_PREZZOACQUISTO_PREZZOMINIMO\"",
-      "status": "pending"
+      "status": "verified",
+      "block": "B16.1",
+      "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
     },
     {
       "id": "LEGACY-UI-0273",

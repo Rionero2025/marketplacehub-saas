@@ -794,6 +794,26 @@
       "id": "LEGACY-UI-0251",
       "block": "B12.2",
       "evidence": "docs/blocks/B12_2_WORK_LISTS.md"
+    },
+    {
+      "id": "LEGACY-UI-0268",
+      "block": "B16.1",
+      "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
+    },
+    {
+      "id": "LEGACY-UI-0269",
+      "block": "B16.1",
+      "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
+    },
+    {
+      "id": "LEGACY-UI-0270",
+      "block": "B16.1",
+      "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
+    },
+    {
+      "id": "LEGACY-UI-0272",
+      "block": "B16.1",
+      "evidence": "docs/blocks/B16_1_MARKETPLACE_PUBLICATION.md"
     }
   ]
 }
