@@ -1,7 +1,7 @@
 .panel { display:grid; gap:20px; }
 .card { background:white; border:1px solid #d9e3ed; border-radius:6px; padding:20px; min-width:0; }
 .card h2 { font-size:16px; margin:0 0 18px; }
-.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; align-items:end; }
 .grid label { display:flex; flex-direction:column; gap:6px; font-size:13px; }
 .grid input,.grid select,.confirm { border:1px solid #cbd9e7; border-radius:4px; padding:9px; background:white; color:#173551; min-width:0; }
 .actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:18px; }
@@ -24,3 +24,4 @@
 .progress { width:100%; height:12px; accent-color:#0084bf; }
 .history { display:flex; gap:10px; justify-content:space-between; align-items:center; border-top:1px solid #e0e8ef; padding:12px 0; }
 .check { display:flex; gap:8px; align-items:center; font-size:13px; }
+.check input,.table input[type="checkbox"] { width:auto; flex:0 0 auto; margin:0; }
