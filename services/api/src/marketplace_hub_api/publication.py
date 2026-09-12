@@ -93,14 +93,14 @@ def create_publication_router(service, auth, settings):
     async def edit(seller_id: UUID, job_id: UUID, request: Request):
         p = principal(request)
         await run_in_threadpool(execute, lambda: service.scope(p, seller_id, True))
-        body = await parse_catalog_json(request, EditDraft, maximum=524288)
+        body = await parse_catalog_json(request, EditDraft, maximum=8388608)
         return await run_in_threadpool(execute, lambda: service.edit(p, seller_id, job_id, body))
 
     @router.post("/jobs/{job_id}/submit")
     async def submit(seller_id: UUID, job_id: UUID, request: Request):
         p = principal(request)
         await run_in_threadpool(execute, lambda: service.scope(p, seller_id, True))
-        body = await parse_catalog_json(request, Confirm)
+        body = await parse_catalog_json(request, Confirm, maximum=1048576)
         return await run_in_threadpool(
             execute, lambda: service.submit(p, seller_id, job_id, body.selected, body.version)
         )

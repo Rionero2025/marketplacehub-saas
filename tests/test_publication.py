@@ -31,8 +31,8 @@ class Queue:
         self.calls.append(job_id)
 
 
-def setup(configured, connector=None):
-    client, seller, org, recipe, account, user = work.setup(configured, 3)
+def setup(configured, connector=None, count=3):
+    client, seller, org, recipe, account, user = work.setup(configured, count)
     view = client.post(
         work.root(seller) + "/views",
         json={
@@ -422,3 +422,36 @@ def test_preview_inclusive_range(configured):
     j = service.preview(principal, seller, rules)
     assert [r["position"] for r in j["rows"]] == [2, 3]
     assert j["total"] == 2 and j["filtered_total"] == 3
+
+
+def test_all_products_and_large_inclusive_range(configured):
+    service, principal, seller, rules, client = setup(configured, count=425)
+    rules.selection_mode = "all"
+    rules.start, rules.limit = 20, 1  # All ignores any previous range, without truncation.
+    all_rows = service.preview(principal, seller, rules)
+    assert all_rows["total"] == all_rows["filtered_total"] == 425
+    assert [r["position"] for r in all_rows["rows"]] == list(range(1, 426))
+    assert all_rows["rules"]["start"] == 1
+    history = service.index(principal, seller)["jobs"][0]
+    assert history["total"] == 425 and history["rows"] == []
+    assert history["counts"] == all_rows["counts"]
+    rules.selection_mode, rules.start, rules.limit = "range", 101, 201
+    interval = service.preview(principal, seller, rules)
+    assert [r["position"] for r in interval["rows"]] == list(range(101, 302))
+    assert interval["total"] == 201
+    # Confirmation through HTTP accepts selections larger than the old 16 KiB body.
+    from marketplace_hub_core.publication.models import Confirm
+
+    chosen = [r["id"] for r in all_rows["rows"] if r["status"] == "pending"]
+    payload = {"confirmation": "PUBBLICA", "selected": chosen, "version": all_rows["version"]}
+    assert len(json.dumps(payload)) > 16384
+    assert len(Confirm.model_validate(payload).selected) == 425
+    response = client.post(
+        f"/v1/sellers/{seller}/publication/jobs/{all_rows['id']}/submit", json=payload
+    )
+    # The API fixture has no Redis queue: admission persists the job then reports it.
+    assert response.status_code == 422, response.text
+    assert "Invio registrato; coda non confermata" in response.json()["detail"]
+    result = client.get(f"/v1/sellers/{seller}/publication/jobs/{all_rows['id']}").json()
+    assert result["counts"] == {"pending": 425}
+    assert result["status"] == "queued"

@@ -22,7 +22,7 @@ export async function publicationProxy(request:NextRequest,seller:string,parts:s
       const check=await fetch(root,{headers:{cookie},cache:"no-store",redirect:"error",signal});if(!check.ok)return fail(check.status);
       const ws=readPublicationIndex(await check.json(),seller);if(!ws)return fail(502);if(!ws.can_manage)return fail(403);
       if(!request.headers.get("content-type")?.startsWith("application/json"))return fail(422);
-      try{body=new TextDecoder().decode(await boundedBody(request,parts[2]==="edit"?524288:16384,10000));JSON.parse(body);}catch{return fail(413);}
+      try{body=new TextDecoder().decode(await boundedBody(request,parts[2]==="edit"?8388608:parts[2]==="submit"?1048576:16384,10000));JSON.parse(body);}catch{return fail(413);}
     }
     let suffix=parts.length?"/"+parts.join("/"):"";
     if(options){const q=new URL(request.url).searchParams,sf=q.get("storefront")??"de",pg=q.get("playground")??"true";

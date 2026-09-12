@@ -5,7 +5,7 @@ from collections import Counter
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from marketplace_hub_core.auth.models import AuthenticatedSession, AuthRealm
 from marketplace_hub_core.catalogs.schema import seller_catalog_view_rows as view_rows
@@ -98,6 +98,8 @@ class PublicationService:
 
     def preview(self, principal, seller, rules):
         org, _ = self.scope(principal, seller, True)
+        if rules.selection_mode == "all":
+            rules = rules.model_copy(update={"start": 1})
         a = self.account(org, seller, rules.account_id)
         if a["marketplace"] == "worten":
             if rules.storefront != "pt" or rules.playground:
@@ -157,7 +159,15 @@ class PublicationService:
                     if calculated is None:
                         continue
                     count += 1
-                    if rules.start <= count < rules.start + rules.limit:
+                    if (
+                        rules.selection_mode == "all"
+                        or rules.start <= count < rules.start + rules.limit
+                    ):
+                        if len(selected) >= 20000:
+                            raise PublicationError(
+                                "La selezione supera 20.000 prodotti. "
+                                "Scegli un intervallo più piccolo."
+                            )
                         selected.append(calculated)
             if not selected:
                 raise PublicationError("Nessun prodotto nell’intervallo e nei filtri scelti.")
@@ -184,11 +194,12 @@ class PublicationService:
                     updated_at=now(),
                 )
             )
+            inserts = []
             for pos, (public, payload) in enumerate(selected, rules.start):
                 if duplicates[public["sku"]] > 1:
                     public["problem"] = "SKU duplicato nell’intervallo"
-                c.execute(
-                    items.insert().values(
+                inserts.append(
+                    dict(
                         id=uuid4(),
                         job_id=job_id,
                         position=pos,
@@ -198,6 +209,11 @@ class PublicationService:
                         result_code="",
                     )
                 )
+                if len(inserts) == 200:
+                    c.execute(items.insert(), inserts)
+                    inserts.clear()
+            if inserts:
+                c.execute(items.insert(), inserts)
         return self.detail(principal, seller, job_id)
 
     def _job(self, c, org, seller, job_id, lock=False):
@@ -231,11 +247,27 @@ class PublicationService:
                 )
                 j = self._job(c, org, seller, job_id)
             data = (
-                c.execute(select(items).where(items.c.job_id == job_id).order_by(items.c.position))
-                .mappings()
-                .all()
+                (
+                    c.execute(
+                        select(items).where(items.c.job_id == job_id).order_by(items.c.position)
+                    )
+                    .mappings()
+                    .all()
+                )
+                if rows
+                else []
             )
-            counts = Counter(r["status"] for r in data)
+            counts = (
+                Counter(r["status"] for r in data)
+                if rows
+                else dict(
+                    c.execute(
+                        select(items.c.status, func.count())
+                        .where(items.c.job_id == job_id)
+                        .group_by(items.c.status)
+                    ).all()
+                )
+            )
             result = {
                 "id": str(j["id"]),
                 "version": draft_version(j, data),

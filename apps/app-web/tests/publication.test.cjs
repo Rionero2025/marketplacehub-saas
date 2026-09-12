@@ -81,3 +81,14 @@ test('enriched product details survive both Seller and publication DTOs without 
  const receipt=types.readPublicationJob({...job(),rows:[{...row,quantity:7,position:1,status:'pending',result_code:'',commission:'3',profit:'7',problem:''}]},seller);
  assert.equal(receipt.rows[0].length_cm,'20');assert.equal(receipt.rows[0].innpro_match.light,'matched');assert.equal(receipt.rows[0].name,'Named product');
 });
+
+
+test('all-products drafts exceed 100 and older range drafts remain compatible',()=>{
+ const value={...job(),total:3363,filtered_total:3363,counts:{pending:3363}};
+ assert.equal(types.readPublicationJob(value,seller).total,3363);
+ assert.equal(types.readPublicationJob(value,seller).rules.selection_mode,'all');
+ delete value.rules.selection_mode;
+ assert.equal(types.readPublicationJob(value,seller).rules.selection_mode,'range');
+ value.rules.selection_mode='invalid';
+ assert.equal(types.readPublicationJob(value,seller),null);
+});

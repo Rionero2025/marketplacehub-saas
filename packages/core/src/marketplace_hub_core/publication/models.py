@@ -35,7 +35,8 @@ class Rules(BaseModel):
     state_code: str = Field("11", max_length=20, pattern=r"^[0-9]+$")
     ship_from: str = Field("IT|Italy", max_length=100)
     start: int = Field(1, ge=1, le=1000000)
-    limit: int = Field(100, ge=1, le=100)
+    selection_mode: Literal["all", "range"] = "range"
+    limit: int = Field(100, ge=1, le=20000)
 
     @model_validator(mode="after")
     def interval(self):
@@ -47,7 +48,7 @@ class Rules(BaseModel):
 class Confirm(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     confirmation: Literal["PUBBLICA"]
-    selected: list[UUID] = Field(min_length=1, max_length=100)
+    selected: list[UUID] = Field(min_length=1, max_length=20000)
     version: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
@@ -68,4 +69,4 @@ class RowEdit(BaseModel):
 class EditDraft(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     version: str = Field(pattern=r"^[a-f0-9]{64}$")
-    rows: list[RowEdit] = Field(min_length=1, max_length=100)
+    rows: list[RowEdit] = Field(min_length=1, max_length=20000)
