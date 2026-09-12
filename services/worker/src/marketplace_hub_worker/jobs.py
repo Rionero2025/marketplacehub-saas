@@ -27,12 +27,15 @@ def sync_orders(job_id: str) -> None:
 
     settings = get_settings()
     engine = create_database_engine(settings)
-    connection = Redis.from_url(settings.redis_url.get_secret_value(),
-                                socket_timeout=5, socket_connect_timeout=5)
+    connection = Redis.from_url(
+        settings.redis_url.get_secret_value(), socket_timeout=5, socket_connect_timeout=5
+    )
     try:
         service = OrdersService(
-            SqlOrdersRepository(engine), WorkspaceService(SqlWorkspaceRepository(engine)),
-            SqlMarketplaceConnectionsRepository(engine), RQOrdersQueue(connection),
+            SqlOrdersRepository(engine),
+            WorkspaceService(SqlWorkspaceRepository(engine)),
+            SqlMarketplaceConnectionsRepository(engine),
+            RQOrdersQueue(connection),
             settings.master_key,
         )
         asyncio.run(service.run_job(UUID(job_id)))
@@ -62,5 +65,24 @@ def refresh_catalog(job_id: str) -> None:
             master_key=settings.master_key,
         )
         service.run_refresh_job(UUID(job_id))
+    finally:
+        engine.dispose()
+
+
+def publish_offers(job_id: str) -> None:
+    from uuid import UUID
+
+    from marketplace_hub_core.database import create_database_engine
+    from marketplace_hub_core.publication.service import PublicationService
+    from marketplace_hub_core.settings import get_settings
+    from marketplace_hub_core.tenancy.repository import SqlWorkspaceRepository
+    from marketplace_hub_core.tenancy.service import WorkspaceService
+
+    settings = get_settings()
+    engine = create_database_engine(settings)
+    try:
+        PublicationService(
+            engine, WorkspaceService(SqlWorkspaceRepository(engine)), settings.master_key
+        ).run(UUID(job_id))
     finally:
         engine.dispose()

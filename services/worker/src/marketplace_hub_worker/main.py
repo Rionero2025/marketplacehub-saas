@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from marketplace_hub_core.catalogs.queue import CATALOG_QUEUE_NAME
 from marketplace_hub_core.orders.queue import ORDERS_QUEUE_NAME
+from marketplace_hub_core.publication.queue import PUBLICATION_QUEUE
 from marketplace_hub_core.settings import get_settings
 from redis import Redis
 from rq import Queue
 from rq.worker import RoundRobinWorker
 
-WORKER_QUEUE_NAMES = (CATALOG_QUEUE_NAME, ORDERS_QUEUE_NAME)
+WORKER_QUEUE_NAMES = (CATALOG_QUEUE_NAME, ORDERS_QUEUE_NAME, PUBLICATION_QUEUE)
 
 
 def run() -> None:

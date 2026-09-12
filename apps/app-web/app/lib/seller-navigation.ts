@@ -1,6 +1,6 @@
 import type { DashboardIconName } from "../components/DashboardIcon";
 
-export type SellerPage = "overview" | "orders" | "suppliers" | "price-lists" | "work-lists" | "marketplaces" | "marketplace-accounts" | "store" | "organizations" | "permissions";
+export type SellerPage = "overview" | "orders" | "suppliers" | "price-lists" | "work-lists" | "marketplaces" | "marketplace-accounts" | "publication" | "store" | "organizations" | "permissions";
 type Section = { page: SellerPage; href: string; label: string; icon: DashboardIconName };
 type Area = { id: string; label: string; icon: DashboardIconName; sections: Section[] };
 
@@ -19,6 +19,7 @@ export const sellerAreas: Area[] = [
   { id: "marketplaces", label: "Marketplace", icon: "plug", sections: [
     { page: "marketplaces", href: "/seller/marketplaces", label: "Collega marketplace", icon: "plug" },
     { page: "marketplace-accounts", href: "/seller/marketplaces/accounts", label: "Account collegati", icon: "store" },
+    { page: "publication", href: "/seller/marketplaces/publish", label: "Pubblica sui marketplace", icon: "catalog" },
   ] },
   { id: "settings", label: "Impostazioni", icon: "settings", sections: [
     { page: "store", href: "/seller/settings/store", label: "Negozio", icon: "store" },

@@ -96,10 +96,12 @@ def test_worker_listens_to_catalog_and_legacy_queues_with_round_robin(monkeypatc
     assert worker_main.WORKER_QUEUE_NAMES == (
         catalog_queue.CATALOG_QUEUE_NAME,
         orders_queue.ORDERS_QUEUE_NAME,
+        "marketplace-hub-publication-v1",
     )
     assert [queue.name for queue in RecordingQueue.instances] == [
         "marketplace-hub-catalog-v2",
         "marketplace-hub",
+        "marketplace-hub-publication-v1",
     ]
     assert worker_calls == [(RecordingQueue.instances, connection)]
     assert work_calls == [{"with_scheduler": False}]

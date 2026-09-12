@@ -23,6 +23,8 @@ from marketplace_hub_core.marketplace_connections.service import MarketplaceConn
 from marketplace_hub_core.orders.queue import RQOrdersQueue
 from marketplace_hub_core.orders.repository import SqlOrdersRepository
 from marketplace_hub_core.orders.service import OrdersService
+from marketplace_hub_core.publication.queue import PublicationQueue
+from marketplace_hub_core.publication.service import PublicationService
 from marketplace_hub_core.readiness import Check, check_database, check_redis, run_checks
 from marketplace_hub_core.seller_settings.repository import SqlSellerSettingsRepository
 from marketplace_hub_core.seller_settings.service import SellerSettingsService
@@ -35,6 +37,7 @@ from marketplace_hub_api.auth import create_auth_router
 from marketplace_hub_api.catalogs import create_catalogs_router
 from marketplace_hub_api.marketplace_connections import create_marketplace_connections_router
 from marketplace_hub_api.orders import create_orders_router
+from marketplace_hub_api.publication import create_publication_router
 from marketplace_hub_api.seller_settings import create_seller_settings_router
 from marketplace_hub_api.workspace import create_workspace_router
 
@@ -49,6 +52,7 @@ def create_app(
     seller_settings_service: SellerSettingsService | None = None,
     marketplace_connections_service: MarketplaceConnectionsService | None = None,
     orders_service: OrdersService | None = None,
+    publication_service: PublicationService | None = None,
 ) -> FastAPI:
     app_settings = settings or get_settings()
     checks = readiness_checks or {
@@ -100,7 +104,8 @@ def create_app(
     if marketplace_connections_service is None:
         marketplace_connections_service = MarketplaceConnectionsService(
             SqlMarketplaceConnectionsRepository(workspace_service.repository.engine),
-            workspace_service, app_settings.master_key,
+            workspace_service,
+            app_settings.master_key,
         )
 
     if orders_service is None:
@@ -112,9 +117,11 @@ def create_app(
                 socket_connect_timeout=5,
             )
         orders_service = OrdersService(
-            SqlOrdersRepository(workspace_service.repository.engine), workspace_service,
+            SqlOrdersRepository(workspace_service.repository.engine),
+            workspace_service,
             SqlMarketplaceConnectionsRepository(workspace_service.repository.engine),
-            RQOrdersQueue(background_redis_client), app_settings.master_key,
+            RQOrdersQueue(background_redis_client),
+            app_settings.master_key,
         )
 
     @asynccontextmanager
@@ -147,22 +154,44 @@ def create_app(
     def purge_stale_order_selections():
         return orders_service.selections.purge_stale(limit=50, member_limit=1_000)
 
-    login_maintenance = (
-        purge_stale_order_selections
-        if auth_engine is orders_engine
-        else None
+    login_maintenance = purge_stale_order_selections if auth_engine is orders_engine else None
+    app.include_router(
+        create_auth_router(
+            auth_service,
+            app_settings,
+            after_login=login_maintenance,
+        )
     )
-    app.include_router(create_auth_router(
-        auth_service, app_settings, after_login=login_maintenance,
-    ))
     app.include_router(create_workspace_router(workspace_service, auth_service, app_settings))
     app.include_router(create_catalogs_router(catalogs_service, auth_service, app_settings))
-    app.include_router(create_seller_settings_router(
-        seller_settings_service, auth_service, app_settings,
-    ))
-    app.include_router(create_marketplace_connections_router(
-        marketplace_connections_service, auth_service, app_settings,
-    ))
+    if publication_service is None:
+        if background_redis_client is None:
+            background_redis_client = Redis.from_url(
+                app_settings.redis_url.get_secret_value(),
+                socket_timeout=5,
+                socket_connect_timeout=5,
+            )
+        publication_service = PublicationService(
+            workspace_service.repository.engine,
+            workspace_service,
+            app_settings.master_key,
+            PublicationQueue(background_redis_client),
+        )
+    app.include_router(create_publication_router(publication_service, auth_service, app_settings))
+    app.include_router(
+        create_seller_settings_router(
+            seller_settings_service,
+            auth_service,
+            app_settings,
+        )
+    )
+    app.include_router(
+        create_marketplace_connections_router(
+            marketplace_connections_service,
+            auth_service,
+            app_settings,
+        )
+    )
     app.include_router(create_orders_router(orders_service, auth_service, app_settings))
 
     @app.middleware("http")
